@@ -1,0 +1,271 @@
+// ============================================================
+// OSWAGO ELECTRICAL EQUIPMENT - Receipt Component
+// ============================================================
+
+import React, { useRef } from 'react';
+import html2canvas from 'html2canvas';
+import { formatCurrency, formatDate } from '../../utils/helpers';
+
+const Receipt = ({ order, onClose }) => {
+  const receiptRef = useRef(null);
+
+  if (!order) return null;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownload = async () => {
+    try {
+      const receiptElement = receiptRef.current;
+      const canvas = await html2canvas(receiptElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true
+      });
+
+      const link = document.createElement('a');
+      link.download = `receipt-${order.order_number || 'order'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt');
+    }
+  };
+
+  const subtotal = parseFloat(order.subtotal) || 0;
+  const taxAmount = parseFloat(order.tax_amount) || 0;
+  const totalAmount = parseFloat(order.total_amount) || 0;
+  const paidAmount = parseFloat(order.paid_amount) || 0;
+  const hasVAT = taxAmount > 0;
+  const isCancelled = order.order_status === 'cancelled';
+
+  const items = order.order_items || order.items || [];
+
+  return (
+    <div className="receipt-container">
+      <div className="receipt" id="receipt" ref={receiptRef}>
+        {/* Cancellation banner */}
+        {isCancelled && (
+          <div style={{
+            background: '#fef2f2',
+            border: '2px solid #dc2626',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '20px',
+              fontWeight: '800',
+              color: '#dc2626',
+              letterSpacing: '2px',
+              marginBottom: '4px'
+            }}>
+              ★ CANCELLED ★
+            </div>
+            <div style={{ fontSize: '11px', color: '#991b1b', lineHeight: 1.4 }}>
+              This order has been cancelled.
+              <br />
+              The items below are for reference only.
+            </div>
+            {order.cancellation_reason && (
+              <div style={{
+                fontSize: '11px',
+                color: '#7f1d1d',
+                marginTop: '8px',
+                fontStyle: 'italic'
+              }}>
+                Reason: {order.cancellation_reason}
+              </div>
+            )}
+            {order.cancelled_by_name && (
+              <div style={{ fontSize: '10px', color: '#991b1b', marginTop: '4px' }}>
+                Cancelled by {order.cancelled_by_name}
+                {order.cancelled_at && ` on ${formatDate(order.cancelled_at)}`}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="receipt-header">
+          <h2>⚡ OSWAGO</h2>
+          <p>Electrical Equipment</p>
+          <p style={{ fontSize: '12px', color: '#6b7280' }}>Darajani, Kigamboni, Dar es Salaam</p>
+          <p style={{ fontSize: '12px', color: '#6b7280' }}>📞 0750825721</p>
+          {order.tin && <p style={{ fontSize: '11px', color: '#6b7280' }}>TIN: {order.tin}</p>}
+          {order.vrn && <p style={{ fontSize: '11px', color: '#6b7280' }}>VRN: {order.vrn}</p>}
+          <hr />
+        </div>
+
+        <div className="receipt-body">
+          <div className="receipt-order-info">
+            <p><strong>Order #:</strong> {order.order_number}</p>
+            <p><strong>Date:</strong> {formatDate(order.created_at)}</p>
+            <p><strong>Customer:</strong> {order.customer || order.customer_name || 'Walk-in'}</p>
+            <p>
+              <strong>Status:</strong>{' '}
+              <span style={{ color: isCancelled ? '#dc2626' : '#059669', fontWeight: 600 }}>
+                {isCancelled ? 'CANCELLED' : (order.order_status || 'pending').toUpperCase()}
+              </span>
+            </p>
+          </div>
+
+          <hr />
+
+          <div className="receipt-items">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length > 0 ? (
+                  items.map((item, index) => {
+                    const unitPrice = parseFloat(item.unit_price || item.price) || 0;
+                    const qty = parseInt(item.quantity) || 0;
+                    const lineTotal = unitPrice * qty;
+
+                    return (
+                      <tr
+                        key={index}
+                        style={isCancelled ? { textDecoration: 'line-through', opacity: 0.6 } : {}}
+                      >
+                        <td>{item.product_name || item.name || item.product || 'Product'}</td>
+                        <td>{qty}</td>
+                        <td>{formatCurrency(unitPrice)}</td>
+                        <td>{formatCurrency(lineTotal)}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', color: '#6b7280' }}>
+                      No items found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <hr />
+
+          <div className="receipt-total">
+            {isCancelled ? (
+              <>
+                {/* Cancelled: show only reference totals */}
+                <div className="flex-between">
+                  <span>Original Subtotal</span>
+                  <span style={{ textDecoration: 'line-through', color: '#6b7280' }}>
+                    {formatCurrency(subtotal)}
+                  </span>
+                </div>
+                <div className="flex-between">
+                  <span>Original VAT</span>
+                  <span style={{ textDecoration: 'line-through', color: '#6b7280' }}>
+                    {formatCurrency(taxAmount)}
+                  </span>
+                </div>
+                <div className="flex-between" style={{ marginTop: '8px' }}>
+                  <span style={{ fontWeight: 700 }}>Current Total</span>
+                  <span style={{ fontWeight: 'bold', fontSize: '18px', color: '#dc2626' }}>
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </div>
+                <div className="flex-between" style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
+                  <span>Paid</span>
+                  <span style={{ color: '#dc2626' }}>{formatCurrency(paidAmount)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex-between">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(subtotal)}</span>
+                </div>
+
+                {hasVAT && (
+                  <div className="flex-between">
+                    <span>VAT (18%)</span>
+                    <span style={{ color: '#f59e0b' }}>{formatCurrency(taxAmount)}</span>
+                  </div>
+                )}
+
+                <div className="flex-between">
+                  <span>Total</span>
+                  <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </div>
+
+                {paidAmount > 0 && (
+                  <>
+                    <div className="flex-between" style={{ fontSize: '14px', color: '#059669' }}>
+                      <span>Paid</span>
+                      <span>{formatCurrency(paidAmount)}</span>
+                    </div>
+                    <div className="flex-between" style={{ fontSize: '14px' }}>
+                      <span>Balance Due</span>
+                      <span style={{ color: totalAmount - paidAmount > 0 ? '#dc2626' : '#059669' }}>
+                        {formatCurrency(Math.max(0, totalAmount - paidAmount))}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex-between" style={{ fontSize: '14px', color: '#6b7280' }}>
+                  <span>Payment Status</span>
+                  <span>{order.payment_status || 'Unpaid'}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <hr />
+
+          <div className="receipt-footer">
+            {isCancelled ? (
+              <>
+                <p style={{ textAlign: 'center', fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>
+                  Order cancelled — no payment is due
+                </p>
+                <p style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280' }}>
+                  Keep this receipt for your records
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280' }}>
+                  Thank you for shopping at OSWAGO Electrical Equipment!
+                </p>
+                <p style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280' }}>
+                  Items sold are not returnable unless defective
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="receipt-actions">
+        <button onClick={handlePrint} className="btn btn-primary">
+          🖨️ Print Receipt
+        </button>
+        <button onClick={handleDownload} className="btn btn-success">
+          📥 Download Receipt
+        </button>
+        <button onClick={onClose} className="btn btn-secondary">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Receipt;

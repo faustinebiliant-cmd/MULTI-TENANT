@@ -1,0 +1,105 @@
+# OSWAGO — Security Reference
+
+This document is the single source of truth for how OSWAGO defends
+itself. Read it before adding any new feature. Update it when the
+defenses change.
+
+---
+
+## The 6-layer defense
+
+Every request passes through all six layers. If any one of them
+fails, the next one still protects.
+
+1. **Frontend (React)** — escapes variables in JSX; blocks accidental output
+2. **Auth middleware** — requires valid JWT
+3. **Permissions middleware** — requires correct role
+4. **Validators** — `isSafeText()`, `isValidLength()`, `sanitize()` ← main defense
+5. **Supabase SDK** — parameterizes all queries (blocks SQL injection)
+6. **RLS** — blocks direct API access with the anon key
+
+---
+
+## Payload → Layer map
+
+| Payload | Type | Blocked by |
+|---|---|---|
+| `<script>alert(1)</script>` | XSS | L4, L1 |
+| `<img src=x onerror=alert(1)>` | XSS | L4, L1 |
+| `<svg/onload=alert(1)>` | XSS | L4, L1 |
+| `<a href="javascript:alert(1)">` | XSS | L4, L1 |
+| `<a href="data:text/html,...>` | XSS | L4, L1 |
+| `<!--<script>...</script>-->` | XSS | L4, L1 |
+| `&lt;script&gt;alert(1)&lt;/script&gt;` | XSS | L1 |
+| `" onmouseover="alert(1)` | XSS | L4, L1 |
+| `AAAA...` (600 chars) | DoS | L4 (length) |
+| `'; DROP TABLE orders;--` | SQLi | L5 (params), L4 |
+| `\x00 injection` | Mixed | Node/PG auto-reject |
+| `🔥💀🚨 Test` | Safe | — |
+
+---
+
+## Rules — never break these
+
+### Every new field must:
+1. Call `isSafeText()` — reject if false
+2. Call `isValidLength()` with a max
+3. Call `sanitize()` before saving
+
+### Every new query must:
+- Use the Supabase SDK (parameterized by default)
+- On VPS later: use `$1, $2, $3` placeholders. **Never** `${}` in SQL strings.
+
+### Every new table must:
+- Have RLS enabled the same day it's created
+- Have `no_anon_access` policy
+
+### Every new React component must:
+- Use `{value}` in JSX
+- **Never** use `dangerouslySetInnerHTML`
+
+---
+
+## Secrets — where they live
+
+| Secret | Location |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | `backend/.env` ONLY |
+| `JWT_SECRET` | `backend/.env` ONLY |
+| `SUPABASE_ANON_KEY` | Not used in app (RLS blocks it) |
+| Frontend `.env` | Only `REACT_APP_*` non-secrets |
+
+**Never** commit `.env`. **Never** paste it in chat. **Never** let
+a service role key reach the browser.
+
+---
+
+## If a secret leaks
+
+1. Rotate it in Supabase dashboard **immediately**
+2. Update `backend/.env`
+3. Restart backend
+4. Check `activity_logs` for anything suspicious
+
+---
+
+## The one-sentence rules
+
+- **Parameterize every query.** Never concatenate user input into SQL.
+- **Sanitize every input.** Never trust the frontend.
+- **RLS on every table.** Always.
+- **Secrets only in `.env`.** Always.
+- **React escapes for you.** Never use `dangerouslySetInnerHTML`.
+
+---
+
+## Checklist — before shipping any feature
+
+- [ ] New field? → `isSafeText` + `isValidLength` + `sanitize`
+- [ ] New query? → uses SDK or `$1` placeholders
+- [ ] New table? → RLS enabled + `no_anon_access` policy
+- [ ] New component? → `{value}` in JSX, no `innerHTML`
+- [ ] New secret? → in `.env`, in `.gitignore`
+- [ ] New endpoint? → auth + permissions middleware
+
+Run `node scripts/security-test.js` after every feature.

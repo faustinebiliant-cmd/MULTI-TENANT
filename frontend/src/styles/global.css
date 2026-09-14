@@ -1,0 +1,87 @@
+/* ============================================================
+   OSWAGO ELECTRICAL EQUIPMENT - Global Utility Styles
+   ============================================================ */
+
+/* Text Alignment */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+/* Colors */
+.text-primary { color: #1a56db; }
+.text-success { color: #10b981; }
+.text-danger { color: #ef4444; }
+.text-warning { color: #f59e0b; }
+.text-gray { color: #6b7280; }
+.text-white { color: #ffffff; }
+
+/* Backgrounds */
+.bg-primary { background: #1a56db; }
+.bg-success { background: #10b981; }
+.bg-danger { background: #ef4444; }
+.bg-warning { background: #f59e0b; }
+.bg-light { background: #f0f4f8; }
+.bg-dark { background: #0a1e3d; }
+
+/* Spacing */
+.m-1 { margin: 8px; }
+.m-2 { margin: 16px; }
+.m-3 { margin: 24px; }
+.m-4 { margin: 32px; }
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.mt-4 { margin-top: 32px; }
+
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+.mb-4 { margin-bottom: 32px; }
+
+.p-1 { padding: 8px; }
+.p-2 { padding: 16px; }
+.p-3 { padding: 24px; }
+.p-4 { padding: 32px; }
+
+/* Flex */
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-column { display: flex; flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+
+.gap-1 { gap: 8px; }
+.gap-2 { gap: 16px; }
+.gap-3 { gap: 24px; }
+.gap-4 { gap: 32px; }
+
+/* Width */
+.w-100 { width: 100%; }
+.w-50 { width: 50%; }
+.w-25 { width: 25%; }
+
+/* Border Radius */
+.rounded { border-radius: 8px; }
+.rounded-lg { border-radius: 12px; }
+.rounded-full { border-radius: 50%; }
+
+/* Shadows */
+.shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.shadow-lg { box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
+
+/* Display */
+.hidden { display: none; }
+.block { display: block; }
+.inline-block { display: inline-block; }
+
+/* Overflow */
+.overflow-hidden { overflow: hidden; }
+.overflow-auto { overflow: auto; }
+.overflow-x-auto { overflow-x: auto; }
+
+/* Position */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.sticky { position: sticky; top: 0; z-index: 100; }

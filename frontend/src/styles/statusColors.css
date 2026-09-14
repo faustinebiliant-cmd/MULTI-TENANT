@@ -1,0 +1,195 @@
+/* ============================================================
+   OSWAGO ELECTRICAL EQUIPMENT - GLOBAL STATUS COLORS
+   ============================================================
+   
+   This file controls ALL status colors in the entire project.
+   Change colors here and they update everywhere!
+   ============================================================ */
+
+/* ============================================================
+   ORDER STATUS COLORS - CHANGE THEM HERE
+   ============================================================ */
+
+:root {
+  /* 🟡 Pending */
+  --status-pending-bg: transparent;
+  --status-pending-text: #b58a09;
+  --status-pending-border: transparent;
+  --status-pending-label: 'Pending';
+
+  /* 🔵 Confirmed */
+  --status-confirmed-bg: transparent;
+  --status-confirmed-text: #0c39ce;
+  --status-confirmed-border: transparent;
+  --status-confirmed-label: 'Confirmed';
+
+  /* 🟢 Delivered */
+  --status-delivered-bg: transparent;
+  --status-delivered-text: #08971d;
+  --status-delivered-border: transparent;
+  --status-delivered-label: 'Delivered';
+
+  /* 🔴 Cancelled */
+  --status-cancelled-bg: transparent;
+  --status-cancelled-text: #c40e0e;
+  --status-cancelled-border: transparent;
+  --status-cancelled-label: 'Cancelled';
+}
+
+/* ============================================================
+   PAYMENT STATUS COLORS - CHANGE THEM HERE
+   ============================================================ */
+
+:root {
+  /* 🟢 Paid */
+  --payment-paid-bg: transparent;
+  --payment-paid-text: #0bc518;
+  --payment-paid-border: transparent;
+  --payment-paid-label: 'Paid';
+
+  /* 🔴 Unpaid */
+  --payment-unpaid-bg: transparent;
+  --payment-unpaid-text: #d00f0f;
+  --payment-unpaid-border: transparent;
+  --payment-unpaid-label: 'Unpaid';
+
+  /* 🟡 Partial */
+  --payment-partial-bg: transparent;
+  --payment-partial-text: #92400e;
+  --payment-partial-border: transparent;
+  --payment-partial-label: 'Partial';
+}
+
+/* ============================================================
+   ORDER STATUS CLASSES
+   ============================================================ */
+
+.status-pending {
+  background-color: var(--status-pending-bg) !important;
+  color: var(--status-pending-text) !important;
+  border: 1px solid var(--status-pending-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-confirmed {
+  background-color: var(--status-confirmed-bg) !important;
+  color: var(--status-confirmed-text) !important;
+  border: 1px solid var(--status-confirmed-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-delivered {
+  background-color: var(--status-delivered-bg) !important;
+  color: var(--status-delivered-text) !important;
+  border: 1px solid var(--status-delivered-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-cancelled {
+  background-color: var(--status-cancelled-bg) !important;
+  color: var(--status-cancelled-text) !important;
+  border: 1px solid var(--status-cancelled-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+/* ============================================================
+   PAYMENT STATUS CLASSES
+   ============================================================ */
+
+.payment-paid {
+  background-color: var(--payment-paid-bg) !important;
+  color: var(--payment-paid-text) !important;
+  border: 1px solid var(--payment-paid-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.payment-unpaid {
+  background-color: var(--payment-unpaid-bg) !important;
+  color: var(--payment-unpaid-text) !important;
+  border: 1px solid var(--payment-unpaid-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.payment-partial {
+  background-color: var(--payment-partial-bg) !important;
+  color: var(--payment-partial-text) !important;
+  border: 1px solid var(--payment-partial-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+/* ============================================================
+   ALTERNATIVE STYLES - With Background Colors
+   ============================================================ */
+
+/* 🟡 Yellow Theme */
+/*
+:root {
+  --status-pending-bg: #fef3c7;
+  --status-pending-text: #92400e;
+  --status-pending-border: #f59e0b;
+  
+  --status-confirmed-bg: #dbeafe;
+  --status-confirmed-text: #1e40af;
+  --status-confirmed-border: #3b82f6;
+  
+  --status-delivered-bg: #d1fae5;
+  --status-delivered-text: #065f46;
+  --status-delivered-border: #10b981;
+  
+  --status-cancelled-bg: #fee2e2;
+  --status-cancelled-text: #991b1b;
+  --status-cancelled-border: #ef4444;
+}
+*/
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 480px) {
+  .status-pending,
+  .status-confirmed,
+  .status-delivered,
+  .status-cancelled,
+  .payment-paid,
+  .payment-unpaid,
+  .payment-partial {
+    font-size: 10px !important;
+    padding: 2px 10px !important;
+  }
+}
