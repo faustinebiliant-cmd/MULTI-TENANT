@@ -2,7 +2,7 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Constants
 // ============================================================
 
-// User Roles
+// User roles (must match backend validators)
 export const ROLES = {
   BOSS: 'boss',
   MANAGER: 'manager',
@@ -11,31 +11,29 @@ export const ROLES = {
   SALES_REP: 'sales_rep'
 };
 
-// Order Statuses
+// Order statuses (matches backend isValidOrderStatus)
 export const ORDER_STATUSES = [
-  { value: 'pending', label: 'Pending', color: '#f59e0b' },
-  { value: 'confirmed', label: 'Confirmed', color: '#3b82f6' },
-  { value: 'preparing', label: 'Preparing', color: '#8b5cf6' },
-  { value: 'delivered', label: 'Delivered', color: '#10b981' },
-  { value: 'cancelled', label: 'Cancelled', color: '#ef4444' }
+  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' }
 ];
 
-// Payment Methods
+// Payment methods — icon is a react-icons component name
 export const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash', icon: '💰' },
-  { value: 'mpesa', label: 'M-Pesa', icon: '📱' },
-  { value: 'tigo_pesa', label: 'Tigo Pesa', icon: '📱' },
-  { value: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' }
+  { value: 'cash', label: 'Cash', icon: 'FiDollarSign' },
+  { value: 'mpesa', label: 'M-Pesa', icon: 'FiSmartphone' },
+  { value: 'tigo_pesa', label: 'Tigo Pesa', icon: 'FiSmartphone' }
 ];
 
-// Payment Statuses
+// Payment statuses
 export const PAYMENT_STATUSES = [
-  { value: 'paid', label: 'Paid', color: '#10b981' },
-  { value: 'unpaid', label: 'Unpaid', color: '#ef4444' },
-  { value: 'partial', label: 'Partial', color: '#f59e0b' }
+  { value: 'paid', label: 'Paid' },
+  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'partial', label: 'Partial' }
 ];
 
-// Expense Categories
+// Expense categories
 export const EXPENSE_CATEGORIES = [
   'Rent',
   'Salaries',
@@ -49,7 +47,7 @@ export const EXPENSE_CATEGORIES = [
   'Other'
 ];
 
-// Product Categories
+// Default product categories (fallback if DB is empty)
 export const PRODUCT_CATEGORIES = [
   'Cables & Wires',
   'Switches',
@@ -64,32 +62,9 @@ export const PRODUCT_CATEGORIES = [
   'Other'
 ];
 
-// Low Stock Threshold
+// Shop defaults
 export const LOW_STOCK_THRESHOLD = 5;
-
-// Currency
 export const CURRENCY = 'TZS';
-
-// App Name
 export const APP_NAME = 'OSWAGO Electrical Equipment';
-
-// API Endpoints (will be used when backend is ready)
-export const API_ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/auth/login',
-    ME: '/auth/me',
-    CHANGE_PASSWORD: '/auth/change-password'
-  },
-  USERS: '/users',
-  PRODUCTS: '/products',
-  CATEGORIES: '/categories',
-  CUSTOMERS: '/customers',
-  ORDERS: '/orders',
-  PAYMENTS: '/payments',
-  EXPENSES: '/expenses',
-  SUPPLIERS: '/suppliers',
-  PURCHASE_ORDERS: '/purchase-orders',
-  REPORTS: '/reports',
-  DASHBOARD: '/dashboard',
-  SETTINGS: '/settings'
-};
+export const SHOP_LOCATION = 'Darajani, Kigamboni, Dar es Salaam';
+export const SHOP_PHONE = '0750825721';

@@ -1,10 +1,12 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Receipt Component
+// OSWAGO ELECTRICAL EQUIPMENT - Receipt
 // ============================================================
 
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
+import { FiPrinter, FiDownload } from 'react-icons/fi';
 import { formatCurrency, formatDate } from '../../utils/helpers';
+import toast from 'react-hot-toast';
 
 const Receipt = ({ order, onClose }) => {
   const receiptRef = useRef(null);
@@ -30,7 +32,7 @@ const Receipt = ({ order, onClose }) => {
       link.click();
     } catch (error) {
       console.error('Error downloading receipt:', error);
-      alert('Failed to download receipt');
+      toast.error('Failed to download receipt');
     }
   };
 
@@ -46,7 +48,7 @@ const Receipt = ({ order, onClose }) => {
   return (
     <div className="receipt-container">
       <div className="receipt" id="receipt" ref={receiptRef}>
-        {/* Cancellation banner */}
+        {/* Cancelled banner */}
         {isCancelled && (
           <div style={{
             background: '#fef2f2',
@@ -63,7 +65,7 @@ const Receipt = ({ order, onClose }) => {
               letterSpacing: '2px',
               marginBottom: '4px'
             }}>
-              ★ CANCELLED ★
+              CANCELLED
             </div>
             <div style={{ fontSize: '11px', color: '#991b1b', lineHeight: 1.4 }}>
               This order has been cancelled.
@@ -90,10 +92,10 @@ const Receipt = ({ order, onClose }) => {
         )}
 
         <div className="receipt-header">
-          <h2>⚡ OSWAGO</h2>
+          <h2>OSWAGO</h2>
           <p>Electrical Equipment</p>
           <p style={{ fontSize: '12px', color: '#6b7280' }}>Darajani, Kigamboni, Dar es Salaam</p>
-          <p style={{ fontSize: '12px', color: '#6b7280' }}>📞 0750825721</p>
+          <p style={{ fontSize: '12px', color: '#6b7280' }}>0750825721</p>
           {order.tin && <p style={{ fontSize: '11px', color: '#6b7280' }}>TIN: {order.tin}</p>}
           {order.vrn && <p style={{ fontSize: '11px', color: '#6b7280' }}>VRN: {order.vrn}</p>}
           <hr />
@@ -159,7 +161,6 @@ const Receipt = ({ order, onClose }) => {
           <div className="receipt-total">
             {isCancelled ? (
               <>
-                {/* Cancelled: show only reference totals */}
                 <div className="flex-between">
                   <span>Original Subtotal</span>
                   <span style={{ textDecoration: 'line-through', color: '#6b7280' }}>
@@ -192,7 +193,7 @@ const Receipt = ({ order, onClose }) => {
 
                 {hasVAT && (
                   <div className="flex-between">
-                    <span>VAT (18%)</span>
+                    <span>VAT</span>
                     <span style={{ color: '#f59e0b' }}>{formatCurrency(taxAmount)}</span>
                   </div>
                 )}
@@ -242,7 +243,7 @@ const Receipt = ({ order, onClose }) => {
             ) : (
               <>
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280' }}>
-                  Thank you for shopping at OSWAGO Electrical Equipment!
+                  Thank you for shopping at OSWAGO Electrical Equipment.
                 </p>
                 <p style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280' }}>
                   Items sold are not returnable unless defective
@@ -255,10 +256,10 @@ const Receipt = ({ order, onClose }) => {
 
       <div className="receipt-actions">
         <button onClick={handlePrint} className="btn btn-primary">
-          🖨️ Print Receipt
+          <FiPrinter size={16} /> Print Receipt
         </button>
         <button onClick={handleDownload} className="btn btn-success">
-          📥 Download Receipt
+          <FiDownload size={16} /> Download
         </button>
         <button onClick={onClose} className="btn btn-secondary">
           Close

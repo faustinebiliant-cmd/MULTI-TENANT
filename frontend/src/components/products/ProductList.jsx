@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Product List (Paginated + SQL Totals)
+// OSWAGO ELECTRICAL EQUIPMENT - Product List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,49 +10,40 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
-
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
-  const [totals, setTotals] = useState({ inventoryValue: 0, costValue: 0, profitPotential: 0, productCount: 0 });
+  const [totals, setTotals] = useState({
+    inventoryValue: 0,
+    costValue: 0,
+    profitPotential: 0,
+    productCount: 0
+  });
   const [categories, setCategories] = useState([]);
 
-  // Filters
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [categoryId, setCategoryId] = useState('');
 
-  // Role check
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userRole = user.role || '';
-  const canSeeFinancialData = userRole === 'boss' || userRole === 'manager';
+  const canSeeFinancialData = user.role === 'boss' || user.role === 'manager';
 
-  // ─── Load categories once ────────────────────────────────
   useEffect(() => {
     api.getCategories()
       .then(list => setCategories(list || []))
       .catch(err => console.error('Error loading categories:', err));
   }, []);
 
-  // ─── Fetch page ──────────────────────────────────────────
   const fetchProducts = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const params = { page, limit: PAGE_SIZE };
-
       if (debouncedSearch) params.search = debouncedSearch;
       if (categoryId) params.category_id = categoryId;
 
@@ -61,9 +52,6 @@ const ProductList = () => {
 
       setProducts(response.data || []);
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
-
-      // ✅ Totals come from the backend (SQL) — cover the WHOLE filtered set,
-      //    not just the current page
       setTotals(response.totals || {
         inventoryValue: 0,
         costValue: 0,
@@ -89,8 +77,6 @@ const ProductList = () => {
   };
 
   const hasActiveFilters = search || categoryId;
-
-  // ✅ Totals read directly from SQL result — shop-wide (matching current filters)
   const totalInventoryValue = canSeeFinancialData ? (totals.inventoryValue || 0) : 0;
   const totalCostValue = canSeeFinancialData ? (totals.costValue || 0) : 0;
   const totalProfitPotential = canSeeFinancialData ? (totals.profitPotential || 0) : 0;
@@ -157,7 +143,6 @@ const ProductList = () => {
         </div>
       </div>
 
-      {/* Financial summary (boss/manager only) — SHOP-WIDE totals from SQL */}
       {canSeeFinancialData && totals.productCount > 0 && (
         <div className="stats-grid" style={{ marginBottom: '16px' }}>
           <div className="stat-card">
@@ -166,9 +151,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalInventoryValue)}</h3>
-              <p>
-                {hasActiveFilters ? 'Filtered' : 'Total'} Inventory Value (Selling)
-              </p>
+              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Inventory Value (Selling)</p>
             </div>
           </div>
           <div className="stat-card">
@@ -177,9 +160,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalCostValue)}</h3>
-              <p>
-                {hasActiveFilters ? 'Filtered' : 'Total'} Cost Value
-              </p>
+              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Cost Value</p>
             </div>
           </div>
           <div className="stat-card">
@@ -188,9 +169,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalProfitPotential)}</h3>
-              <p>
-                {hasActiveFilters ? 'Filtered' : 'Total'} Potential Profit
-              </p>
+              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Potential Profit</p>
             </div>
           </div>
         </div>
@@ -213,12 +192,11 @@ const ProductList = () => {
             {products.length === 0 ? (
               <tr>
                 <td colSpan={canSeeFinancialData ? 7 : 5} className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No products found</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
                       ? 'Try adjusting or clearing your filters.'
-                      : 'Add your first product!'}
+                      : 'Add your first product.'}
                   </p>
                 </td>
               </tr>
@@ -265,7 +243,6 @@ const ProductList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -273,8 +250,7 @@ const ProductList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -284,8 +260,7 @@ const ProductList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
         </div>
       )}

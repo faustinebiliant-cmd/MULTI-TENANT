@@ -13,7 +13,7 @@ const ExpenseForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -23,38 +23,35 @@ const ExpenseForm = () => {
     notes: ''
   });
 
-  // ✅ Load expense data when editing
+  // Load expense when editing
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchExpense = async () => {
-        try {
-          setLoading(true);
-          const data = await api.getExpense(id);
-          setFormData({
-            description: data.description || '',
-            amount: data.amount || '',
-            category: data.category || '',
-            expense_date: data.expense_date || new Date().toISOString().split('T')[0],
-            payment_method: data.payment_method || '',
-            notes: data.notes || ''
-          });
-        } catch (error) {
-          console.error('Error fetching expense:', error);
-          toast.error('Failed to load expense');
-          navigate('/expenses');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchExpense();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchExpense = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getExpense(id);
+        setFormData({
+          description: data.description || '',
+          amount: data.amount || '',
+          category: data.category || '',
+          expense_date: data.expense_date || new Date().toISOString().split('T')[0],
+          payment_method: data.payment_method || '',
+          notes: data.notes || ''
+        });
+      } catch (error) {
+        console.error('Error fetching expense:', error);
+        toast.error('Failed to load expense');
+        navigate('/expenses');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchExpense();
   }, [isEdit, id, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -73,10 +70,10 @@ const ExpenseForm = () => {
 
       if (isEdit) {
         await api.updateExpense(id, expenseData);
-        toast.success('Expense updated successfully!');
+        toast.success('Expense updated successfully');
       } else {
         await api.createExpense(expenseData);
-        toast.success('Expense added successfully!');
+        toast.success('Expense added successfully');
       }
       navigate('/expenses');
     } catch (error) {
@@ -166,7 +163,7 @@ const ExpenseForm = () => {
               <option value="">Select payment method</option>
               {PAYMENT_METHODS.map((method) => (
                 <option key={method.value} value={method.value}>
-                  {method.icon} {method.label}
+                  {method.label}
                 </option>
               ))}
             </select>
@@ -187,7 +184,11 @@ const ExpenseForm = () => {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (isEdit ? 'Update Expense' : 'Add Expense')}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/expenses')}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/expenses')}
+            >
               Cancel
             </button>
           </div>

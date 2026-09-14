@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Loader Component
+// OSWAGO ELECTRICAL EQUIPMENT - Loader
 // ============================================================
 
 import React from 'react';

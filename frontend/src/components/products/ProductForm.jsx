@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Product Form (No Duplicates)
+// OSWAGO ELECTRICAL EQUIPMENT - Product Form
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
@@ -25,77 +25,59 @@ const ProductForm = () => {
     low_stock_threshold: '5'
   });
 
-  // ✅ Load categories ONCE - from Supabase or static
+  // Load categories (DB or static fallback)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        // Try to fetch from Supabase
         const response = await api.getCategories();
-        
+
         if (response && response.length > 0) {
-          // Use categories from database
           setCategories(response);
-          console.log('📂 Categories from DB:', response);
         } else {
-          // Fallback to static categories
-          const categoryList = PRODUCT_CATEGORIES.map(name => ({
-            id: name,
-            name: name
-          }));
-          setCategories(categoryList);
-          console.log('📂 Categories from static:', categoryList);
+          setCategories(PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
         }
       } catch (error) {
-        console.error('❌ Error fetching categories:', error);
-        // Fallback to static categories
-        const categoryList = PRODUCT_CATEGORIES.map(name => ({
-          id: name,
-          name: name
-        }));
-        setCategories(categoryList);
+        console.error('Error fetching categories:', error);
+        setCategories(PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
       }
     };
     fetchCategories();
-  }, []); // ✅ Empty dependency array - runs only once
+  }, []);
 
-  // Load product data if editing
+  // Load product when editing
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchProduct = async () => {
-        try {
-          setLoading(true);
-          const product = await api.getProduct(id);
-          setFormData({
-            name: product.name || '',
-            description: product.description || '',
-            category_id: product.category_id || '',
-            cost_price: product.cost_price || '',
-            selling_price: product.selling_price || '',
-            stock_quantity: product.stock_quantity || '',
-            low_stock_threshold: product.low_stock_threshold || '5'
-          });
-        } catch (error) {
-          console.error('Error fetching product:', error);
-          toast.error('Failed to load product');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchProduct();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const product = await api.getProduct(id);
+        setFormData({
+          name: product.name || '',
+          description: product.description || '',
+          category_id: product.category_id || '',
+          cost_price: product.cost_price || '',
+          selling_price: product.selling_price || '',
+          stock_quantity: product.stock_quantity || '',
+          low_stock_threshold: product.low_stock_threshold || '5'
+        });
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        toast.error('Failed to load product');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
   }, [isEdit, id]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate required fields
+
     if (!formData.name.trim()) {
       toast.error('Product name is required');
       return;
@@ -121,28 +103,21 @@ const ProductForm = () => {
         low_stock_threshold: parseInt(formData.low_stock_threshold) || 5
       };
 
-      // ✅ Only add category if selected
       if (formData.category_id && formData.category_id !== '') {
         productData.category_id = formData.category_id;
       }
 
-      console.log('📤 Sending product data:', productData);
-
-      let response;
       if (isEdit) {
-        response = await api.updateProduct(id, productData);
-        toast.success('Product updated successfully!');
+        await api.updateProduct(id, productData);
+        toast.success('Product updated successfully');
       } else {
-        response = await api.createProduct(productData);
-        toast.success('Product added successfully!');
+        await api.createProduct(productData);
+        toast.success('Product added successfully');
       }
 
-      console.log('✅ Product saved:', response);
       navigate('/products');
     } catch (error) {
-      console.error('❌ Error saving product:', error);
-      console.error('❌ Error response:', error.response?.data);
-      
+      console.error('Error saving product:', error);
       const errorMessage = error.response?.data?.error || 'Failed to save product';
       toast.error(errorMessage);
     } finally {
@@ -162,7 +137,7 @@ const ProductForm = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>{isEdit ? '✏️ Edit Product' : '➕ Add Product'}</h1>
+        <h1>{isEdit ? 'Edit Product' : 'Add Product'}</h1>
         <p>Fill in the product details below</p>
       </div>
 
@@ -200,9 +175,7 @@ const ProductForm = () => {
             >
               <option value="">Select a category</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
           </div>
@@ -221,7 +194,6 @@ const ProductForm = () => {
                 step="100"
               />
             </div>
-
             <div className="form-group">
               <label>Selling Price (TZS) *</label>
               <input
@@ -249,7 +221,6 @@ const ProductForm = () => {
                 min="0"
               />
             </div>
-
             <div className="form-group">
               <label>Low Stock Threshold</label>
               <input

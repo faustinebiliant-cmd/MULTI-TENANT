@@ -1,23 +1,15 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Supplier List (Paginated)
+// OSWAGO ELECTRICAL EQUIPMENT - Supplier List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/client';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
-
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
 
 const SupplierList = () => {
   const [suppliers, setSuppliers] = useState([]);
@@ -26,7 +18,6 @@ const SupplierList = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
 
-  // ─── Fetch page ──────────────────────────────────────────
   const fetchSuppliers = useCallback(async (page = 1) => {
     try {
       setLoading(true);
@@ -121,10 +112,9 @@ const SupplierList = () => {
             {suppliers.length === 0 ? (
               <tr>
                 <td colSpan="5" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No suppliers found</h3>
                   <p style={{ fontSize: '14px' }}>
-                    {search ? 'Try adjusting or clearing your search.' : 'Add your first supplier!'}
+                    {search ? 'Try adjusting or clearing your search.' : 'Add your first supplier.'}
                   </p>
                 </td>
               </tr>
@@ -147,7 +137,6 @@ const SupplierList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -155,8 +144,7 @@ const SupplierList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -166,24 +154,8 @@ const SupplierList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
-        </div>
-      )}
-
-      {/* Footer summary */}
-      {suppliers.length > 0 && (
-        <div className="card" style={{
-          marginTop: '16px', padding: '12px 20px',
-          backgroundColor: '#f8fafc', border: '1px solid #e2e8f0'
-        }}>
-          <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
-            <div>
-              Showing <strong>{suppliers.length}</strong> of <strong>{pagination.total}</strong> suppliers
-              {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
-            </div>
-          </div>
         </div>
       )}
     </div>

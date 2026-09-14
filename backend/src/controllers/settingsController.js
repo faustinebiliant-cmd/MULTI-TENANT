@@ -1,13 +1,12 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Settings Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Settings Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
 const {
     isValidLength,
     isSafeText,
-    sanitize,
-    isValidAmount
+    sanitize
 } = require('../utils/validators');
 
 // ============================================================
@@ -16,14 +15,12 @@ const {
 
 const getSettings = async (req, res) => {
     try {
-        // Get all settings from key-value table
         const { data: settings, error } = await supabase
             .from('settings')
             .select('*');
 
         if (error) throw error;
 
-        // Convert array to object with key-value pairs
         const settingsMap = {};
         settings.forEach(item => {
             settingsMap[item.key] = item.value;
@@ -44,15 +41,14 @@ const getSettings = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE SETTINGS - WITH VALIDATION
+// UPDATE SETTINGS
 // ============================================================
 
 const updateSettings = async (req, res) => {
     try {
         const updates = req.body;
-        console.log('📝 Updating settings:', updates);
 
-        // ✅ Define allowed settings keys with their validation rules
+        // Allowed keys with validation
         const allowedSettings = {
             vat_enabled: {
                 validate: (value) => value === 'true' || value === 'false' || value === true || value === false,
@@ -103,17 +99,15 @@ const updateSettings = async (req, res) => {
             }
         };
 
-        // ✅ Validate each setting
+        // Validate + save each
         for (const [key, value] of Object.entries(updates)) {
-            // Check if this setting is allowed
             if (!allowedSettings[key]) {
-                console.warn(`⚠️ Unknown setting key: ${key} - skipping`);
+                console.warn(`Unknown setting key: ${key} - skipping`);
                 continue;
             }
 
             const rule = allowedSettings[key];
-            
-            // Validate the value
+
             if (!rule.validate(value)) {
                 return res.status(400).json({
                     success: false,
@@ -121,10 +115,8 @@ const updateSettings = async (req, res) => {
                 });
             }
 
-            // Transform the value
             const transformedValue = rule.transform(value);
-            
-            // Save to database
+
             const { error } = await supabase
                 .from('settings')
                 .upsert({
@@ -134,7 +126,7 @@ const updateSettings = async (req, res) => {
                 }, { onConflict: 'key' });
 
             if (error) {
-                console.error(`❌ Error updating ${key}:`, error);
+                console.error(`Error updating ${key}:`, error);
                 throw error;
             }
         }

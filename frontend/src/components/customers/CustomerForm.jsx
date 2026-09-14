@@ -21,37 +21,33 @@ const CustomerForm = () => {
     notes: ''
   });
 
-  // Load customer data if editing
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchCustomer = async () => {
-        try {
-          setLoading(true);
-          const customer = await api.getCustomer(id);
-          setFormData({
-            name: customer.name || '',
-            phone: customer.phone || '',
-            email: customer.email || '',
-            address: customer.address || '',
-            notes: customer.notes || ''
-          });
-        } catch (error) {
-          console.error('Error fetching customer:', error);
-          toast.error('Failed to load customer');
-          navigate('/customers');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchCustomer();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchCustomer = async () => {
+      try {
+        setLoading(true);
+        const customer = await api.getCustomer(id);
+        setFormData({
+          name: customer.name || '',
+          phone: customer.phone || '',
+          email: customer.email || '',
+          address: customer.address || '',
+          notes: customer.notes || ''
+        });
+      } catch (error) {
+        console.error('Error fetching customer:', error);
+        toast.error('Failed to load customer');
+        navigate('/customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCustomer();
   }, [isEdit, id, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -69,10 +65,10 @@ const CustomerForm = () => {
 
       if (isEdit) {
         await api.updateCustomer(id, customerData);
-        toast.success('Customer updated successfully!');
+        toast.success('Customer updated successfully');
       } else {
         await api.createCustomer(customerData);
-        toast.success('Customer added successfully!');
+        toast.success('Customer added successfully');
       }
 
       navigate('/customers');
@@ -164,7 +160,11 @@ const CustomerForm = () => {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (isEdit ? 'Update Customer' : 'Add Customer')}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/customers')}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/customers')}
+            >
               Cancel
             </button>
           </div>

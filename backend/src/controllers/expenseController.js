@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Expenses Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Expenses Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -11,27 +11,14 @@ const {
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL EXPENSES  (paginated + server-side filters)
+// GET ALL EXPENSES (paginated + filters)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches description (ILIKE)
-//   category=<name>           exact category match
-//   startDate=YYYY-MM-DD
-//   endDate=YYYY-MM-DD
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: { total, page, limit, pages } }
-//   When all=true is passed, pagination is null.
 
 const getAllExpenses = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search, category, startDate, endDate } = req.query;
 
-        // ─── Legacy mode: ?all=true ───────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data, error } = await supabase
                 .from('expenses')
@@ -47,7 +34,6 @@ const getAllExpenses = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -58,22 +44,16 @@ const getAllExpenses = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        // ─── Build data query ─────────────────────────────────
+        // Data query
         let dataQuery = supabase.from('expenses').select('*');
 
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
             if (term) dataQuery = dataQuery.ilike('description', `%${term}%`);
         }
-        if (category) {
-            dataQuery = dataQuery.eq('category', category);
-        }
-        if (startDate) {
-            dataQuery = dataQuery.gte('expense_date', startDate);
-        }
-        if (endDate) {
-            dataQuery = dataQuery.lte('expense_date', endDate);
-        }
+        if (category) dataQuery = dataQuery.eq('category', category);
+        if (startDate) dataQuery = dataQuery.gte('expense_date', startDate);
+        if (endDate) dataQuery = dataQuery.lte('expense_date', endDate);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
@@ -84,7 +64,7 @@ const getAllExpenses = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // ─── Count query (same filters) ───────────────────────
+        // Count
         let countQuery = supabase
             .from('expenses')
             .select('id', { count: 'exact', head: true });
@@ -157,7 +137,7 @@ const getExpenseById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE EXPENSE - WITH IMPROVED VALIDATION
+// CREATE EXPENSE
 // ============================================================
 
 const createExpense = async (req, res) => {
@@ -171,7 +151,6 @@ const createExpense = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION
         if (!isValidLength(description, 3, 500)) {
             return res.status(400).json({
                 success: false,
@@ -186,7 +165,6 @@ const createExpense = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE AMOUNT
         if (!isValidAmount(amount)) {
             return res.status(400).json({
                 success: false,
@@ -194,7 +172,7 @@ const createExpense = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
+        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -212,39 +190,36 @@ const createExpense = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // ✅ SANITIZE DESCRIPTION
         const cleanDescription = sanitize(description.trim());
 
-        // ✅ Get a valid user ID from the database
+        // Resolve valid user
         let validUserId = null;
         let validUserName = 'System';
 
         if (req.user && req.user.id) {
-            const { data: user, error: userError } = await supabase
+            const { data: user } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('id', req.user.id)
                 .single();
 
-            if (userError || !user) {
-                console.log('⚠️ User not found, using boss as fallback');
+            if (user) {
+                validUserId = user.id;
+                validUserName = user.full_name;
+            } else {
+                // Fallback to boss
                 const { data: boss } = await supabase
                     .from('users')
                     .select('id, full_name')
                     .eq('email', 'faustinebiliant@gmail.com')
                     .single();
-                
+
                 if (boss) {
                     validUserId = boss.id;
                     validUserName = boss.full_name;
                 }
-            } else {
-                validUserId = user.id;
-                validUserName = user.full_name;
             }
         }
-
-        console.log('👤 Creating expense by:', validUserName);
 
         const { data, error } = await supabase
             .from('expenses')
@@ -262,14 +237,13 @@ const createExpense = async (req, res) => {
             .single();
 
         if (error) {
-            console.error('❌ Create expense error:', error);
+            console.error('Create expense error:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to create expense: ' + error.message
             });
         }
 
-        // Log activity
         await supabase
             .from('activity_logs')
             .insert({
@@ -286,7 +260,7 @@ const createExpense = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Create expense error:', error);
+        console.error('Create expense error:', error);
         return res.status(500).json({
             success: false,
             error: 'Failed to create expense: ' + error.message
@@ -295,7 +269,7 @@ const createExpense = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE EXPENSE - WITH IMPROVED VALIDATION
+// UPDATE EXPENSE
 // ============================================================
 
 const updateExpense = async (req, res) => {
@@ -303,7 +277,6 @@ const updateExpense = async (req, res) => {
         const { id } = req.params;
         const { description, amount, category, expense_date, payment_method, notes } = req.body;
 
-        // Check if expense exists
         const { data: existing, error: checkError } = await supabase
             .from('expenses')
             .select('id')
@@ -319,7 +292,6 @@ const updateExpense = async (req, res) => {
 
         const updateData = {};
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION
         if (description !== undefined) {
             if (description && !isValidLength(description, 3, 500)) {
                 return res.status(400).json({
@@ -336,7 +308,6 @@ const updateExpense = async (req, res) => {
             updateData.description = description ? sanitize(description) : '';
         }
 
-        // ✅ VALIDATE AMOUNT
         if (amount !== undefined) {
             if (!isValidAmount(amount)) {
                 return res.status(400).json({
@@ -347,12 +318,8 @@ const updateExpense = async (req, res) => {
             updateData.amount = parseFloat(amount);
         }
 
-        // ✅ VALIDATE CATEGORY
-        if (category !== undefined) {
-            updateData.category = category || 'Other';
-        }
+        if (category !== undefined) updateData.category = category || 'Other';
 
-        // ✅ IMPROVED: VALIDATE NOTES
         if (notes !== undefined) {
             if (notes && !isValidLength(notes, 0, 500)) {
                 return res.status(400).json({
@@ -369,9 +336,9 @@ const updateExpense = async (req, res) => {
             updateData.notes = notes ? sanitize(notes) : '';
         }
 
-        // Other fields
         if (expense_date !== undefined) updateData.expense_date = expense_date;
         if (payment_method !== undefined) updateData.payment_method = payment_method;
+        updateData.updated_at = new Date();
 
         const { data, error } = await supabase
             .from('expenses')
@@ -381,7 +348,7 @@ const updateExpense = async (req, res) => {
             .single();
 
         if (error) {
-            console.error('❌ Update expense error:', error);
+            console.error('Update expense error:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to update expense: ' + error.message
@@ -395,7 +362,7 @@ const updateExpense = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Update expense error:', error);
+        console.error('Update expense error:', error);
         return res.status(500).json({
             success: false,
             error: 'Failed to update expense: ' + error.message

@@ -16,7 +16,7 @@ const POForm = () => {
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
-  
+
   const [po, setPo] = useState({
     supplier_id: '',
     items: [],
@@ -26,7 +26,7 @@ const POForm = () => {
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
-  // Load suppliers and products
+  // Load reference data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,36 +44,35 @@ const POForm = () => {
     fetchData();
   }, []);
 
-  // Load PO data when editing
+  // Load existing PO when editing
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchPO = async () => {
-        try {
-          setLoading(true);
-          const data = await api.getPurchaseOrder(id);
-          console.log('📦 Loading PO for edit:', data);
-          
-          setPo({
-            supplier_id: data.supplier_id || '',
-            items: data.purchase_order_items?.map(item => ({
-              product_id: item.product_id,
-              name: item.product_name || 'Product',
-              quantity: item.quantity,
-              cost_price: item.cost_price,
-              subtotal: item.subtotal
-            })) || [],
-            notes: data.notes || ''
-          });
-        } catch (error) {
-          console.error('Error fetching PO:', error);
-          toast.error('Failed to load purchase order');
-          navigate('/purchase-orders');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchPO();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchPO = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getPurchaseOrder(id);
+
+        setPo({
+          supplier_id: data.supplier_id || '',
+          items: data.purchase_order_items?.map(item => ({
+            product_id: item.product_id,
+            name: item.product_name || 'Product',
+            quantity: item.quantity,
+            cost_price: item.cost_price,
+            subtotal: item.subtotal
+          })) || [],
+          notes: data.notes || ''
+        });
+      } catch (error) {
+        console.error('Error fetching PO:', error);
+        toast.error('Failed to load purchase order');
+        navigate('/purchase-orders');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPO();
   }, [isEdit, id, navigate]);
 
   const addItem = () => {
@@ -81,7 +80,7 @@ const POForm = () => {
       toast.error('Please select a product');
       return;
     }
-    
+
     const product = products.find(p => p.id === selectedProduct);
     if (!product) {
       toast.error('Product not found');
@@ -89,7 +88,7 @@ const POForm = () => {
     }
 
     const existingItem = po.items.find(item => item.product_id === selectedProduct);
-    
+
     if (existingItem) {
       setPo({
         ...po,
@@ -114,30 +113,22 @@ const POForm = () => {
         ]
       });
     }
-    
+
     setSelectedProduct('');
     setSelectedQuantity(1);
     toast.success('Product added to PO');
   };
 
   const removeItem = (index) => {
-    setPo({
-      ...po,
-      items: po.items.filter((_, i) => i !== index)
-    });
+    setPo({ ...po, items: po.items.filter((_, i) => i !== index) });
   };
 
   const updateQuantity = (index, newQuantity) => {
     if (newQuantity < 1) return;
-    
     const updatedItems = [...po.items];
     updatedItems[index].quantity = newQuantity;
     updatedItems[index].subtotal = updatedItems[index].cost_price * newQuantity;
-    
-    setPo({
-      ...po,
-      items: updatedItems
-    });
+    setPo({ ...po, items: updatedItems });
   };
 
   const calculateTotal = () => {
@@ -146,12 +137,12 @@ const POForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!po.supplier_id) {
       toast.error('Please select a supplier');
       return;
     }
-    
+
     if (po.items.length === 0) {
       toast.error('Please add at least one product');
       return;
@@ -171,22 +162,17 @@ const POForm = () => {
         notes: po.notes || ''
       };
 
-      console.log('📤 Sending PO data:', poData);
-
-      let response;
       if (isEdit) {
-        response = await api.updatePurchaseOrder(id, poData);
-        toast.success('Purchase Order updated successfully!');
+        await api.updatePurchaseOrder(id, poData);
+        toast.success('Purchase Order updated successfully');
       } else {
-        response = await api.createPurchaseOrder(poData);
-        toast.success('Purchase Order created successfully!');
+        await api.createPurchaseOrder(poData);
+        toast.success('Purchase Order created successfully');
       }
-      
-      console.log('✅ Response:', response);
+
       navigate('/purchase-orders');
     } catch (error) {
-      console.error('❌ Error saving PO:', error);
-      console.error('❌ Error response:', error.response?.data);
+      console.error('Error saving PO:', error);
       toast.error(error.response?.data?.error || 'Failed to save PO');
     } finally {
       setLoading(false);
@@ -293,7 +279,11 @@ const POForm = () => {
                       <td>{formatCurrency(item.cost_price)}</td>
                       <td>{formatCurrency(item.subtotal)}</td>
                       <td>
-                        <button type="button" onClick={() => removeItem(index)} className="btn btn-sm btn-danger">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="btn btn-sm btn-danger"
+                        >
                           <FiTrash2 size={14} />
                         </button>
                       </td>
@@ -303,8 +293,12 @@ const POForm = () => {
               </table>
             </div>
           )}
-          
-          <div className="flex-between" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '2px solid #e5e7eb' }}>
+
+          <div className="flex-between" style={{
+            marginTop: '16px',
+            paddingTop: '16px',
+            borderTop: '2px solid #e5e7eb'
+          }}>
             <h3>Total</h3>
             <h3 style={{ color: '#1a56db' }}>{formatCurrency(calculateTotal())}</h3>
           </div>
@@ -326,7 +320,11 @@ const POForm = () => {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (isEdit ? 'Update Purchase Order' : 'Create Purchase Order')}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/purchase-orders')}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/purchase-orders')}
+            >
               Cancel
             </button>
           </div>

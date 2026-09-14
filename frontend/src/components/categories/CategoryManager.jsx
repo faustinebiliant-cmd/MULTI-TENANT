@@ -20,18 +20,7 @@ const CategoryManager = () => {
     try {
       setLoading(true);
       const data = await api.getCategories();
-      console.log('Categories loaded:', data);
-
-      // Remove duplicates
-      const seen = new Set();
-      const unique = data.filter(cat => {
-        const key = cat.name.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      setCategories(unique);
+      setCategories(data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast.error('Failed to load categories');
@@ -69,7 +58,7 @@ const CategoryManager = () => {
 
     try {
       await api.createCategory({ name: newCategory.trim() });
-      toast.success('Category added successfully!');
+      toast.success('Category added successfully');
       setNewCategory('');
       setIsAdding(false);
       fetchCategories();
@@ -100,7 +89,7 @@ const CategoryManager = () => {
 
     try {
       await api.updateCategory(editingId, { name: editValue.trim() });
-      toast.success('Category updated successfully!');
+      toast.success('Category updated successfully');
       setEditingId(null);
       setEditValue('');
       fetchCategories();
@@ -158,7 +147,10 @@ const CategoryManager = () => {
             <button onClick={handleAddCategory} className="btn btn-success">
               <FiPlus size={18} /> Add
             </button>
-            <button onClick={() => { setIsAdding(false); setNewCategory(''); }} className="btn btn-secondary">
+            <button
+              onClick={() => { setIsAdding(false); setNewCategory(''); }}
+              className="btn btn-secondary"
+            >
               <FiX size={18} /> Cancel
             </button>
           </div>
@@ -195,7 +187,11 @@ const CategoryManager = () => {
                   <div className="empty-state">
                     <h3>No Categories</h3>
                     <p>Add your first category to organize your products</p>
-                    <button onClick={() => setIsAdding(true)} className="btn btn-primary" style={{ marginTop: '12px' }}>
+                    <button
+                      onClick={() => setIsAdding(true)}
+                      className="btn btn-primary"
+                      style={{ marginTop: '12px' }}
+                    >
                       <FiPlus size={18} /> Add Category
                     </button>
                   </div>
@@ -227,13 +223,16 @@ const CategoryManager = () => {
                         />
                       ) : (
                         <div className="flex" style={{ alignItems: 'center', gap: '10px' }}>
-                          <span
-                            style={{
-                              width: '10px', height: '10px', borderRadius: '50%',
-                              backgroundColor: color, flexShrink: 0
-                            }}
-                          />
-                          <span style={{ fontWeight: 600, color: 'var(--dark)' }}>{category.name}</span>
+                          <span style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            backgroundColor: color,
+                            flexShrink: 0
+                          }} />
+                          <span style={{ fontWeight: 600, color: 'var(--dark)' }}>
+                            {category.name}
+                          </span>
                         </div>
                       )}
                     </td>
@@ -254,7 +253,10 @@ const CategoryManager = () => {
                         ) : (
                           <>
                             <button
-                              onClick={() => { setEditingId(category.id); setEditValue(category.name); }}
+                              onClick={() => {
+                                setEditingId(category.id);
+                                setEditValue(category.name);
+                              }}
                               className="btn btn-sm btn-secondary"
                               title="Edit category"
                             >

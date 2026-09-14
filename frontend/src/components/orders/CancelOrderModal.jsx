@@ -53,7 +53,7 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
           </button>
         </div>
 
-        {/* Warning box */}
+        {/* Warning */}
         <div style={{
           padding: '12px 14px',
           background: '#fef2f2',
@@ -78,7 +78,7 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
           </div>
         </div>
 
-        {/* Order summary */}
+        {/* Summary */}
         <div className="payment-summary-card" style={{ marginBottom: '16px' }}>
           <div className="payment-summary-row">
             <span>Customer</span>
@@ -104,7 +104,7 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Why is this order being cancelled? (e.g., customer changed mind, out of stock)"
+              placeholder="Why is this order being cancelled?"
               rows="3"
               maxLength={100}
               required

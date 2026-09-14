@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Customer List (Paginated)
+// OSWAGO ELECTRICAL EQUIPMENT - Customer List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -7,18 +7,10 @@ import { Link } from 'react-router-dom';
 import { FiPlus, FiSearch, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
-
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
 
 const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
@@ -27,7 +19,6 @@ const CustomerList = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
 
-  // ─── Fetch page ──────────────────────────────────────────
   const fetchCustomers = useCallback(async (page = 1) => {
     try {
       setLoading(true);
@@ -123,10 +114,9 @@ const CustomerList = () => {
             {customers.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No customers found</h3>
                   <p style={{ fontSize: '14px' }}>
-                    {search ? 'Try adjusting or clearing your search.' : 'Add your first customer!'}
+                    {search ? 'Try adjusting or clearing your search.' : 'Add your first customer.'}
                   </p>
                 </td>
               </tr>
@@ -154,7 +144,6 @@ const CustomerList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -162,8 +151,7 @@ const CustomerList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -173,24 +161,8 @@ const CustomerList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
-        </div>
-      )}
-
-      {/* Footer summary */}
-      {customers.length > 0 && (
-        <div className="card" style={{
-          marginTop: '16px', padding: '12px 20px',
-          backgroundColor: '#f8fafc', border: '1px solid #e2e8f0'
-        }}>
-          <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
-            <div>
-              Showing <strong>{customers.length}</strong> of <strong>{pagination.total}</strong> customers
-              {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
-            </div>
-          </div>
         </div>
       )}
     </div>

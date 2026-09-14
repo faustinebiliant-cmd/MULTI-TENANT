@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Sidebar Navigation
+// OSWAGO ELECTRICAL EQUIPMENT - Sidebar
 // ============================================================
 
 import React from 'react';
@@ -23,6 +23,7 @@ import {
   FiDownload
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { getInitials } from '../../utils/helpers';
 
 const Sidebar = () => {
   const { logout } = useAuth();
@@ -31,19 +32,17 @@ const Sidebar = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const role = user.role || '';
 
-  // Role checks
   const isBoss = role === 'boss';
   const isManager = role === 'manager' || role === 'boss';
   const isCashier = role === 'cashier';
   const isStoreKeeper = role === 'store_keeper';
   const isSalesRep = role === 'sales_rep';
 
-  // ✅ Grouped into sections for clearer navigation hierarchy
   const menuGroups = [
     {
       label: 'Overview',
       items: [
-        { path: '/dashboard', icon: FiHome, label: 'Dashboard', show: true },
+        { path: '/dashboard', icon: FiHome, label: 'Dashboard', show: true }
       ]
     },
     {
@@ -51,7 +50,7 @@ const Sidebar = () => {
       items: [
         { path: '/orders', icon: FiShoppingCart, label: 'Orders', show: true },
         { path: '/customers', icon: FiUsers, label: 'Customers', show: !isCashier && !isStoreKeeper },
-        { path: '/payments', icon: FiCreditCard, label: 'Payments', show: isCashier || isManager || isBoss },
+        { path: '/payments', icon: FiCreditCard, label: 'Payments', show: isCashier || isManager || isBoss }
       ]
     },
     {
@@ -60,7 +59,7 @@ const Sidebar = () => {
         { path: '/products', icon: FiPackage, label: 'Products', show: true },
         { path: '/categories', icon: FiGrid, label: 'Categories', show: isManager },
         { path: '/suppliers', icon: FiTruck, label: 'Suppliers', show: isManager },
-        { path: '/purchase-orders', icon: FiFileText, label: 'Purchase Orders', show: isManager },
+        { path: '/purchase-orders', icon: FiFileText, label: 'Purchase Orders', show: isManager }
       ]
     },
     {
@@ -71,7 +70,7 @@ const Sidebar = () => {
         { path: '/reports/extract', icon: FiDownload, label: 'Extract Reports', show: isBoss },
         { path: '/audit-log', icon: FiClipboard, label: 'Audit Log', show: isBoss },
         { path: '/staff', icon: FiUserPlus, label: 'Staff', show: isBoss },
-        { path: '/settings', icon: FiSettings, label: 'Settings', show: isBoss },
+        { path: '/settings', icon: FiSettings, label: 'Settings', show: isBoss }
       ]
     }
   ];
@@ -81,13 +80,8 @@ const Sidebar = () => {
     navigate('/login');
   };
 
-  // Initials for the mini user badge
-  const initials = (user.name || user.username || 'U')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = getInitials(user.full_name);
+  const roleDisplay = role ? role.replace('_', ' ') : 'Staff';
 
   return (
     <div className="sidebar">
@@ -132,8 +126,8 @@ const Sidebar = () => {
         <div className="sidebar-user">
           <div className="sidebar-user-avatar">{initials}</div>
           <div className="sidebar-user-info">
-            <span className="sidebar-user-name">{user.name || user.username || 'User'}</span>
-            <span className="sidebar-user-role">{role.replace('_', ' ') || 'Staff'}</span>
+            <span className="sidebar-user-name">{user.full_name || 'User'}</span>
+            <span className="sidebar-user-role">{roleDisplay}</span>
           </div>
         </div>
         <button onClick={handleLogout} className="sidebar-logout">

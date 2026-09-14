@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Payments Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Payments Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -13,27 +13,14 @@ const {
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL PAYMENTS  (paginated + server-side filters)
+// GET ALL PAYMENTS (paginated + filters)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches order_number OR customers.name
-//   method=cash               filters by payment method
-//   startDate=YYYY-MM-DD
-//   endDate=YYYY-MM-DD
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: { total, page, limit, pages } }
-//   When all=true is passed, pagination is null.
 
 const getAllPayments = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search, method, startDate, endDate } = req.query;
 
-        // ─── Legacy mode: ?all=true ───────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data, error } = await supabase
                 .from('payments')
@@ -68,7 +55,7 @@ const getAllPayments = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
+        // Validate
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -87,16 +74,11 @@ const getAllPayments = async (req, res) => {
             });
         }
 
-        // ─── SEARCH: pre-resolve matching order IDs ───────────
-        // Payments don't have order_number directly — it's on the
-        // joined orders table. So we pre-resolve IDs by searching:
-        //   1. orders.order_number
-        //   2. customers.name (joined via orders.customer_id)
+        // Resolve order IDs from search (order_number OR customer name)
         let matchingOrderIds = null;
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
             if (term) {
-                // A) Match by order_number
                 const { data: byNumber, error: errA } = await supabase
                     .from('orders')
                     .select('id')
@@ -104,7 +86,6 @@ const getAllPayments = async (req, res) => {
 
                 if (errA) throw errA;
 
-                // B) Match by customer name
                 const { data: byCustomer, error: errB } = await supabase
                     .from('orders')
                     .select('id, customers:customer_id!inner (name)')
@@ -117,7 +98,6 @@ const getAllPayments = async (req, res) => {
                 (byCustomer || []).forEach(r => ids.add(r.id));
                 matchingOrderIds = Array.from(ids);
 
-                // Short-circuit if no matches
                 if (matchingOrderIds.length === 0) {
                     return res.status(200).json({
                         success: true,
@@ -128,7 +108,7 @@ const getAllPayments = async (req, res) => {
             }
         }
 
-        // ─── Build data query ─────────────────────────────────
+        // Data query
         let dataQuery = supabase
             .from('payments')
             .select(`
@@ -163,7 +143,7 @@ const getAllPayments = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // ─── Count query (same filters) ───────────────────────
+        // Count
         let countQuery = supabase
             .from('payments')
             .select('id', { count: 'exact', head: true });
@@ -182,7 +162,6 @@ const getAllPayments = async (req, res) => {
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        // ─── Format rows ──────────────────────────────────────
         const formatted = data.map(payment => ({
             ...payment,
             order_number: payment.orders?.order_number || null,
@@ -256,14 +235,13 @@ const getPaymentById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE PAYMENT - WITH IMPROVED VALIDATION
+// CREATE PAYMENT (standalone)
 // ============================================================
 
 const createPayment = async (req, res) => {
     try {
         const { order_id, amount, method, reference_number, notes } = req.body;
 
-        // ✅ VALIDATE ORDER ID
         if (!order_id || !isValidUUID(order_id)) {
             return res.status(400).json({
                 success: false,
@@ -271,7 +249,6 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE AMOUNT
         if (!isValidAmount(amount)) {
             return res.status(400).json({
                 success: false,
@@ -279,7 +256,6 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE PAYMENT METHOD
         if (!method || !isValidPaymentMethod(method)) {
             return res.status(400).json({
                 success: false,
@@ -287,7 +263,7 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE REFERENCE NUMBER
+        // Reference number
         let cleanReference = null;
         if (reference_number) {
             if (!isValidLength(reference_number, 3, 50)) {
@@ -305,7 +281,7 @@ const createPayment = async (req, res) => {
             cleanReference = sanitize(reference_number.trim());
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
+        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -323,7 +299,7 @@ const createPayment = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // ✅ Check if order exists
+        // Order must exist
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('id, total_amount, paid_amount')
@@ -337,38 +313,26 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // ✅ Check if payment exceeds remaining balance
-        const remaining = (order.total_amount || 0) - (order.paid_amount || 0);
-        if (parseFloat(amount) > remaining) {
+        const remaining = (parseFloat(order.total_amount) || 0) - (parseFloat(order.paid_amount) || 0);
+        if (parseFloat(amount) > remaining + 0.01) {
             return res.status(400).json({
                 success: false,
                 error: 'Payment amount exceeds remaining balance'
             });
         }
 
-        // ✅ Get valid user ID
+        // Resolve actor
         let validUserId = null;
         let validUserName = 'System';
 
         if (req.user && req.user.id) {
-            const { data: user, error: userError } = await supabase
+            const { data: user } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('id', req.user.id)
                 .single();
 
-            if (userError || !user) {
-                const { data: boss } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('email', 'faustinebiliant@gmail.com')
-                    .single();
-                
-                if (boss) {
-                    validUserId = boss.id;
-                    validUserName = boss.full_name;
-                }
-            } else {
+            if (user) {
                 validUserId = user.id;
                 validUserName = user.full_name;
             }
@@ -391,9 +355,10 @@ const createPayment = async (req, res) => {
 
         if (error) throw error;
 
-        // ✅ Update order paid amount
-        const newPaidAmount = (order.paid_amount || 0) + parseFloat(amount);
-        const paymentStatus = newPaidAmount >= order.total_amount ? 'paid' : 'partial';
+        // Update order paid amount + status
+        const newPaidAmount = (parseFloat(order.paid_amount) || 0) + parseFloat(amount);
+        const orderTotal = parseFloat(order.total_amount) || 0;
+        const paymentStatus = newPaidAmount >= orderTotal ? 'paid' : 'partial';
 
         await supabase
             .from('orders')
@@ -410,10 +375,10 @@ const createPayment = async (req, res) => {
                 user_id: validUserId,
                 user_name: validUserName,
                 action: 'Payment Created',
-                details: { 
-                    payment_id: data.id, 
-                    order_id, 
-                    amount: parseFloat(amount), 
+                details: {
+                    payment_id: data.id,
+                    order_id,
+                    amount: parseFloat(amount),
                     method,
                     payment_status: paymentStatus
                 }

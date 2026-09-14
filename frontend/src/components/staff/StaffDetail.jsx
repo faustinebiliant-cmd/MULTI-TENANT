@@ -4,8 +4,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiUserCheck, FiUserX, FiKey } from 'react-icons/fi';
+import {
+  FiArrowLeft, FiEdit2, FiTrash2, FiUserCheck, FiUserX, FiKey
+} from 'react-icons/fi';
 import api from '../../api/client';
+import { formatDate } from '../../utils/helpers';
 import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
@@ -43,7 +46,7 @@ const StaffDetail = () => {
     setProcessing(true);
     try {
       await api.updateUser(id, { is_active: !staff.is_active });
-      toast.success(`${staff.full_name} ${staff.is_active ? 'deactivated' : 'activated'} successfully!`);
+      toast.success(`${staff.full_name} ${staff.is_active ? 'deactivated' : 'activated'}`);
       fetchStaff();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -54,12 +57,12 @@ const StaffDetail = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${staff?.full_name}"? All business data will be preserved.`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${staff?.full_name}"?`)) return;
 
     setProcessing(true);
     try {
       await api.deleteUser(id);
-      toast.success(`"${staff.full_name}" deleted successfully!`);
+      toast.success('Staff deleted successfully');
       navigate('/staff');
     } catch (error) {
       console.error('Error deleting staff:', error);
@@ -69,7 +72,6 @@ const StaffDetail = () => {
     }
   };
 
-  // ✅ NEW: Handle Reset Password
   const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       toast.error('Password must be at least 6 characters');
@@ -79,7 +81,7 @@ const StaffDetail = () => {
     setProcessing(true);
     try {
       await api.resetUserPassword(id, { new_password: newPassword });
-      toast.success(`Password reset for "${staff.full_name}" successfully!`);
+      toast.success('Password reset successfully');
       setShowResetModal(false);
       setNewPassword('');
     } catch (error) {
@@ -90,31 +92,18 @@ const StaffDetail = () => {
     }
   };
 
-  const getRoleBadge = (role) => {
-    const colors = {
-      boss: '#ef4444',
-      manager: '#3b82f6',
-      cashier: '#f59e0b',
-      store_keeper: '#8b5cf6',
-      sales_rep: '#10b981'
+  const getRoleMeta = (role) => {
+    const map = {
+      boss: { color: '#ef4444', label: 'Boss' },
+      manager: { color: '#3b82f6', label: 'Manager' },
+      cashier: { color: '#f59e0b', label: 'Cashier' },
+      store_keeper: { color: '#8b5cf6', label: 'Store Keeper' },
+      sales_rep: { color: '#10b981', label: 'Sales Rep' }
     };
-    return colors[role] || '#6b7280';
+    return map[role] || { color: '#6b7280', label: role };
   };
 
-  const getRoleLabel = (role) => {
-    const labels = {
-      boss: '👑 Boss',
-      manager: '👔 Manager',
-      cashier: '💰 Cashier',
-      store_keeper: '📦 Store Keeper',
-      sales_rep: '🤝 Sales Rep'
-    };
-    return labels[role] || role;
-  };
-
-  if (loading) {
-    return <Loader message="Loading staff..." />;
-  }
+  if (loading) return <Loader message="Loading staff..." />;
 
   if (!staff) {
     return (
@@ -129,6 +118,7 @@ const StaffDetail = () => {
 
   const isSelf = staff.id === currentUser.id;
   const isBoss = staff.role === 'boss';
+  const roleMeta = getRoleMeta(staff.role);
 
   return (
     <div>
@@ -138,10 +128,9 @@ const StaffDetail = () => {
             <FiArrowLeft size={16} /> Back
           </button>
           <h1>{staff.full_name}</h1>
-          <p>Staff member since {new Date(staff.created_at).toLocaleDateString()}</p>
+          <p>Staff member since {formatDate(staff.created_at)}</p>
           {isSelf && <span className="badge badge-info" style={{ marginLeft: '8px' }}>You</span>}
         </div>
-        {/* ✅ NO BUTTONS IN HEADER */}
       </div>
 
       <div className="grid-2">
@@ -162,11 +151,14 @@ const StaffDetail = () => {
           <div className="detail-row">
             <span className="detail-label">Role</span>
             <span className="detail-value">
-              <span 
+              <span
                 className="badge"
-                style={{ backgroundColor: getRoleBadge(staff.role) + '20', color: getRoleBadge(staff.role) }}
+                style={{
+                  backgroundColor: roleMeta.color + '20',
+                  color: roleMeta.color
+                }}
               >
-                {getRoleLabel(staff.role)}
+                {roleMeta.label}
               </span>
             </span>
           </div>
@@ -178,58 +170,49 @@ const StaffDetail = () => {
             <span className="detail-label">Status</span>
             <span className="detail-value">
               <span className={`badge ${staff.is_active ? 'badge-success' : 'badge-danger'}`}>
-                {staff.is_active ? '🟢 Active' : '🔴 Inactive'}
+                {staff.is_active ? 'Active' : 'Inactive'}
               </span>
             </span>
           </div>
           <div className="detail-row">
             <span className="detail-label">First Login</span>
             <span className="detail-value">
-              {staff.is_first_login ? '✅ Yes (Will be prompted to change password)' : '❌ No'}
+              {staff.is_first_login ? 'Yes — will be prompted to change password' : 'No'}
             </span>
           </div>
           <div className="detail-row">
             <span className="detail-label">Account Created</span>
-            <span className="detail-value">{new Date(staff.created_at).toLocaleDateString()}</span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">Created By</span>
-            <span className="detail-value">
-              {staff.created_by ? 'Admin' : 'System'}
-            </span>
+            <span className="detail-value">{formatDate(staff.created_at)}</span>
           </div>
         </div>
       </div>
 
-      {/* ✅ BUTTONS AT THE BOTTOM */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to={`/staff/${id}/edit`} className="btn btn-primary">
             <FiEdit2 size={18} /> Edit Staff
           </Link>
-          
-          {/* ✅ NEW: Reset Password Button */}
-          <button 
-            onClick={() => setShowResetModal(true)} 
-            className="btn btn-warning"
-            style={{ backgroundColor: '#f59e0b', color: '#fff' }}
+
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="btn btn-secondary"
           >
             <FiKey size={18} /> Reset Password
           </button>
 
           {!isSelf && !isBoss && (
             <>
-              <button 
-                onClick={handleToggleStatus} 
-                className="btn btn-secondary" 
+              <button
+                onClick={handleToggleStatus}
+                className="btn btn-secondary"
                 disabled={processing}
               >
                 {staff.is_active ? <FiUserX size={18} /> : <FiUserCheck size={18} />}
                 {staff.is_active ? ' Deactivate' : ' Activate'}
               </button>
-              <button 
-                onClick={handleDelete} 
-                className="btn btn-danger" 
+              <button
+                onClick={handleDelete}
+                className="btn btn-danger"
                 disabled={processing}
               >
                 <FiTrash2 size={18} /> Delete Staff
@@ -239,13 +222,12 @@ const StaffDetail = () => {
         </div>
       </div>
 
-      {/* ✅ RESET PASSWORD MODAL */}
       {showResetModal && (
         <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>🔑 Reset Password</h2>
+            <h2>Reset Password</h2>
             <p>Set a new password for <strong>{staff.full_name}</strong></p>
-            
+
             <div className="form-group" style={{ marginTop: '16px' }}>
               <label>New Password</label>
               <input
@@ -253,7 +235,7 @@ const StaffDetail = () => {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
-                style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--light-dark)', borderRadius: '8px' }}
+                className="form-control"
               />
               <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>
                 Staff will be prompted to change password on next login
@@ -261,15 +243,15 @@ const StaffDetail = () => {
             </div>
 
             <div className="flex" style={{ gap: '10px', marginTop: '16px' }}>
-              <button 
-                onClick={handleResetPassword} 
+              <button
+                onClick={handleResetPassword}
                 className="btn btn-primary"
                 disabled={processing}
               >
                 {processing ? 'Resetting...' : 'Reset Password'}
               </button>
-              <button 
-                onClick={() => { setShowResetModal(false); setNewPassword(''); }} 
+              <button
+                onClick={() => { setShowResetModal(false); setNewPassword(''); }}
                 className="btn btn-secondary"
               >
                 Cancel

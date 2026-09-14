@@ -1,37 +1,27 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Customers Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Customers Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
-const { 
-    isValidName, 
-    isValidPhone, 
-    isValidEmail, 
+const {
+    isValidName,
+    isValidPhone,
+    isValidEmail,
     isValidUUID,
     isValidLength,
     isSafeText,
-    sanitize 
+    sanitize
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL CUSTOMERS  (paginated + server-side search)
+// GET ALL CUSTOMERS (paginated + search)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches name OR phone OR email
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: { total, page, limit, pages } }
-//   When all=true is passed, pagination is null.
 
 const getAllCustomers = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search } = req.query;
 
-        // ─── Legacy mode: ?all=true ───────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data, error } = await supabase
                 .from('customers')
@@ -47,7 +37,7 @@ const getAllCustomers = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
+        // Validate
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -58,7 +48,7 @@ const getAllCustomers = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        // ─── Build data query ─────────────────────────────────
+        // Data query
         let dataQuery = supabase.from('customers').select('*');
 
         if (search && search.trim()) {
@@ -72,14 +62,12 @@ const getAllCustomers = async (req, res) => {
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
-        dataQuery = dataQuery
-            .order('name')
-            .range(from, to);
+        dataQuery = dataQuery.order('name').range(from, to);
 
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // ─── Count query (same filters) ───────────────────────
+        // Count
         let countQuery = supabase
             .from('customers')
             .select('id', { count: 'exact', head: true });
@@ -160,14 +148,13 @@ const getCustomerById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE CUSTOMER - WITH IMPROVED VALIDATION
+// CREATE CUSTOMER
 // ============================================================
 
 const createCustomer = async (req, res) => {
     try {
         const { name, phone, email, address, notes } = req.body;
 
-        // ✅ VALIDATE NAME
         if (!isValidName(name)) {
             return res.status(400).json({
                 success: false,
@@ -175,7 +162,6 @@ const createCustomer = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE PHONE
         if (!isValidPhone(phone)) {
             return res.status(400).json({
                 success: false,
@@ -183,7 +169,6 @@ const createCustomer = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE EMAIL (if provided)
         if (email && !isValidEmail(email)) {
             return res.status(400).json({
                 success: false,
@@ -191,7 +176,7 @@ const createCustomer = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE ADDRESS
+        // Address
         let cleanAddress = '';
         if (address) {
             if (!isValidLength(address, 0, 500)) {
@@ -209,7 +194,7 @@ const createCustomer = async (req, res) => {
             cleanAddress = sanitize(address);
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
+        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -227,7 +212,6 @@ const createCustomer = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // ✅ SANITIZE INPUTS
         const cleanName = sanitize(name.trim());
         const cleanPhone = sanitize(phone.trim());
         const cleanEmail = email ? sanitize(email.trim()) : '';
@@ -279,7 +263,7 @@ const createCustomer = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE CUSTOMER - WITH IMPROVED VALIDATION
+// UPDATE CUSTOMER
 // ============================================================
 
 const updateCustomer = async (req, res) => {
@@ -294,7 +278,6 @@ const updateCustomer = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE & SANITIZE NAME
         if (updates.name) {
             if (!isValidName(updates.name)) {
                 return res.status(400).json({
@@ -305,7 +288,6 @@ const updateCustomer = async (req, res) => {
             updates.name = sanitize(updates.name);
         }
 
-        // ✅ VALIDATE & SANITIZE PHONE
         if (updates.phone) {
             if (!isValidPhone(updates.phone)) {
                 return res.status(400).json({
@@ -316,7 +298,6 @@ const updateCustomer = async (req, res) => {
             updates.phone = sanitize(updates.phone);
         }
 
-        // ✅ VALIDATE EMAIL
         if (updates.email) {
             if (!isValidEmail(updates.email)) {
                 return res.status(400).json({
@@ -327,7 +308,6 @@ const updateCustomer = async (req, res) => {
             updates.email = sanitize(updates.email);
         }
 
-        // ✅ IMPROVED: VALIDATE ADDRESS
         if (updates.address) {
             if (!isValidLength(updates.address, 0, 500)) {
                 return res.status(400).json({
@@ -344,7 +324,6 @@ const updateCustomer = async (req, res) => {
             updates.address = sanitize(updates.address);
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
         if (updates.notes) {
             if (!isValidLength(updates.notes, 0, 500)) {
                 return res.status(400).json({

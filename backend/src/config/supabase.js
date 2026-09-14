@@ -10,14 +10,12 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Validate credentials exist
 if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('❌ ERROR: Missing Supabase credentials!');
-    console.error('Please check your .env file has:');
-    console.error('  SUPABASE_URL=your_url');
-    console.error('  SUPABASE_SERVICE_ROLE_KEY=your_key');
+    console.error('ERROR: Missing Supabase credentials.');
+    console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
     process.exit(1);
 }
 
-// Service role key bypasses RLS — used only on the backend.
+// Service role key bypasses RLS — backend only
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
         persistSession: false,
@@ -26,6 +24,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     }
 });
 
-console.log('✅ Supabase connected successfully');
+console.log('Supabase connected');
 
 module.exports = supabase;

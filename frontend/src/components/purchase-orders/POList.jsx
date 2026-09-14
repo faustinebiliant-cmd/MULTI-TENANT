@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Purchase Order List (Paginated)
+// OSWAGO ELECTRICAL EQUIPMENT - Purchase Order List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,25 +10,16 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
-
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
 
 const POList = () => {
   const [pos, setPos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
 
-  // Filters
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [filter, setFilter] = useState('all');
@@ -36,12 +27,10 @@ const POList = () => {
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ─── Fetch page ──────────────────────────────────────────
   const fetchPOs = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const params = { page, limit: PAGE_SIZE };
-
       if (debouncedSearch) params.search = debouncedSearch;
       if (filter !== 'all') params.status = filter;
       if (startDate) params.startDate = startDate;
@@ -150,8 +139,12 @@ const POList = () => {
 
         {showFilters && (
           <div className="flex" style={{
-            gap: '12px', flexWrap: 'wrap', alignItems: 'center',
-            marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0'
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid #e2e8f0'
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
@@ -201,12 +194,11 @@ const POList = () => {
             {pos.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No purchase orders found</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
                       ? 'Try adjusting or clearing your filters.'
-                      : 'Create your first PO!'}
+                      : 'Create your first PO.'}
                   </p>
                 </td>
               </tr>
@@ -234,7 +226,6 @@ const POList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -242,8 +233,7 @@ const POList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -253,24 +243,8 @@ const POList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
-        </div>
-      )}
-
-      {/* Footer summary */}
-      {pos.length > 0 && (
-        <div className="card" style={{
-          marginTop: '16px', padding: '12px 20px',
-          backgroundColor: '#f8fafc', border: '1px solid #e2e8f0'
-        }}>
-          <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
-            <div>
-              Showing <strong>{pos.length}</strong> of <strong>{pagination.total}</strong> purchase orders
-              {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
-            </div>
-          </div>
         </div>
       )}
     </div>

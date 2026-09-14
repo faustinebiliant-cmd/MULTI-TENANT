@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Purchase Orders Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Purchase Orders Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -14,26 +14,14 @@ const {
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL PURCHASE ORDERS  (paginated + server-side filters)
+// GET ALL PURCHASE ORDERS (paginated + filters)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches po_number OR suppliers.name
-//   status=pending            filters by exact status
-//   startDate=YYYY-MM-DD
-//   endDate=YYYY-MM-DD
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: { total, page, limit, pages } }
 
 const getAllPurchaseOrders = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search, status, startDate, endDate } = req.query;
 
-        // ─── Legacy mode ──────────────────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data: pos, error } = await supabase
                 .from('purchase_orders')
@@ -46,12 +34,12 @@ const getAllPurchaseOrders = async (req, res) => {
             let supplierMap = {};
 
             if (supplierIds.length > 0) {
-                const { data: suppliers, error: supplierError } = await supabase
+                const { data: suppliers } = await supabase
                     .from('suppliers')
                     .select('id, name')
                     .in('id', supplierIds);
 
-                if (!supplierError && suppliers) {
+                if (suppliers) {
                     supplierMap = suppliers.reduce((acc, s) => {
                         acc[s.id] = s.name;
                         return acc;
@@ -72,7 +60,7 @@ const getAllPurchaseOrders = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
+        // Validate params
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -91,18 +79,14 @@ const getAllPurchaseOrders = async (req, res) => {
             });
         }
 
-        // ─── SEARCH: pre-resolve matching supplier IDs ────────
-        // PO search matches po_number OR supplier name.
-        // Supplier name lives on a different table, so we do
-        // two queries and merge results.
-        let matchingSupplierIdsFromSearch = null;
+        // Resolve IDs from search (po_number OR supplier name)
         let matchingPoIdsByNumber = null;
+        let matchingSupplierIdsFromSearch = null;
 
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
 
             if (term) {
-                // A) Match po_number directly
                 const { data: byNumber, error: errA } = await supabase
                     .from('purchase_orders')
                     .select('id')
@@ -111,7 +95,6 @@ const getAllPurchaseOrders = async (req, res) => {
                 if (errA) throw errA;
                 matchingPoIdsByNumber = (byNumber || []).map(r => r.id);
 
-                // B) Match supplier name → get supplier IDs
                 const { data: suppliers, error: errB } = await supabase
                     .from('suppliers')
                     .select('id')
@@ -120,7 +103,6 @@ const getAllPurchaseOrders = async (req, res) => {
                 if (errB) throw errB;
                 matchingSupplierIdsFromSearch = (suppliers || []).map(s => s.id);
 
-                // If neither matched, short-circuit
                 if (matchingPoIdsByNumber.length === 0 && matchingSupplierIdsFromSearch.length === 0) {
                     return res.status(200).json({
                         success: true,
@@ -131,7 +113,7 @@ const getAllPurchaseOrders = async (req, res) => {
             }
         }
 
-        // ─── Build data query ─────────────────────────────────
+        // Data query
         let dataQuery = supabase.from('purchase_orders').select('*');
 
         if (status) dataQuery = dataQuery.eq('status', status);
@@ -142,11 +124,11 @@ const getAllPurchaseOrders = async (req, res) => {
             dataQuery = dataQuery.lte('created_at', end.toISOString());
         }
 
-        // Apply search filter — match by po_number OR supplier_id
+        // Search filter
         if (matchingPoIdsByNumber !== null || matchingSupplierIdsFromSearch !== null) {
             const ids = new Set();
             (matchingPoIdsByNumber || []).forEach(id => ids.add(id));
-            // For supplier matches, we need to find all POs with those supplier_ids
+
             if (matchingSupplierIdsFromSearch && matchingSupplierIdsFromSearch.length > 0) {
                 const { data: posBySupplier, error: supErr } = await supabase
                     .from('purchase_orders')
@@ -176,7 +158,7 @@ const getAllPurchaseOrders = async (req, res) => {
         const { data: pos, error } = await dataQuery;
         if (error) throw error;
 
-        // ─── Count query (same filters) ───────────────────────
+        // Count
         let countQuery = supabase
             .from('purchase_orders')
             .select('id', { count: 'exact', head: true });
@@ -205,17 +187,17 @@ const getAllPurchaseOrders = async (req, res) => {
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        // ─── Enrich with supplier names ───────────────────────
+        // Enrich with supplier names
         const supplierIds = [...new Set(pos.map(po => po.supplier_id).filter(id => id))];
         let supplierMap = {};
 
         if (supplierIds.length > 0) {
-            const { data: suppliers, error: supplierError } = await supabase
+            const { data: suppliers } = await supabase
                 .from('suppliers')
                 .select('id, name')
                 .in('id', supplierIds);
 
-            if (!supplierError && suppliers) {
+            if (suppliers) {
                 supplierMap = suppliers.reduce((acc, s) => {
                     acc[s.id] = s.name;
                     return acc;
@@ -278,38 +260,32 @@ const getPurchaseOrderById = async (req, res) => {
             throw error;
         }
 
+        // Supplier name
         let supplierName = null;
         if (po.supplier_id) {
-            const { data: supplier, error: supplierError } = await supabase
+            const { data: supplier } = await supabase
                 .from('suppliers')
                 .select('name')
                 .eq('id', po.supplier_id)
                 .single();
 
-            if (!supplierError && supplier) {
-                supplierName = supplier.name;
-            }
+            if (supplier) supplierName = supplier.name;
         }
 
-        const { data: items, error: itemsError } = await supabase
+        // Items
+        const { data: items } = await supabase
             .from('purchase_order_items')
             .select('*')
             .eq('purchase_order_id', id);
 
-        if (itemsError) {
-            console.error('Get PO items error:', itemsError);
-        }
-
-        const formatted = {
-            ...po,
-            supplier_name: supplierName,
-            created_by_name: po.created_by_name || 'System',
-            purchase_order_items: items || []
-        };
-
         return res.status(200).json({
             success: true,
-            data: formatted
+            data: {
+                ...po,
+                supplier_name: supplierName,
+                created_by_name: po.created_by_name || 'System',
+                purchase_order_items: items || []
+            }
         });
 
     } catch (error) {
@@ -322,14 +298,13 @@ const getPurchaseOrderById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE PURCHASE ORDER - WITH IMPROVED VALIDATION
+// CREATE PURCHASE ORDER
 // ============================================================
 
 const createPurchaseOrder = async (req, res) => {
     try {
         const { supplier_id, items, notes } = req.body;
 
-        // ✅ VALIDATE SUPPLIER ID
         if (!supplier_id || !isValidUUID(supplier_id)) {
             return res.status(400).json({
                 success: false,
@@ -337,7 +312,6 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE ITEMS
         if (!items || items.length === 0) {
             return res.status(400).json({
                 success: false,
@@ -345,7 +319,6 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ NEW: Limit number of items (prevent DoS)
         if (!isValidArrayLength(items, 100)) {
             return res.status(400).json({
                 success: false,
@@ -353,7 +326,6 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE EACH ITEM
         for (const item of items) {
             if (!item.product_id || !isValidUUID(item.product_id)) {
                 return res.status(400).json({
@@ -375,7 +347,7 @@ const createPurchaseOrder = async (req, res) => {
             }
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
+        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -393,7 +365,7 @@ const createPurchaseOrder = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // ✅ Check if supplier exists
+        // Supplier must exist
         const { data: supplier, error: supplierError } = await supabase
             .from('suppliers')
             .select('id')
@@ -407,35 +379,24 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ Get valid user
+        // Resolve creator
         let validUserId = null;
         let validUserName = 'System';
 
         if (req.user && req.user.id) {
-            const { data: user, error: userError } = await supabase
+            const { data: user } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('id', req.user.id)
                 .single();
 
-            if (userError || !user) {
-                const { data: boss } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('email', 'faustinebiliant@gmail.com')
-                    .single();
-                
-                if (boss) {
-                    validUserId = boss.id;
-                    validUserName = boss.full_name;
-                }
-            } else {
+            if (user) {
                 validUserId = user.id;
                 validUserName = user.full_name;
             }
         }
 
-        // ✅ Calculate total
+        // Build items + total
         let total = 0;
         const poItems = items.map(item => {
             const subtotal = item.cost_price * item.quantity;
@@ -445,7 +406,7 @@ const createPurchaseOrder = async (req, res) => {
                 product_name: item.name || 'Product',
                 quantity: item.quantity,
                 cost_price: item.cost_price,
-                subtotal: subtotal
+                subtotal
             };
         });
 
@@ -455,7 +416,7 @@ const createPurchaseOrder = async (req, res) => {
             .from('purchase_orders')
             .insert({
                 po_number: poNumber,
-                supplier_id: supplier_id,
+                supplier_id,
                 total_amount: total,
                 status: 'pending',
                 notes: cleanNotes,
@@ -517,7 +478,7 @@ const createPurchaseOrder = async (req, res) => {
 };
 
 // ============================================================
-// RECEIVE PURCHASE ORDER - WITH IMPROVED VALIDATION
+// RECEIVE PURCHASE ORDER
 // ============================================================
 
 const receivePurchaseOrder = async (req, res) => {
@@ -547,6 +508,7 @@ const receivePurchaseOrder = async (req, res) => {
             });
         }
 
+        // Guard: cannot receive if already received
         if (po.status === 'received') {
             return res.status(400).json({
                 success: false,
@@ -554,50 +516,43 @@ const receivePurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ Get valid user ID
+        // Guard: cannot receive if cancelled
+        if (po.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot receive a cancelled purchase order'
+            });
+        }
+
+        // Resolve actor
         let validUserId = null;
         let validUserName = 'System';
 
         if (req.user && req.user.id) {
-            const { data: user, error: userError } = await supabase
+            const { data: user } = await supabase
                 .from('users')
                 .select('id, full_name')
                 .eq('id', req.user.id)
                 .single();
 
-            if (userError || !user) {
-                const { data: boss } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('email', 'faustinebiliant@gmail.com')
-                    .single();
-                
-                if (boss) {
-                    validUserId = boss.id;
-                    validUserName = boss.full_name;
-                }
-            } else {
+            if (user) {
                 validUserId = user.id;
                 validUserName = user.full_name;
             }
         }
 
-        // ✅ Update stock and record movements
+        // Update stock + record movements
         for (const item of po.purchase_order_items) {
-            const { data: product, error: productError } = await supabase
+            const { data: product } = await supabase
                 .from('products')
                 .select('id, stock_quantity, name')
                 .eq('id', item.product_id)
                 .single();
 
-            if (productError || !product) {
-                console.log('⚠️ Product not found:', item.product_id);
-                continue;
-            }
+            if (!product) continue;
 
             const newStock = (product.stock_quantity || 0) + item.quantity;
-            
-            // ✅ Update product stock
+
             await supabase
                 .from('products')
                 .update({
@@ -606,9 +561,6 @@ const receivePurchaseOrder = async (req, res) => {
                 })
                 .eq('id', item.product_id);
 
-            console.log(`📈 Stock updated: ${product.name} (${product.stock_quantity} → ${newStock})`);
-
-            // ✅ RECORD STOCK MOVEMENT (PURCHASE)
             await supabase
                 .from('stock_movements')
                 .insert({
@@ -626,7 +578,8 @@ const receivePurchaseOrder = async (req, res) => {
             .from('purchase_orders')
             .update({
                 status: 'received',
-                delivery_date: new Date().toISOString().split('T')[0]
+                delivery_date: new Date().toISOString().split('T')[0],
+                updated_at: new Date()
             })
             .eq('id', id)
             .select()
@@ -660,16 +613,13 @@ const receivePurchaseOrder = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE PURCHASE ORDER - WITH IMPROVED VALIDATION
+// UPDATE PURCHASE ORDER
 // ============================================================
 
 const updatePurchaseOrder = async (req, res) => {
     try {
         const { id } = req.params;
         const { supplier_id, items, notes } = req.body;
-
-        console.log('📝 Updating PO:', id);
-        console.log('📦 Items:', items);
 
         if (!isValidUUID(id)) {
             return res.status(400).json({
@@ -678,7 +628,6 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Check if PO exists
         const { data: existing, error: checkError } = await supabase
             .from('purchase_orders')
             .select('id, status')
@@ -692,7 +641,6 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ Prevent editing received orders
         if (existing.status === 'received') {
             return res.status(400).json({
                 success: false,
@@ -700,10 +648,9 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        // 1. Update PO header
+        // Update header
         const updateData = {};
 
-        // ✅ VALIDATE SUPPLIER ID
         if (supplier_id !== undefined) {
             if (!isValidUUID(supplier_id)) {
                 return res.status(400).json({
@@ -714,7 +661,6 @@ const updatePurchaseOrder = async (req, res) => {
             updateData.supplier_id = supplier_id;
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
         if (notes !== undefined) {
             if (notes) {
                 if (!isValidLength(notes, 0, 500)) {
@@ -735,6 +681,8 @@ const updatePurchaseOrder = async (req, res) => {
             }
         }
 
+        updateData.updated_at = new Date();
+
         const { data: updatedPO, error: poError } = await supabase
             .from('purchase_orders')
             .update(updateData)
@@ -743,16 +691,14 @@ const updatePurchaseOrder = async (req, res) => {
             .single();
 
         if (poError) {
-            console.error('❌ Update PO error:', poError);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to update purchase order: ' + poError.message
             });
         }
 
-        // 2. If items are provided, update them
+        // Update items if provided
         if (items && items.length > 0) {
-            // ✅ Validate items
             if (!isValidArrayLength(items, 100)) {
                 return res.status(400).json({
                     success: false,
@@ -781,17 +727,12 @@ const updatePurchaseOrder = async (req, res) => {
                 }
             }
 
-            // Delete existing items
-            const { error: deleteError } = await supabase
+            // Delete then insert
+            await supabase
                 .from('purchase_order_items')
                 .delete()
                 .eq('purchase_order_id', id);
 
-            if (deleteError) {
-                console.error('❌ Delete items error:', deleteError);
-            }
-
-            // Insert new items
             const newItems = items.map(item => ({
                 purchase_order_id: id,
                 product_id: item.product_id,
@@ -806,7 +747,6 @@ const updatePurchaseOrder = async (req, res) => {
                 .insert(newItems);
 
             if (insertError) {
-                console.error('❌ Insert items error:', insertError);
                 return res.status(500).json({
                     success: false,
                     error: 'Failed to update PO items: ' + insertError.message
@@ -821,8 +761,8 @@ const updatePurchaseOrder = async (req, res) => {
                 .eq('id', id);
         }
 
-        // 3. Get updated PO with items
-        const { data: finalPO, error: finalError } = await supabase
+        // Fetch final
+        const { data: finalPO } = await supabase
             .from('purchase_orders')
             .select(`
                 *,
@@ -831,12 +771,6 @@ const updatePurchaseOrder = async (req, res) => {
             .eq('id', id)
             .single();
 
-        if (finalError) {
-            console.error('❌ Get updated PO error:', finalError);
-        }
-
-        console.log('✅ PO updated successfully');
-
         return res.status(200).json({
             success: true,
             message: 'Purchase order updated successfully',
@@ -844,7 +778,7 @@ const updatePurchaseOrder = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Update PO error:', error);
+        console.error('Update PO error:', error);
         return res.status(500).json({
             success: false,
             error: 'Failed to update purchase order: ' + error.message
@@ -867,7 +801,6 @@ const deletePurchaseOrder = async (req, res) => {
             });
         }
 
-        // ✅ Check if PO is received before allowing delete
         const { data: po, error: checkError } = await supabase
             .from('purchase_orders')
             .select('status')

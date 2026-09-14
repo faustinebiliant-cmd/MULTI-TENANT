@@ -25,7 +25,6 @@ const PODetail = () => {
     try {
       setLoading(true);
       const data = await api.getPurchaseOrder(id);
-      console.log('📦 PO fetched:', data);
       setPo(data);
     } catch (error) {
       console.error('Error fetching PO:', error);
@@ -42,7 +41,7 @@ const PODetail = () => {
     setProcessing(true);
     try {
       await api.receivePurchaseOrder(id);
-      toast.success('Purchase order received! Stock updated.');
+      toast.success('Purchase order received. Stock updated.');
       fetchPO();
     } catch (error) {
       console.error('Error receiving PO:', error);
@@ -58,7 +57,7 @@ const PODetail = () => {
     setProcessing(true);
     try {
       await api.deletePurchaseOrder(id);
-      toast.success('Purchase order deleted successfully!');
+      toast.success('Purchase order deleted successfully');
       navigate('/purchase-orders');
     } catch (error) {
       console.error('Error deleting PO:', error);
@@ -68,9 +67,7 @@ const PODetail = () => {
     }
   };
 
-  if (loading) {
-    return <Loader message="Loading purchase order..." />;
-  }
+  if (loading) return <Loader message="Loading purchase order..." />;
 
   if (!po) {
     return (
@@ -85,6 +82,7 @@ const PODetail = () => {
 
   const isPending = po.status === 'pending';
   const isReceived = po.status === 'received';
+  const isCancelled = po.status === 'cancelled';
 
   return (
     <div>
@@ -96,7 +94,6 @@ const PODetail = () => {
           <h1>Purchase Order #{po.po_number}</h1>
           <p>Created on {formatDate(po.created_at)}</p>
         </div>
-        {/* ✅ NO BUTTONS IN HEADER */}
       </div>
 
       <div className="grid-2">
@@ -185,7 +182,6 @@ const PODetail = () => {
         </div>
       </div>
 
-      {/* ✅ BUTTONS AT THE BOTTOM */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {isPending && (
@@ -193,12 +189,16 @@ const PODetail = () => {
               <FiCheckCircle size={18} /> {processing ? 'Processing...' : 'Receive Stock'}
             </button>
           )}
-          <Link to={`/purchase-orders/${id}/edit`} className="btn btn-primary">
-            <FiEdit2 size={18} /> Edit
-          </Link>
-          <button onClick={handleDelete} className="btn btn-danger" disabled={processing}>
-            <FiTrash2 size={18} /> Delete
-          </button>
+          {!isCancelled && (
+            <Link to={`/purchase-orders/${id}/edit`} className="btn btn-primary">
+              <FiEdit2 size={18} /> Edit
+            </Link>
+          )}
+          {!isReceived && (
+            <button onClick={handleDelete} className="btn btn-danger" disabled={processing}>
+              <FiTrash2 size={18} /> Delete
+            </button>
+          )}
         </div>
       </div>
     </div>

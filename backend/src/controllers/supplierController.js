@@ -1,35 +1,26 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Suppliers Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Suppliers Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
-const { 
-    isValidName, 
-    isValidPhone, 
+const {
+    isValidName,
+    isValidPhone,
     isValidEmail,
     isValidLength,
     isSafeText,
-    sanitize 
+    sanitize
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL SUPPLIERS  (paginated + server-side search)
+// GET ALL SUPPLIERS (paginated + search)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches name OR contact_person OR phone OR email
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: { total, page, limit, pages } }
 
 const getAllSuppliers = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search } = req.query;
 
-        // ─── Legacy mode ──────────────────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data, error } = await supabase
                 .from('suppliers')
@@ -45,7 +36,6 @@ const getAllSuppliers = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -60,7 +50,7 @@ const getAllSuppliers = async (req, res) => {
             ? search.trim().replace(/[%_,()'"]/g, '')
             : null;
 
-        // ─── Build data query ─────────────────────────────────
+        // Data query
         let dataQuery = supabase.from('suppliers').select('*');
 
         if (cleanSearch) {
@@ -76,7 +66,7 @@ const getAllSuppliers = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // ─── Count query (same filters) ───────────────────────
+        // Count
         let countQuery = supabase
             .from('suppliers')
             .select('id', { count: 'exact', head: true });
@@ -147,7 +137,7 @@ const getSupplierById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE SUPPLIER - WITH IMPROVED VALIDATION
+// CREATE SUPPLIER
 // ============================================================
 
 const createSupplier = async (req, res) => {
@@ -161,7 +151,6 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE NAME
         if (!isValidName(name)) {
             return res.status(400).json({
                 success: false,
@@ -169,7 +158,7 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE CONTACT PERSON (if provided)
+        // Contact person (optional)
         let cleanContactPerson = '';
         if (contact_person) {
             if (!isValidName(contact_person)) {
@@ -181,7 +170,6 @@ const createSupplier = async (req, res) => {
             cleanContactPerson = sanitize(contact_person.trim());
         }
 
-        // ✅ VALIDATE PHONE
         if (!isValidPhone(phone)) {
             return res.status(400).json({
                 success: false,
@@ -189,7 +177,6 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE EMAIL (if provided)
         if (email && !isValidEmail(email)) {
             return res.status(400).json({
                 success: false,
@@ -197,7 +184,7 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE ADDRESS
+        // Address
         let cleanAddress = '';
         if (address) {
             if (!isValidLength(address, 0, 500)) {
@@ -215,7 +202,7 @@ const createSupplier = async (req, res) => {
             cleanAddress = sanitize(address);
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
+        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -233,7 +220,6 @@ const createSupplier = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // ✅ SANITIZE INPUTS
         const cleanName = sanitize(name.trim());
         const cleanPhone = sanitize(phone.trim());
         const cleanEmail = email ? sanitize(email.trim()) : '';
@@ -278,7 +264,7 @@ const createSupplier = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE SUPPLIER - WITH IMPROVED VALIDATION
+// UPDATE SUPPLIER
 // ============================================================
 
 const updateSupplier = async (req, res) => {
@@ -301,7 +287,6 @@ const updateSupplier = async (req, res) => {
 
         const updateData = {};
 
-        // ✅ VALIDATE AND SANITIZE NAME
         if (name !== undefined) {
             if (!isValidName(name)) {
                 return res.status(400).json({
@@ -312,7 +297,6 @@ const updateSupplier = async (req, res) => {
             updateData.name = sanitize(name);
         }
 
-        // ✅ VALIDATE AND SANITIZE CONTACT PERSON
         if (contact_person !== undefined) {
             if (contact_person && !isValidName(contact_person)) {
                 return res.status(400).json({
@@ -323,7 +307,6 @@ const updateSupplier = async (req, res) => {
             updateData.contact_person = contact_person ? sanitize(contact_person) : '';
         }
 
-        // ✅ VALIDATE PHONE
         if (phone !== undefined) {
             if (!isValidPhone(phone)) {
                 return res.status(400).json({
@@ -334,7 +317,6 @@ const updateSupplier = async (req, res) => {
             updateData.phone = sanitize(phone);
         }
 
-        // ✅ VALIDATE EMAIL
         if (email !== undefined) {
             if (email && !isValidEmail(email)) {
                 return res.status(400).json({
@@ -345,7 +327,6 @@ const updateSupplier = async (req, res) => {
             updateData.email = email ? sanitize(email) : '';
         }
 
-        // ✅ IMPROVED: VALIDATE ADDRESS
         if (address !== undefined) {
             if (address) {
                 if (!isValidLength(address, 0, 500)) {
@@ -366,7 +347,6 @@ const updateSupplier = async (req, res) => {
             }
         }
 
-        // ✅ IMPROVED: VALIDATE NOTES
         if (notes !== undefined) {
             if (notes) {
                 if (!isValidLength(notes, 0, 500)) {
@@ -387,6 +367,8 @@ const updateSupplier = async (req, res) => {
             }
         }
 
+        updateData.updated_at = new Date();
+
         const { data, error } = await supabase
             .from('suppliers')
             .update(updateData)
@@ -395,7 +377,7 @@ const updateSupplier = async (req, res) => {
             .single();
 
         if (error) {
-            console.error('❌ Update supplier error:', error);
+            console.error('Update supplier error:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Failed to update supplier: ' + error.message
@@ -409,7 +391,7 @@ const updateSupplier = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Update supplier error:', error);
+        console.error('Update supplier error:', error);
         return res.status(500).json({
             success: false,
             error: 'Failed to update supplier: ' + error.message

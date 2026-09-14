@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Categories Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Categories Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -11,12 +11,11 @@ const {
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL CATEGORIES WITH PRODUCT COUNT
+// GET ALL CATEGORIES (with product count)
 // ============================================================
 
 const getAllCategories = async (req, res) => {
     try {
-        // Get all categories
         const { data: categories, error } = await supabase
             .from('categories')
             .select('*')
@@ -24,7 +23,6 @@ const getAllCategories = async (req, res) => {
 
         if (error) throw error;
 
-        // ✅ Get product count for each category
         const categoriesWithCount = await Promise.all(categories.map(async (category) => {
             const { count, error: countError } = await supabase
                 .from('products')
@@ -55,14 +53,13 @@ const getAllCategories = async (req, res) => {
 };
 
 // ============================================================
-// CREATE CATEGORY - WITH IMPROVED VALIDATION
+// CREATE CATEGORY
 // ============================================================
 
 const createCategory = async (req, res) => {
     try {
         const { name, description } = req.body;
 
-        // ✅ VALIDATE NAME
         if (!name || !isValidName(name)) {
             return res.status(400).json({
                 success: false,
@@ -70,7 +67,7 @@ const createCategory = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION
+        // Description
         let cleanDescription = '';
         if (description) {
             if (!isValidLength(description, 0, 500)) {
@@ -88,14 +85,13 @@ const createCategory = async (req, res) => {
             cleanDescription = sanitize(description);
         }
 
-        // ✅ SANITIZE NAME
         const cleanName = sanitize(name.trim());
 
         const { data, error } = await supabase
             .from('categories')
-            .insert({ 
-                name: cleanName, 
-                description: cleanDescription 
+            .insert({
+                name: cleanName,
+                description: cleanDescription
             })
             .select()
             .single();
@@ -126,7 +122,7 @@ const createCategory = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE CATEGORY - WITH IMPROVED VALIDATION
+// UPDATE CATEGORY
 // ============================================================
 
 const updateCategory = async (req, res) => {
@@ -134,7 +130,6 @@ const updateCategory = async (req, res) => {
         const { id } = req.params;
         const { name, description } = req.body;
 
-        // ✅ Check if category exists
         const { data: existing, error: checkError } = await supabase
             .from('categories')
             .select('id')
@@ -150,7 +145,6 @@ const updateCategory = async (req, res) => {
 
         const updateData = {};
 
-        // ✅ VALIDATE AND SANITIZE NAME
         if (name !== undefined) {
             if (!isValidName(name)) {
                 return res.status(400).json({
@@ -161,7 +155,6 @@ const updateCategory = async (req, res) => {
             updateData.name = sanitize(name.trim());
         }
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION
         if (description !== undefined) {
             if (description && !isValidLength(description, 0, 500)) {
                 return res.status(400).json({

@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Layout Component
+// OSWAGO ELECTRICAL EQUIPMENT - Layout
 // ============================================================
 
 import React from 'react';

@@ -22,35 +22,32 @@ const StaffForm = () => {
   });
 
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchStaff = async () => {
-        try {
-          setLoading(true);
-          const data = await api.getUser(id);
-          setFormData({
-            full_name: data.full_name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            role: data.role || 'cashier',
-            password: ''
-          });
-        } catch (error) {
-          console.error('Error fetching staff:', error);
-          toast.error('Failed to load staff');
-          navigate('/staff');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchStaff();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchStaff = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getUser(id);
+        setFormData({
+          full_name: data.full_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          role: data.role || 'cashier',
+          password: ''
+        });
+      } catch (error) {
+        console.error('Error fetching staff:', error);
+        toast.error('Failed to load staff');
+        navigate('/staff');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStaff();
   }, [isEdit, id, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
@@ -71,10 +68,10 @@ const StaffForm = () => {
 
       if (isEdit) {
         await api.updateUser(id, staffData);
-        toast.success('Staff updated successfully!');
+        toast.success('Staff updated successfully');
       } else {
         await api.createUser(staffData);
-        toast.success('Staff added successfully! Email sent with login details.');
+        toast.success('Staff added successfully');
       }
 
       navigate('/staff');
@@ -132,7 +129,12 @@ const StaffForm = () => {
               onChange={handleChange}
               placeholder="staff@shop.com"
               required
+              disabled={isEdit}
+              style={isEdit ? { backgroundColor: '#f3f4f6' } : {}}
             />
+            {isEdit && (
+              <small style={{ color: '#6b7280' }}>Email cannot be changed</small>
+            )}
           </div>
 
           <div className="form-group">
@@ -183,7 +185,11 @@ const StaffForm = () => {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (isEdit ? 'Update Staff' : 'Add Staff')}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/staff')}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/staff')}
+            >
               Cancel
             </button>
           </div>

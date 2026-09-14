@@ -12,7 +12,7 @@ const SupplierForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     contact_person: '',
@@ -22,44 +22,39 @@ const SupplierForm = () => {
     notes: ''
   });
 
-  // Load supplier data if editing
   useEffect(() => {
-    if (isEdit && id) {
-      const fetchSupplier = async () => {
-        try {
-          setLoading(true);
-          const data = await api.getSupplier(id);
-          setFormData({
-            name: data.name || '',
-            contact_person: data.contact_person || '',
-            phone: data.phone || '',
-            email: data.email || '',
-            address: data.address || '',
-            notes: data.notes || ''
-          });
-        } catch (error) {
-          console.error('Error fetching supplier:', error);
-          toast.error('Failed to load supplier');
-          navigate('/suppliers');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchSupplier();
-    }
+    if (!isEdit || !id) return;
+
+    const fetchSupplier = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getSupplier(id);
+        setFormData({
+          name: data.name || '',
+          contact_person: data.contact_person || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          address: data.address || '',
+          notes: data.notes || ''
+        });
+      } catch (error) {
+        console.error('Error fetching supplier:', error);
+        toast.error('Failed to load supplier');
+        navigate('/suppliers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSupplier();
   }, [isEdit, id, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate
+
     if (!formData.name.trim()) {
       toast.error('Supplier name is required');
       return;
@@ -83,10 +78,10 @@ const SupplierForm = () => {
 
       if (isEdit) {
         await api.updateSupplier(id, supplierData);
-        toast.success('Supplier updated successfully!');
+        toast.success('Supplier updated successfully');
       } else {
         await api.createSupplier(supplierData);
-        toast.success('Supplier added successfully!');
+        toast.success('Supplier added successfully');
       }
       navigate('/suppliers');
     } catch (error) {
@@ -187,7 +182,11 @@ const SupplierForm = () => {
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : (isEdit ? 'Update Supplier' : 'Add Supplier')}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/suppliers')}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigate('/suppliers')}
+            >
               Cancel
             </button>
           </div>

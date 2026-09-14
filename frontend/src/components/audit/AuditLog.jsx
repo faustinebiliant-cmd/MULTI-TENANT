@@ -23,14 +23,15 @@ import {
   FiUser,
   FiFileText,
   FiInbox,
+  FiSliders
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatDate } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
-// Central definition of how each action is presented. Keeping icon,
-// color and label together avoids the two falling out of sync.
+// Map each action to icon + tone
 const ACTION_META = {
   'Login': { icon: FiLogIn, tone: 'success' },
   'Logout': { icon: FiLogOut, tone: 'neutral' },
@@ -49,23 +50,11 @@ const ACTION_META = {
   'Expense Created': { icon: FiFileText, tone: 'neutral' },
   'Supplier Created': { icon: FiUser, tone: 'neutral' },
   'Purchase Order Created': { icon: FiClipboard, tone: 'primary' },
-  'Purchase Order Received': { icon: FiCheckCircle, tone: 'success' },
+  'Purchase Order Received': { icon: FiCheckCircle, tone: 'success' }
 };
 
 const DEFAULT_META = { icon: FiFileText, tone: 'neutral' };
-
 const getActionMeta = (action) => ACTION_META[action] || DEFAULT_META;
-
-// Small hook so the search box doesn't re-trigger a filter on every
-// keystroke.
-const useDebouncedValue = (value, delay = 300) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-};
 
 const AuditLog = () => {
   const [logs, setLogs] = useState([]);
@@ -104,19 +93,19 @@ const AuditLog = () => {
         endDate,
         search: debouncedSearch,
         page: pagination.page,
-        limit: 50,
+        limit: 50
       };
 
       const response = await api.getAuditLogs(params);
       setLogs(response.data.logs || []);
       setFilterOptions({
         actions: response.data.filters?.actions || [],
-        users: response.data.filters?.users || [],
+        users: response.data.filters?.users || []
       });
       setPagination((prev) => ({
         ...prev,
         total: response.data.pagination?.total || 0,
-        pages: response.data.pagination?.pages || 0,
+        pages: response.data.pagination?.pages || 0
       }));
     } catch (error) {
       console.error('Error fetching audit logs:', error);
@@ -133,8 +122,7 @@ const AuditLog = () => {
 
   useEffect(() => {
     fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAction, selectedUser, startDate, endDate, debouncedSearch, pagination.page]);
+  }, [selectedAction, selectedUser, startDate, endDate, debouncedSearch, pagination.page, fetchLogs]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -163,15 +151,12 @@ const AuditLog = () => {
     return log.details;
   };
 
-  const summaryCards = useMemo(
-    () => [
-      { label: 'Today', value: summary?.today ?? 0 },
-      { label: 'This week', value: summary?.week ?? 0 },
-      { label: 'This month', value: summary?.month ?? 0 },
-      { label: 'Most common action', value: summary?.topActions?.[0]?.action || '—', isText: true },
-    ],
-    [summary]
-  );
+  const summaryCards = useMemo(() => [
+    { label: 'Today', value: summary?.today ?? 0 },
+    { label: 'This week', value: summary?.week ?? 0 },
+    { label: 'This month', value: summary?.month ?? 0 },
+    { label: 'Most common action', value: summary?.topActions?.[0]?.action || '—', isText: true }
+  ], [summary]);
 
   if (loading && logs.length === 0 && !isRefreshing) {
     return <Loader message="Loading audit log..." />;
@@ -194,7 +179,7 @@ const AuditLog = () => {
         </button>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards */}
       {summary && (
         <div className="grid-4 audit-summary">
           {summaryCards.map((item) => (
@@ -245,9 +230,7 @@ const AuditLog = () => {
           >
             <option value="all">All actions</option>
             {filterOptions.actions.map((action) => (
-              <option key={action} value={action}>
-                {action}
-              </option>
+              <option key={action} value={action}>{action}</option>
             ))}
           </select>
 
@@ -262,9 +245,7 @@ const AuditLog = () => {
           >
             <option value="all">All users</option>
             {filterOptions.users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.full_name}
-              </option>
+              <option key={user.id} value={user.id}>{user.full_name}</option>
             ))}
           </select>
 
@@ -301,14 +282,12 @@ const AuditLog = () => {
         </div>
       </div>
 
-      {/* Results count */}
       <div className="audit-results-meta">
         {pagination.total > 0
           ? `${pagination.total.toLocaleString()} record${pagination.total === 1 ? '' : 's'}`
           : null}
       </div>
 
-      {/* Table */}
       <div className="table-container">
         <table>
           <thead>
@@ -372,7 +351,6 @@ const AuditLog = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination">
           <button

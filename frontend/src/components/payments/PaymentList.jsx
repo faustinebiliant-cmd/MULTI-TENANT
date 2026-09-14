@@ -1,32 +1,26 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Payment List (Paginated)
+// OSWAGO ELECTRICAL EQUIPMENT - Payment List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FiSearch, FiX, FiChevronLeft, FiChevronRight, FiCalendar, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import {
+  FiSearch, FiX, FiChevronLeft, FiChevronRight,
+  FiCalendar, FiChevronDown, FiChevronUp
+} from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
-
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
 
 const PaymentList = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
 
-  // Filters
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [method, setMethod] = useState('all');
@@ -34,12 +28,10 @@ const PaymentList = () => {
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // ─── Fetch page ──────────────────────────────────────────
   const fetchPayments = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const params = { page, limit: PAGE_SIZE };
-
       if (debouncedSearch) params.search = debouncedSearch;
       if (method !== 'all') params.method = method;
       if (startDate) params.startDate = startDate;
@@ -76,24 +68,18 @@ const PaymentList = () => {
   const hasActiveFilters = search || method !== 'all' || startDate || endDate;
 
   const getMethodLabel = (m) => {
-    const labels = {
-      cash: 'Cash',
-      mpesa: 'M-Pesa',
-      tigo_pesa: 'Tigo Pesa'
-    };
+    const labels = { cash: 'Cash', mpesa: 'M-Pesa', tigo_pesa: 'Tigo Pesa' };
     return labels[m] || m;
   };
 
   const getPaymentStatus = (payment) => {
     const orderStatus = payment.order_payment_status || 'unpaid';
-
-    if (orderStatus === 'paid') return { text: 'COMPLETED', color: '#10b981' };
-    if (orderStatus === 'partial') return { text: 'PARTIAL', color: '#f59e0b' };
-    if (orderStatus === 'unpaid') return { text: 'UNPAID', color: '#ef4444' };
-    return { text: 'COMPLETED', color: '#10b981' };
+    if (orderStatus === 'paid') return { text: 'Completed', color: '#10b981' };
+    if (orderStatus === 'partial') return { text: 'Partial', color: '#f59e0b' };
+    if (orderStatus === 'unpaid') return { text: 'Unpaid', color: '#ef4444' };
+    return { text: 'Completed', color: '#10b981' };
   };
 
-  // Page totals
   const pageTotal = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   if (loading && payments.length === 0) {
@@ -157,8 +143,12 @@ const PaymentList = () => {
 
         {showFilters && (
           <div className="flex" style={{
-            gap: '12px', flexWrap: 'wrap', alignItems: 'center',
-            marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0'
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid #e2e8f0'
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
@@ -208,7 +198,6 @@ const PaymentList = () => {
             {payments.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No payments found</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
@@ -234,8 +223,10 @@ const PaymentList = () => {
                     <td>{getMethodLabel(payment.method)}</td>
                     <td>
                       <span style={{
-                        color: statusInfo.color, fontWeight: '700',
-                        textTransform: 'uppercase', fontSize: '13px'
+                        color: statusInfo.color,
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        fontSize: '13px'
                       }}>
                         {statusInfo.text}
                       </span>
@@ -249,7 +240,6 @@ const PaymentList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -257,8 +247,7 @@ const PaymentList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -268,17 +257,17 @@ const PaymentList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
         </div>
       )}
 
-      {/* Footer summary */}
       {payments.length > 0 && (
         <div className="card" style={{
-          marginTop: '16px', padding: '12px 20px',
-          backgroundColor: '#f8fafc', border: '1px solid #e2e8f0'
+          marginTop: '16px',
+          padding: '12px 20px',
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0'
         }}>
           <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
             <div>

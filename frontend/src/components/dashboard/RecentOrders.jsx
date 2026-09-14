@@ -1,28 +1,18 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Recent Orders (Dashboard)
+// OSWAGO ELECTRICAL EQUIPMENT - Recent Orders
 // ============================================================
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatCurrency, formatDate } from '../../utils/helpers';
+import { formatCurrency, formatDate, getStatusColor } from '../../utils/helpers';
 
-// ✅ STATUS COLORS - Dashboard Only
-const STATUS_COLORS = {
-  pending:   { color: '#b58a09' },
-  confirmed: { color: '#0c39ce' },
-  delivered: { color: '#08971d' },
-  cancelled: { color: '#c40e0e' }
-};
-
-// ✅ PAYMENT STATUS COLORS
-const PAYMENT_STATUS_COLORS = {
-  paid:    { color: '#0bc518', label: 'Paid' },
-  unpaid:  { color: '#d00f0f', label: 'Unpaid' },
-  partial: { color: '#d97706', label: 'Partial' }
+const PAYMENT_LABELS = {
+  paid: { label: 'Paid', color: '#0bc518' },
+  unpaid: { label: 'Unpaid', color: '#d00f0f' },
+  partial: { label: 'Partial', color: '#92400e' }
 };
 
 const RecentOrders = ({ orders }) => {
-  // Track which orders have their partial breakdown expanded
   const [expanded, setExpanded] = useState({});
 
   const toggleExpanded = (orderId) => {
@@ -43,20 +33,10 @@ const RecentOrders = ({ orders }) => {
     );
   }
 
-  const getStatusStyle = (status) => {
-    const colors = STATUS_COLORS[status?.toLowerCase()] || STATUS_COLORS.pending;
-    return {
-      color: colors.color,
-      fontWeight: '600',
-      textTransform: 'capitalize'
-    };
-  };
-
   const renderPaymentCell = (order) => {
     const status = (order.payment_status || 'unpaid').toLowerCase();
-    const meta = PAYMENT_STATUS_COLORS[status] || PAYMENT_STATUS_COLORS.unpaid;
+    const meta = PAYMENT_LABELS[status] || PAYMENT_LABELS.unpaid;
 
-    // Paid / Unpaid: static text
     if (status !== 'partial') {
       return (
         <span style={{ color: meta.color, fontWeight: '600', textTransform: 'capitalize' }}>
@@ -65,7 +45,6 @@ const RecentOrders = ({ orders }) => {
       );
     }
 
-    // Partial: clickable expand
     const paid = parseFloat(order.paid_amount) || 0;
     const total = parseFloat(order.total) || 0;
     const owed = Math.max(0, total - paid);
@@ -91,7 +70,7 @@ const RecentOrders = ({ orders }) => {
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
           }}
         >
-          {meta.label} ↻
+          {meta.label}
         </button>
         {isOpen && (
           <div style={{
@@ -138,7 +117,11 @@ const RecentOrders = ({ orders }) => {
                 <td>{order.customer}</td>
                 <td>{formatCurrency(order.total)}</td>
                 <td>
-                  <span style={getStatusStyle(order.status)}>
+                  <span style={{
+                    color: getStatusColor(order.status),
+                    fontWeight: '600',
+                    textTransform: 'capitalize'
+                  }}>
                     {order.status?.toUpperCase() || 'PENDING'}
                   </span>
                 </td>

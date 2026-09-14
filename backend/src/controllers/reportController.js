@@ -1,21 +1,6 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Reports Controller
 // ============================================================
-//
-// What changed in this version:
-//   1. Timezone: all date ranges now computed in Africa/Dar_es_Salaam
-//      via utils/tz.js — fixes "today"/"week"/"month"/"year" drift
-//      when the server runs in UTC.
-//   2. Week rule: Monday → Sunday (Tanzania standard).
-//   3. VAT rule: VAT Collected and product-level VAT now scale with
-//      the fraction of each order that has actually been PAID.
-//      A 50%-paid order shows 50% of its VAT as collected.
-//   4. Removed getSalesReportLegacy — it duplicated logic and would
-//      become a maintenance trap. The old version is preserved in
-//      git / conversation history if needed.
-//
-// Business rules remain here. SQL only does raw sums.
-// ============================================================
 
 const supabase = require('../config/supabase');
 const { parsePeriodEAT } = require('../utils/tz');
@@ -27,11 +12,9 @@ const { parsePeriodEAT } = require('../utils/tz');
 const getSalesReport = async (req, res) => {
     try {
         const { start, end } = parsePeriodEAT(req.query);
-
         const startISO = start.toISOString();
         const endISO = end.toISOString();
 
-        // ─── SQL AGGREGATIONS (parallel) ─────────────────────
         const [
             ordersRes,
             stockMovementsRes,
@@ -43,40 +26,12 @@ const getSalesReport = async (req, res) => {
             paymentsRes,
             productsRes
         ] = await Promise.all([
-            // 1. Summary totals
-            supabase.rpc('sum_orders', {
-                start_date: startISO,
-                end_date: endISO,
-                exclude_cancelled: true
-            }),
-            // 2. Stock movement totals per product
-            supabase.rpc('sum_stock_movements', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-            // 3. Monthly breakdown
-            supabase.rpc('sum_monthly', {
-                start_date: startISO,
-                end_date: endISO,
-                exclude_cancelled: true
-            }),
-            // 4. Product sales (used for top products)
-            supabase.rpc('sum_product_sales', {
-                start_date: startISO,
-                end_date: endISO,
-                exclude_cancelled: true
-            }),
-            // 5. Payments grouped by (method, order_id)
-            supabase.rpc('sum_payments_by_method', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-            // 6. Outstanding Credit (for this range)
-            supabase.rpc('outstanding_today', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-            // 7. Orders — needed for productFinancials + display slice
+            supabase.rpc('sum_orders', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
+            supabase.rpc('sum_stock_movements', { start_date: startISO, end_date: endISO }),
+            supabase.rpc('sum_monthly', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
+            supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
+            supabase.rpc('sum_payments_by_method', { start_date: startISO, end_date: endISO }),
+            supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO }),
             supabase
                 .from('orders')
                 .select(`
@@ -95,20 +50,17 @@ const getSalesReport = async (req, res) => {
                 .gte('created_at', startISO)
                 .lte('created_at', endISO)
                 .neq('order_status', 'cancelled'),
-            // 8. Payments — for display slice
             supabase
                 .from('payments')
                 .select('*')
                 .gte('payment_date', startISO)
                 .lte('payment_date', endISO),
-            // 9. Products (for current stock in productStockMovements)
             supabase
                 .from('products')
                 .select('id, name, stock_quantity')
                 .eq('is_active', true)
         ]);
 
-        // ─── Handle SQL function results ─────────────────────
         const summaryRow = ordersRes.data?.[0] || {
             sum_subtotal: 0,
             sum_tax: 0,
@@ -132,14 +84,13 @@ const getSalesReport = async (req, res) => {
         const stockMovementRows = stockMovementsRes.data || [];
         const paymentMethodRows = paymentsByMethodRes.data || [];
 
-        // ─── Outstanding Credit (this range) ─────────────────
         const outstandingRow = outstandingRes.data?.[0] || {
             outstanding_total: 0,
             unpaid_order_count: 0
         };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
-        // ─── Monthly breakdown ────────────────────────────────
+        // Monthly breakdown
         const monthlyBreakdown = monthlyRows.map(row => {
             const d = new Date(row.month_start);
             const label = d.toLocaleString('default', {
@@ -157,7 +108,7 @@ const getSalesReport = async (req, res) => {
         .sort((a, b) => a._sortKey - b._sortKey)
         .map(({ _sortKey, ...rest }) => rest);
 
-        // ─── Top products ────────────────────────────────────
+        // Top products
         const topProducts = productSalesRows
             .map(row => ({
                 name: row.product_name,
@@ -167,7 +118,7 @@ const getSalesReport = async (req, res) => {
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 10);
 
-        // ─── Stock movements ─────────────────────────────────
+        // Stock movements
         const currentStockMap = {};
         allProducts.forEach(product => {
             currentStockMap[product.id] = {
@@ -256,20 +207,10 @@ const getSalesReport = async (req, res) => {
             })
             .sort((a, b) => (b.added + b.sold + b.adjusted + b.returned) - (a.added + a.sold + a.adjusted + a.returned));
 
-        // ─── Payments — VAT split by actual payments ─────────
-        //
-        // RULE (updated):
-        //   VAT Collected = VAT portion of each payment
-        //   For each (method, order_id) payment group from SQL:
-        //     vatRatio = order.tax_amount / order.total_amount
-        //     businessValue = amount × (1 - vatRatio)
-        //     vatValue      = amount × vatRatio
-        //
-        // This gives us the money the shop actually received in
-        // business terms vs. the VAT it is holding aside.
+        // Payments — VAT split per order
         const paymentMethods = { cash: 0, mpesa: 0, tigo_pesa: 0 };
-        let totalPaymentsReceived = 0;   // business value
-        let totalVATFromPayments = 0;    // VAT actually received
+        let totalPaymentsReceived = 0;
+        let totalVATFromPayments = 0;
 
         const paymentOrderIds = [...new Set(paymentMethodRows.map(r => r.order_id).filter(Boolean))];
 
@@ -306,16 +247,7 @@ const getSalesReport = async (req, res) => {
             }
         });
 
-        // ─── Product financials (VAT scales with % paid) ─────
-        //
-        // RULE (updated):
-        //   For each order, compute:
-        //     paidRatio = paid_amount / total_amount  (0..1)
-        //     payableVAT = tax_amount × paidRatio      (VAT actually collected)
-        //
-        //   Then distribute payableVAT across the order's items
-        //   proportionally to each item's share of the order subtotal.
-        //   Same for payments.
+        // Product financials (VAT scales with % paid per order)
         const productFinancials = {};
         orders.forEach(order => {
             if (!order.order_items) return;
@@ -325,15 +257,12 @@ const getSalesReport = async (req, res) => {
             const orderPaid = parseFloat(order.paid_amount) || 0;
             const orderTotal = parseFloat(order.total_amount) || 0;
 
-            // What fraction of this order has actually been paid?
             const paidRatio = orderTotal > 0
                 ? Math.min(1, Math.max(0, orderPaid / orderTotal))
                 : 0;
 
-            // VAT that is actually collected for this order
             const orderVATCollected = orderVAT * paidRatio;
 
-            // Business money paid for this order (excluding VAT portion)
             const orderBusinessPaid = orderPaid > 0 && orderTotal > 0 && orderVAT > 0
                 ? orderPaid * (1 - (orderVAT / orderTotal))
                 : orderPaid;
@@ -355,11 +284,7 @@ const getSalesReport = async (req, res) => {
 
                 if (orderSubtotal > 0) {
                     const itemShare = itemSubtotal / orderSubtotal;
-
-                    // VAT: scaled to what has been paid
                     productFinancials[productName].vat += orderVATCollected * itemShare;
-
-                    // Payments: business value received for this item
                     if (orderBusinessPaid > 0) {
                         productFinancials[productName].payments += orderBusinessPaid * itemShare;
                     }
@@ -377,7 +302,6 @@ const getSalesReport = async (req, res) => {
             .sort((a, b) => b.sales - a.sales)
             .slice(0, 20);
 
-        // ─── Response ─────────────────────────────────────────
         return res.status(200).json({
             success: true,
             data: {
@@ -422,16 +346,6 @@ const getSalesReport = async (req, res) => {
 // ============================================================
 // YEAR-OVER-YEAR COMPARISON
 // ============================================================
-//
-// FIX: VAT per year now reflects VAT that has actually been
-// collected via payments (scaled by % paid per order), not the
-// full order VAT.
-//
-// To do this we need each year's orders AND their payments.
-// Rather than a per-order loop, we sum for each order:
-//   businessValue = paid_amount × (1 - tax/total)
-//   vatValue      = paid_amount × (tax/total)
-// and then aggregate per year.
 
 const getYearOverYear = async (req, res) => {
     try {
@@ -446,7 +360,6 @@ const getYearOverYear = async (req, res) => {
             years.push(currentYear - i);
         }
 
-        // Import the helper locally (keeps this function self-contained)
         const { getYearRangeEAT } = require('../utils/tz');
 
         const results = await Promise.all(years.map(async (year) => {
@@ -464,11 +377,8 @@ const getYearOverYear = async (req, res) => {
             const list = orders || [];
 
             const revenue = list.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
-
-            // Full VAT of the year (for reference / comparison)
             const vatFull = list.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
 
-            // VAT actually collected = sum over orders of paid_amount × (tax / total)
             const vatCollected = list.reduce((s, o) => {
                 const total = parseFloat(o.total_amount) || 0;
                 const tax = parseFloat(o.tax_amount) || 0;
@@ -482,8 +392,8 @@ const getYearOverYear = async (req, res) => {
             return {
                 year,
                 revenue,
-                vat: vatCollected,        // ← scaled VAT (what the user asked for)
-                vatFull,                   // ← keep full VAT for reference
+                vat: vatCollected,
+                vatFull,
                 orders: list.length
             };
         }));
@@ -510,7 +420,7 @@ const getYearOverYear = async (req, res) => {
 };
 
 // ============================================================
-// PROFIT/LOSS REPORT (unchanged logic, EAT date ranges)
+// PROFIT REPORT
 // ============================================================
 
 const getProfitReport = async (req, res) => {
@@ -532,7 +442,7 @@ const getProfitReport = async (req, res) => {
         let totalRevenue = 0;
         let totalVAT = 0;
         let totalCost = 0;
-        let productProfit = {};
+        const productProfit = {};
 
         orders.forEach(order => {
             totalRevenue += parseFloat(order.subtotal) || 0;
@@ -560,7 +470,7 @@ const getProfitReport = async (req, res) => {
 
         if (expError) throw expError;
 
-        const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+        const totalExpenses = (expenses || []).reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
         const grossProfit = totalRevenue - totalCost;
         const netProfit = grossProfit - totalExpenses;
 
@@ -596,7 +506,7 @@ const getProfitReport = async (req, res) => {
 };
 
 // ============================================================
-// INVENTORY REPORT (unchanged — no date range, no TZ issue)
+// INVENTORY REPORT
 // ============================================================
 
 const getInventoryReport = async (req, res) => {
@@ -615,12 +525,12 @@ const getInventoryReport = async (req, res) => {
 
         let totalCostValue = 0;
         let totalSellingValue = 0;
-        let lowStockItems = [];
-        let categoryBreakdown = {};
+        const lowStockItems = [];
+        const categoryBreakdown = {};
 
         products.forEach(product => {
-            const costValue = (product.cost_price || 0) * (product.stock_quantity || 0);
-            const sellingValue = (product.selling_price || 0) * (product.stock_quantity || 0);
+            const costValue = (parseFloat(product.cost_price) || 0) * (product.stock_quantity || 0);
+            const sellingValue = (parseFloat(product.selling_price) || 0) * (product.stock_quantity || 0);
             totalCostValue += costValue;
             totalSellingValue += sellingValue;
 
@@ -632,7 +542,8 @@ const getInventoryReport = async (req, res) => {
                 });
             }
 
-            const category = product.category_name || 'Uncategorized';
+            // Fixed: read from nested categories object
+            const category = product.categories?.name || 'Uncategorized';
             if (!categoryBreakdown[category]) {
                 categoryBreakdown[category] = { items: 0, value: 0 };
             }
@@ -657,8 +568,8 @@ const getInventoryReport = async (req, res) => {
                 categoryBreakdown: categoryList,
                 products: products.map(p => ({
                     ...p,
-                    category_name: p.category_name || 'Uncategorized',
-                    supplier_name: p.supplier_name || null
+                    category_name: p.categories?.name || 'Uncategorized',
+                    supplier_name: p.suppliers?.name || null
                 }))
             }
         });
@@ -673,18 +584,24 @@ const getInventoryReport = async (req, res) => {
 };
 
 // ============================================================
-// TOP CUSTOMERS REPORT (unchanged)
+// TOP CUSTOMERS
 // ============================================================
 
 const getTopCustomers = async (req, res) => {
     try {
-        const { limit = 10 } = req.query;
+        const limitNum = parseInt(req.query.limit) || 10;
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Limit must be between 1 and 100'
+            });
+        }
 
         const { data: customers, error } = await supabase
             .from('customers')
             .select('id, name, phone, email, total_orders, total_spent')
             .order('total_spent', { ascending: false })
-            .limit(parseInt(limit));
+            .limit(limitNum);
 
         if (error) throw error;
 
@@ -701,10 +618,6 @@ const getTopCustomers = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// EXPORTS
-// ============================================================
 
 module.exports = {
     getSalesReport,

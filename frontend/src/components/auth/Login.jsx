@@ -1,21 +1,16 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Login Page (DEVELOPMENT MODE)
-// ============================================================
-//
-// ⚠️⚠️⚠️ DEVELOPMENT MODE — FRONTEND LOCKOUT DISABLED ⚠️⚠️⚠️
-//
-// The attempts counter and 15-minute lockout are disabled below.
-// The original code is preserved in comments so it can be
-// re-enabled before shipping.
-//
-// >>> BEFORE PRODUCTION, SEARCH FOR "⚠️⚠️⚠️" AND RESTORE <<<
-//
+// OSWAGO ELECTRICAL EQUIPMENT - Login
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiZap, FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { APP_NAME, SHOP_LOCATION } from '../../utils/constants';
+
+// Login lockout config
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -28,45 +23,37 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // ✅ Clean any leftover lockout from previous sessions
+  // Restore lockout state on mount
   useEffect(() => {
-    localStorage.removeItem('loginBlocked');
+    const blocked = localStorage.getItem('loginBlocked');
+    if (blocked) {
+      const until = parseInt(blocked);
+      if (Date.now() < until) {
+        setBlockedUntil(new Date(until));
+      } else {
+        localStorage.removeItem('loginBlocked');
+        setAttempts(0);
+      }
+    }
   }, []);
 
-  // ⚠️⚠️⚠️ Original "check blocked status on mount" logic — commented out
-  // useEffect(() => {
-  //   const blocked = localStorage.getItem('loginBlocked');
-  //   if (blocked) {
-  //     const blockedTime = parseInt(blocked);
-  //     if (Date.now() < blockedTime) {
-  //       setBlockedUntil(new Date(blockedTime));
-  //       setError(`Too many attempts. Please wait ${Math.ceil((blockedTime - Date.now()) / 60000)} minutes.`);
-  //     } else {
-  //       localStorage.removeItem('loginBlocked');
-  //       setAttempts(0);
-  //     }
-  //   }
-  // }, []);
+  // Auto-unblock when the timer expires
+  useEffect(() => {
+    if (!blockedUntil) return;
+    const timer = setInterval(() => {
+      if (Date.now() >= blockedUntil.getTime()) {
+        localStorage.removeItem('loginBlocked');
+        setBlockedUntil(null);
+        setAttempts(0);
+        setError('');
+        clearInterval(timer);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [blockedUntil]);
 
-  // ⚠️⚠️⚠️ Original auto-unblock timer — commented out
-  // useEffect(() => {
-  //   if (blockedUntil) {
-  //     const timer = setInterval(() => {
-  //       if (Date.now() >= blockedUntil.getTime()) {
-  //         localStorage.removeItem('loginBlocked');
-  //         setBlockedUntil(null);
-  //         setError('');
-  //         setAttempts(0);
-  //         clearInterval(timer);
-  //       }
-  //     }, 1000);
-  //     return () => clearInterval(timer);
-  //   }
-  // }, [blockedUntil]);
-
-  const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const isValidEmail = (value) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
 
   const handleSubmit = async (e) => {
@@ -84,12 +71,12 @@ const Login = () => {
       return;
     }
 
-    // ⚠️⚠️⚠️ Original "already blocked" guard — commented out
-    // if (blockedUntil && Date.now() < blockedUntil.getTime()) {
-    //   const remaining = Math.ceil((blockedUntil.getTime() - Date.now()) / 60000);
-    //   setError(`Too many attempts. Please wait ${remaining} minutes.`);
-    //   return;
-    // }
+    // Blocked check
+    if (blockedUntil && Date.now() < blockedUntil.getTime()) {
+      const remaining = Math.ceil((blockedUntil.getTime() - Date.now()) / 60000);
+      setError(`Too many attempts. Please wait ${remaining} minute${remaining === 1 ? '' : 's'}.`);
+      return;
+    }
 
     setLoading(true);
 
@@ -103,31 +90,22 @@ const Login = () => {
         return;
       }
 
-      // Login failed — show the error
       const rawError = result.error || 'Invalid email or password';
       setError(rawError);
 
-      // ⚠️⚠️⚠️ Original lockout logic — commented out
-      // const isInvalidCredentials =
-      //   rawError.toLowerCase().includes('invalid email or password');
-      //
-      // if (!isInvalidCredentials) {
-      //   setError(rawError);
-      //   return;
-      // }
-      //
-      // const newAttempts = attempts + 1;
-      // setAttempts(newAttempts);
-      //
-      // if (newAttempts >= 5) {
-      //   const blockTime = Date.now() + (15 * 60 * 1000);
-      //   localStorage.setItem('loginBlocked', String(blockTime));
-      //   setBlockedUntil(new Date(blockTime));
-      //   setError('Too many failed attempts. Please wait 15 minutes.');
-      // } else {
-      //   setError('Invalid email or password');
-      // }
+      // Only count invalid-credential failures
+      const isInvalidCredentials = rawError.toLowerCase().includes('invalid email or password');
+      if (!isInvalidCredentials) return;
 
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_MS;
+        localStorage.setItem('loginBlocked', String(until));
+        setBlockedUntil(new Date(until));
+        setError('Too many failed attempts. Please wait 15 minutes.');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError('Something went wrong. Please try again.');
@@ -136,19 +114,8 @@ const Login = () => {
     }
   };
 
-  const handleEmailChange = (e) => {
-    setEmail(e.target.value);
-    if (error) setError('');
-  };
-
-  const handlePasswordChange = (e) => {
-    setPassword(e.target.value);
-    if (error) setError('');
-  };
-
-  // ⚠️⚠️⚠️ Original "isLoginDisabled" with lockout — simplified for dev
-  const isLoginDisabled = loading;
-  // const isLoginDisabled = loading || (blockedUntil && Date.now() < blockedUntil.getTime());
+  const isLocked = blockedUntil && Date.now() < blockedUntil.getTime();
+  const isLoginDisabled = loading || isLocked;
 
   return (
     <div className="login-page">
@@ -170,14 +137,12 @@ const Login = () => {
             </div>
           )}
 
-          {/* ⚠️⚠️⚠️ Original "account locked" warning banner — commented out
-          {blockedUntil && Date.now() < blockedUntil.getTime() && (
-            <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
+          {isLocked && (
+            <div className="alert alert-warning">
               <FiAlertCircle size={16} style={{ marginRight: '8px', flexShrink: 0 }} />
-              Account temporarily locked. Please wait {Math.ceil((blockedUntil.getTime() - Date.now()) / 60000)} minutes.
+              Account temporarily locked. Please wait {Math.ceil((blockedUntil.getTime() - Date.now()) / 60000)} minute(s).
             </div>
           )}
-          */}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -187,7 +152,10 @@ const Login = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={handleEmailChange}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError('');
+                  }}
                   placeholder="Enter your email"
                   required
                   autoFocus
@@ -204,7 +172,10 @@ const Login = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={handlePasswordChange}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError('');
+                  }}
                   placeholder="Enter your password"
                   required
                   disabled={isLoginDisabled}
@@ -231,23 +202,16 @@ const Login = () => {
               {loading ? 'Logging in...' : 'Login'}
             </button>
 
-            {/* ⚠️⚠️⚠️ Original attempts counter display — commented out
-            {attempts > 0 && attempts < 5 && (
-              <div style={{
-                marginTop: '12px',
-                fontSize: '12px',
-                color: '#6b7280',
-                textAlign: 'center'
-              }}>
-                Attempts: {attempts}/5
+            {attempts > 0 && attempts < MAX_ATTEMPTS && (
+              <div className="login-attempts">
+                Attempts: {attempts}/{MAX_ATTEMPTS}
               </div>
             )}
-            */}
           </form>
 
           <div className="login-footer">
-            <p>OSWAGO Electrical Equipment</p>
-            <small>Darajani, Kigamboni, Dar es Salaam</small>
+            <p>{APP_NAME}</p>
+            <small>{SHOP_LOCATION}</small>
           </div>
         </div>
       </div>

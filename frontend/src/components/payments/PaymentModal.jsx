@@ -9,7 +9,6 @@ import { formatCurrency } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const PaymentModal = ({ order, onClose, onSuccess }) => {
-  // ✅ USE order.total_amount (includes VAT) instead of subtotal
   const [amount, setAmount] = useState(order?.total_amount || 0);
   const [method, setMethod] = useState('cash');
   const [reference, setReference] = useState('');
@@ -21,7 +20,6 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
     { value: 'tigo_pesa', label: 'Tigo Pesa', icon: FiSmartphone }
   ];
 
-  // ✅ REMAINING BALANCE = total_amount - paid_amount
   const remaining = (parseFloat(order.total_amount) || 0) - (parseFloat(order.paid_amount) || 0);
 
   const handleSubmit = async (e) => {
@@ -53,7 +51,7 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
 
       const response = await api.recordPayment(order.id, paymentData);
 
-      toast.success(`Payment of ${formatCurrency(amount)} recorded successfully!`);
+      toast.success(`Payment of ${formatCurrency(amount)} recorded`);
       onSuccess(response.data);
       onClose();
     } catch (error) {
@@ -79,7 +77,7 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
           </button>
         </div>
 
-        {/* Summary card */}
+        {/* Summary */}
         <div className="payment-summary-card">
           <div className="payment-summary-row">
             <span>Customer</span>
@@ -92,13 +90,17 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
           {parseFloat(order.tax_amount) > 0 && (
             <div className="payment-summary-row">
               <span>VAT Included</span>
-              <strong style={{ color: '#b45309' }}>{formatCurrency(parseFloat(order.tax_amount) || 0)}</strong>
+              <strong style={{ color: '#b45309' }}>
+                {formatCurrency(parseFloat(order.tax_amount) || 0)}
+              </strong>
             </div>
           )}
           {parseFloat(order.paid_amount) > 0 && (
             <div className="payment-summary-row">
               <span>Already Paid</span>
-              <strong style={{ color: 'var(--success)' }}>{formatCurrency(parseFloat(order.paid_amount) || 0)}</strong>
+              <strong style={{ color: 'var(--success)' }}>
+                {formatCurrency(parseFloat(order.paid_amount) || 0)}
+              </strong>
             </div>
           )}
           <div className="payment-summary-row remaining">

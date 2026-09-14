@@ -1,15 +1,14 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Header Component
+// OSWAGO ELECTRICAL EQUIPMENT - Header
 // ============================================================
 
 import React from 'react';
 import { FiUser, FiBell } from 'react-icons/fi';
+import { APP_NAME, SHOP_LOCATION } from '../../utils/constants';
 
 const Header = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const shopName = 'OSWAGO Electrical Equipment';
 
-  // Get role badge color
   const getRoleBadge = (role) => {
     const colors = {
       boss: '#ef4444',
@@ -24,8 +23,8 @@ const Header = () => {
   return (
     <header className="app-header">
       <div className="header-left">
-        <h1 className="header-title">{shopName}</h1>
-        <span className="header-location">📍 Darajani, Kigamboni</span>
+        <h1 className="header-title">{APP_NAME}</h1>
+        <span className="header-location">{SHOP_LOCATION}</span>
       </div>
 
       <div className="header-right">
@@ -39,12 +38,12 @@ const Header = () => {
             <FiUser size={20} />
           </div>
           <div className="user-info">
-            <span className="user-name">{user.full_name || 'Boss'}</span>
-            <span 
+            <span className="user-name">{user.full_name || 'User'}</span>
+            <span
               className="user-role"
               style={{ backgroundColor: getRoleBadge(user.role) }}
             >
-              {user.role || 'Boss'}
+              {user.role || 'Staff'}
             </span>
           </div>
         </div>

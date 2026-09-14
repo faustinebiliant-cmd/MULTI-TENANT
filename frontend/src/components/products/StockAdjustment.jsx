@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Stock Adjustment Modal
+// OSWAGO ELECTRICAL EQUIPMENT - Stock Adjustment
 // ============================================================
 
 import React, { useState } from 'react';
@@ -32,10 +32,10 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
       await api.adjustStock(product.id, {
         quantity: parseInt(quantity),
         reason: reason.trim(),
-        type: type
+        type
       });
 
-      toast.success(`Stock ${type === 'add' ? 'added' : 'removed'} successfully!`);
+      toast.success(`Stock ${type === 'add' ? 'added' : 'removed'} successfully`);
       onSuccess();
       onClose();
     } catch (error) {
@@ -56,7 +56,12 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
           </button>
         </div>
 
-        <div className="product-info" style={{ marginBottom: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+        <div className="product-info" style={{
+          marginBottom: '16px',
+          padding: '12px',
+          background: '#f8fafc',
+          borderRadius: '8px'
+        }}>
           <p><strong>Product:</strong> {product.name}</p>
           <p><strong>Current Stock:</strong> {product.stock_quantity} units</p>
           <p><strong>Low Stock Threshold:</strong> {product.low_stock_threshold || 5} units</p>
@@ -72,7 +77,7 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
                 onClick={() => setType('add')}
                 style={{ flex: 1 }}
               >
-                ➕ Add Stock
+                Add Stock
               </button>
               <button
                 type="button"
@@ -80,7 +85,7 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
                 onClick={() => setType('remove')}
                 style={{ flex: 1 }}
               >
-                ➖ Remove Stock
+                Remove Stock
               </button>
             </div>
           </div>
@@ -103,7 +108,7 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g., New shipment received, Damaged items, Return from customer"
+              placeholder="e.g., New shipment received, Damaged items"
               className="form-control"
               required
             />

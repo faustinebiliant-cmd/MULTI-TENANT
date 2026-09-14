@@ -8,28 +8,18 @@ const authenticate = require('../middleware/auth');
 const {
     login,
     getCurrentUser,
+    updateProfile,
     changePassword,
     logout
 } = require('../controllers/authController');
 
-// ============================================================
-// PUBLIC ROUTES
-// ============================================================
-
-// Login - Anyone can access
+// Public
 router.post('/login', login);
-
-// Logout - Anyone can access (clears token client-side)
 router.post('/logout', logout);
 
-// ============================================================
-// PROTECTED ROUTES (Requires Authentication)
-// ============================================================
-
-// Get current user - Requires login
+// Protected
 router.get('/me', authenticate, getCurrentUser);
-
-// Change password - Requires login
+router.put('/me', authenticate, updateProfile);
 router.post('/change-password', authenticate, changePassword);
 
 module.exports = router;

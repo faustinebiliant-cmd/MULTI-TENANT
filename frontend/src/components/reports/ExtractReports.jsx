@@ -1,29 +1,17 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Extract Reports
 // ============================================================
-//
-// Boss-only page for downloading Excel exports of reports.
-// ============================================================
 
 import React, { useState } from 'react';
 import {
-  FiDownload,
-  FiFileText,
-  FiDollarSign,
-  FiCreditCard,
-  FiPackage,
-  FiBox,
-  FiUsers,
-  FiTruck,
-  FiClipboard,
-  FiTrendingUp,
-  FiPercent,
-  FiArchive
+  FiDownload, FiFileText, FiDollarSign, FiCreditCard, FiPackage,
+  FiBox, FiUsers, FiTruck, FiClipboard, FiTrendingUp, FiPercent, FiArchive
 } from 'react-icons/fi';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
 
-// Report catalogue — one entry per export type
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+
 const REPORT_TYPES = [
   {
     value: 'sales',
@@ -98,7 +86,7 @@ const REPORT_TYPES = [
   {
     value: 'full',
     label: 'Full Report (Everything)',
-    description: 'All reports combined in one workbook (13 sheets)',
+    description: 'All reports combined in one workbook',
     icon: FiArchive,
     color: '#0a1730',
     featured: true
@@ -143,7 +131,6 @@ const ExtractReports = () => {
   const [endDate, setEndDate] = useState('');
   const [downloading, setDownloading] = useState(false);
 
-  // Build the query string from the current selections
   const buildQueryString = () => {
     const params = new URLSearchParams();
     if (period === 'today') params.append('period', 'today');
@@ -160,7 +147,6 @@ const ExtractReports = () => {
   };
 
   const handleDownload = async () => {
-    // Validate custom range
     if (period === 'custom' && (!startDate || !endDate)) {
       toast.error('Please select both start and end dates');
       return;
@@ -172,7 +158,7 @@ const ExtractReports = () => {
       const queryString = buildQueryString();
 
       const response = await fetch(
-        `http://localhost:5001/api/reports/export/${selectedReport}?${queryString}`,
+        `${API_URL}/reports/export/${selectedReport}?${queryString}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -181,8 +167,8 @@ const ExtractReports = () => {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          // ignore
+        } catch {
+          // Non-JSON error body
         }
         throw new Error(errorMessage);
       }
@@ -192,7 +178,6 @@ const ExtractReports = () => {
       const a = document.createElement('a');
       a.href = url;
 
-      // Extract filename from Content-Disposition header
       const cd = response.headers.get('content-disposition');
       const match = cd && cd.match(/filename="(.+)"/);
       a.download = match ? match[1] : `oswago-${selectedReport}.xlsx`;
@@ -220,7 +205,6 @@ const ExtractReports = () => {
         </div>
       </div>
 
-      {/* Report type selection */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <h3 style={{ marginBottom: '16px' }}>1. Choose a report</h3>
         <div className="report-type-grid">
@@ -233,9 +217,7 @@ const ExtractReports = () => {
                 type="button"
                 onClick={() => setSelectedReport(report.value)}
                 className={`report-type-card ${isSelected ? 'active' : ''}`}
-                style={{
-                  borderColor: isSelected ? report.color : undefined
-                }}
+                style={{ borderColor: isSelected ? report.color : undefined }}
               >
                 <div
                   className="report-type-icon"
@@ -256,7 +238,6 @@ const ExtractReports = () => {
         </div>
       </div>
 
-      {/* Period selection */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <h3 style={{ marginBottom: '16px' }}>2. Choose a period</h3>
 
@@ -273,7 +254,12 @@ const ExtractReports = () => {
           ))}
         </div>
 
-        <div className="flex" style={{ gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginTop: '16px' }}>
+        <div className="flex" style={{
+          gap: '12px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          marginTop: '16px'
+        }}>
           {(period === 'month' || period === 'year') && (
             <select
               value={year}
@@ -322,7 +308,6 @@ const ExtractReports = () => {
         </div>
       </div>
 
-      {/* Download */}
       <div className="card">
         <h3 style={{ marginBottom: '16px' }}>3. Download</h3>
         <div className="flex" style={{ alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>

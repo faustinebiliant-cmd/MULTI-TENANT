@@ -1,119 +1,118 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Rate Limiter Middleware (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Rate Limiter Middleware
 // ============================================================
 
 const rateLimit = require('express-rate-limit');
 
-// ✅ LOGIN RATE LIMITER (5 attempts per 15 min)
+// Login: 5 failed attempts per 15 min (successful logins don't count)
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts
+    windowMs: 15 * 60 * 1000,
+    max: 5,
     message: {
         success: false,
-        error: 'Too many login attempts. Please try again in 15 minutes.'
+        error: 'Too many failed login attempts. Please try again in 15 minutes.'
     },
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true, // Don't count successful logins
+    skipSuccessfulRequests: true
 });
 
-// ✅ API RATE LIMITER (100 requests per 15 min)
+// Global API: 300 requests per 15 min per IP
 const apiLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 15 minutes
-    max: 100000, // 100000 requests
+    windowMs: 15 * 60 * 1000,
+    max: 300,
     message: {
         success: false,
         error: 'Too many requests. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ ORDER CREATION RATE LIMITER (50 orders per hour)
+// Order creation: 50 per hour
 const orderCreationLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 50, // 50 orders
+    windowMs: 60 * 60 * 1000,
+    max: 50,
     message: {
         success: false,
         error: 'Too many orders created. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ PRODUCT CREATION RATE LIMITER (20 products per hour)
+// Product creation: 20 per hour
 const productCreationLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 20, // 20 products
+    windowMs: 60 * 60 * 1000,
+    max: 20,
     message: {
         success: false,
         error: 'Too many products created. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ CUSTOMER CREATION RATE LIMITER (30 customers per hour)
+// Customer creation: 30 per hour
 const customerCreationLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 30, // 30 customers
+    windowMs: 60 * 60 * 1000,
+    max: 30,
     message: {
         success: false,
         error: 'Too many customers created. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ PAYMENT RECORDING RATE LIMITER (30 payments per hour)
+// Payment recording: 30 per hour
 const paymentLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 30, // 30 payments
+    windowMs: 60 * 60 * 1000,
+    max: 30,
     message: {
         success: false,
         error: 'Too many payments recorded. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ PASSWORD RESET RATE LIMITER (3 attempts per hour)
+// Password reset: 3 per hour
 const passwordResetLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 3, // 3 attempts
+    windowMs: 60 * 60 * 1000,
+    max: 3,
     message: {
         success: false,
         error: 'Too many password reset attempts. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ API KEY RATE LIMITER (50 requests per hour)
+// API key operations: 50 per hour
 const apiKeyLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 50, // 50 requests
+    windowMs: 60 * 60 * 1000,
+    max: 50,
     message: {
         success: false,
         error: 'Too many API key operations. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ REPORT GENERATION RATE LIMITER (20 reports per hour)
+// Report generation: 20 per hour
 const reportLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 20, // 20 reports
+    windowMs: 60 * 60 * 1000,
+    max: 20,
     message: {
         success: false,
         error: 'Too many report requests. Please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
-// ✅ EXPORT ALL LIMITERS
 module.exports = {
     loginLimiter,
     apiLimiter,

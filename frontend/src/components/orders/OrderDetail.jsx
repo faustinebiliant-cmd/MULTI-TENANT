@@ -1,10 +1,12 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Order Detail (No Print Below Items)
+// OSWAGO ELECTRICAL EQUIPMENT - Order Detail
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiPrinter, FiCreditCard, FiCheck, FiTruck, FiXCircle } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  FiArrowLeft, FiPrinter, FiCreditCard, FiCheck, FiTruck, FiXCircle
+} from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '../../utils/helpers';
 import Loader from '../common/Loader';
@@ -30,25 +32,32 @@ const OrderDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
-  // Current user — for role-based button visibility
+  // Prevents auto-opening receipt after every refetch
+  const initialReceiptShownRef = useRef(false);
+
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
-    fetchOrder();
+    fetchOrder(true);
   }, [id]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (isInitial = false) => {
     try {
       setLoading(true);
       const data = await api.getOrder(id);
       setOrder(data);
 
-           // Auto-show receipt only when paid AND not cancelled
-      if (data.payment_status === 'paid' && data.order_status !== 'cancelled') {
+      // Auto-show receipt on initial load only, for paid, non-cancelled orders
+      if (
+        isInitial &&
+        !initialReceiptShownRef.current &&
+        data.payment_status === 'paid' &&
+        data.order_status !== 'cancelled'
+      ) {
+        initialReceiptShownRef.current = true;
         setReceiptData(data);
         setShowReceipt(true);
       }
-
     } catch (error) {
       console.error('Error fetching order:', error);
       toast.error('Order not found');
@@ -59,7 +68,7 @@ const OrderDetail = () => {
   };
 
   const handlePaymentSuccess = async () => {
-    toast.success('Payment recorded successfully!');
+    toast.success('Payment recorded successfully');
     setShowPaymentModal(false);
     await fetchOrder();
   };
@@ -84,14 +93,7 @@ const OrderDetail = () => {
     }
   };
 
-  const handlePrint = () => {
-    setReceiptData(order);
-    setShowReceipt(true);
-  };
-
-  if (loading) {
-    return <Loader message="Loading order..." />;
-  }
+  if (loading) return <Loader message="Loading order..." />;
 
   if (!order) {
     return (
@@ -117,7 +119,6 @@ const OrderDetail = () => {
   const totalAmount = parseFloat(order.total_amount) || 0;
   const hasVAT = taxAmount > 0;
 
-  // Who can cancel?
   const paidAmount = parseFloat(order.paid_amount) || 0;
   const roleAllowedToCancel = ['boss', 'manager', 'store_keeper'].includes(currentUser.role);
   const paidAndNotBoss = paidAmount > 0 && currentUser.role !== 'boss';
@@ -140,7 +141,7 @@ const OrderDetail = () => {
           <p>Created on {formatDate(order.created_at)}</p>
           {isPaid && (
             <span className="badge badge-success" style={{ marginTop: '4px', fontSize: '13px' }}>
-              ✅ Payment Complete
+              Payment Complete
             </span>
           )}
         </div>
@@ -177,8 +178,7 @@ const OrderDetail = () => {
               <FiXCircle size={16} /> Cancel Order
             </button>
           )}
-
-                    <button
+          <button
             onClick={() => {
               setReceiptData(order);
               setShowReceipt(true);
@@ -190,7 +190,7 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      {/* Status Progress */}
+      {/* Status progress */}
       <div className="card" style={{ marginBottom: '20px' }}>
         {isCancelled ? (
           <div className="flex" style={{ alignItems: 'center', gap: '10px' }}>
@@ -209,7 +209,7 @@ const OrderDetail = () => {
         ) : (
           <div className="order-progress">
             {ORDER_STEPS.map((step, i) => {
-              const isDone = i < currentStepIndex || (i === currentStepIndex);
+              const isDone = i <= currentStepIndex;
               const isActive = i === currentStepIndex;
               return (
                 <React.Fragment key={step.key}>
@@ -217,7 +217,9 @@ const OrderDetail = () => {
                     <div className={`order-progress-dot ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}>
                       {isDone ? <FiCheck size={13} /> : i + 1}
                     </div>
-                    <span className={`order-progress-label ${isActive ? 'active' : ''}`}>{step.label}</span>
+                    <span className={`order-progress-label ${isActive ? 'active' : ''}`}>
+                      {step.label}
+                    </span>
                   </div>
                   {i < ORDER_STEPS.length - 1 && (
                     <div className={`order-progress-line ${i < currentStepIndex ? 'done' : ''}`} />
@@ -247,7 +249,10 @@ const OrderDetail = () => {
             <span className="detail-value">
               <span
                 className="badge"
-                style={{ backgroundColor: getStatusColor(order.order_status) + '20', color: getStatusColor(order.order_status) }}
+                style={{
+                  backgroundColor: getStatusColor(order.order_status) + '20',
+                  color: getStatusColor(order.order_status)
+                }}
               >
                 {getStatusLabel(order.order_status)}
               </span>
@@ -275,7 +280,6 @@ const OrderDetail = () => {
 
         <div className="card">
           <h3>Payment Summary</h3>
-          
           {hasVAT && (
             <>
               <div className="detail-row">
@@ -283,14 +287,13 @@ const OrderDetail = () => {
                 <span className="detail-value">{formatCurrency(subtotal)}</span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">VAT (18%)</span>
+                <span className="detail-label">VAT</span>
                 <span className="detail-value" style={{ color: '#f59e0b' }}>
                   {formatCurrency(taxAmount)}
                 </span>
               </div>
             </>
           )}
-          
           <div className="detail-row">
             <span className="detail-label">Order Total</span>
             <span className="detail-value" style={{ fontSize: '18px', fontWeight: '700', color: 'var(--primary)' }}>
@@ -327,7 +330,7 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      {/* Audit Trail */}
+      {/* Audit trail */}
       <div className="card" style={{ marginTop: '20px' }}>
         <h3>Audit Trail</h3>
         <div className="grid-2">
@@ -379,7 +382,7 @@ const OrderDetail = () => {
         </div>
       </div>
 
-      {/* Order Items */}
+      {/* Order items */}
       <div className="card" style={{ marginTop: '20px' }}>
         <h3>Order Items</h3>
         <div className="table-container">
@@ -416,19 +419,16 @@ const OrderDetail = () => {
             <span>Subtotal</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
-          
           {hasVAT && (
             <div className="order-summary-row">
-              <span>VAT (18%)</span>
+              <span>VAT</span>
               <span style={{ color: '#f59e0b' }}>{formatCurrency(taxAmount)}</span>
             </div>
           )}
-          
           <div className="order-summary-row">
             <span>Paid</span>
             <span style={{ color: 'var(--success)' }}>- {formatCurrency(order.paid_amount || 0)}</span>
           </div>
-          
           <div className="order-summary-row total">
             <span>Balance Due</span>
             <span style={{ color: balanceDue > 0 ? 'var(--danger)' : 'var(--success)' }}>

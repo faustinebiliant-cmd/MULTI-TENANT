@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Audit Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Audit Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -11,14 +11,14 @@ const {
 } = require('../utils/validators');
 
 // ============================================================
-// GET ALL ACTIVITY LOGS - WITH QUERY PARAMETER VALIDATION
+// GET ACTIVITY LOGS (paginated + filters)
 // ============================================================
 
 const getActivityLogs = async (req, res) => {
     try {
         let { action, user_id, startDate, endDate, limit = 100, page = 1 } = req.query;
 
-        // ✅ VALIDATE AND SANITIZE INPUTS
+        // Validate action
         if (action && action !== 'all') {
             if (!isValidLength(action, 1, 100) || !isSafeText(action)) {
                 return res.status(400).json({
@@ -29,6 +29,7 @@ const getActivityLogs = async (req, res) => {
             action = sanitize(action);
         }
 
+        // Validate user_id
         if (user_id && user_id !== 'all') {
             if (!isValidUUID(user_id)) {
                 return res.status(400).json({
@@ -38,7 +39,7 @@ const getActivityLogs = async (req, res) => {
             }
         }
 
-        // ✅ VALIDATE DATES
+        // Validate dates
         if (startDate) {
             const date = new Date(startDate);
             if (isNaN(date.getTime())) {
@@ -59,7 +60,7 @@ const getActivityLogs = async (req, res) => {
             }
         }
 
-        // ✅ VALIDATE PAGINATION
+        // Validate pagination
         const limitNum = parseInt(limit);
         if (isNaN(limitNum) || limitNum < 1 || limitNum > 200) {
             return res.status(400).json({
@@ -78,7 +79,7 @@ const getActivityLogs = async (req, res) => {
         }
         page = pageNum;
 
-        // Build query
+        // Base query
         let query = supabase
             .from('activity_logs')
             .select(`
@@ -87,19 +88,10 @@ const getActivityLogs = async (req, res) => {
             `)
             .order('created_at', { ascending: false });
 
-        // Apply filters
-        if (action && action !== 'all') {
-            query = query.eq('action', action);
-        }
-
-        if (user_id && user_id !== 'all') {
-            query = query.eq('user_id', user_id);
-        }
-
-        if (startDate) {
-            query = query.gte('created_at', new Date(startDate).toISOString());
-        }
-
+        // Filters
+        if (action && action !== 'all') query = query.eq('action', action);
+        if (user_id && user_id !== 'all') query = query.eq('user_id', user_id);
+        if (startDate) query = query.gte('created_at', new Date(startDate).toISOString());
         if (endDate) {
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
@@ -111,11 +103,10 @@ const getActivityLogs = async (req, res) => {
         const to = from + limit - 1;
         query = query.range(from, to);
 
-        const { data: logs, error, count } = await query;
-
+        const { data: logs, error } = await query;
         if (error) throw error;
 
-        // Get total count for pagination
+        // Total count
         const { count: totalCount, error: countError } = await supabase
             .from('activity_logs')
             .select('*', { count: 'exact', head: true });
@@ -130,7 +121,7 @@ const getActivityLogs = async (req, res) => {
             user_role: log.users?.role || null
         }));
 
-        // Get unique actions for filter
+        // Unique actions for filter dropdown
         const { data: actions, error: actionsError } = await supabase
             .from('activity_logs')
             .select('action')
@@ -140,7 +131,7 @@ const getActivityLogs = async (req, res) => {
 
         const uniqueActions = [...new Set(actions.map(a => a.action))];
 
-        // Get unique users for filter
+        // Unique users for filter dropdown
         const { data: users, error: usersError } = await supabase
             .from('users')
             .select('id, full_name, email')
@@ -148,7 +139,7 @@ const getActivityLogs = async (req, res) => {
 
         if (usersError) throw usersError;
 
-        // Activity summary
+        // Today's summary
         const today = new Date();
         const startOfDay = new Date(today);
         startOfDay.setHours(0, 0, 0, 0);
@@ -198,7 +189,6 @@ const getActivityLogs = async (req, res) => {
 
 const getActivitySummary = async (req, res) => {
     try {
-        // No user input to validate here - it's a fixed report
         const today = new Date();
         const startOfDay = new Date(today);
         startOfDay.setHours(0, 0, 0, 0);
@@ -209,7 +199,6 @@ const getActivitySummary = async (req, res) => {
 
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-        // Today's activity
         const { data: todayLogs, error: todayError } = await supabase
             .from('activity_logs')
             .select('*')
@@ -217,7 +206,6 @@ const getActivitySummary = async (req, res) => {
 
         if (todayError) throw todayError;
 
-        // This week's activity
         const { data: weekLogs, error: weekError } = await supabase
             .from('activity_logs')
             .select('*')
@@ -225,7 +213,6 @@ const getActivitySummary = async (req, res) => {
 
         if (weekError) throw weekError;
 
-        // This month's activity
         const { data: monthLogs, error: monthError } = await supabase
             .from('activity_logs')
             .select('*')
@@ -233,13 +220,10 @@ const getActivitySummary = async (req, res) => {
 
         if (monthError) throw monthError;
 
-        // Action breakdown
+        // Top actions this month
         const actionCount = {};
         monthLogs.forEach(log => {
-            if (!actionCount[log.action]) {
-                actionCount[log.action] = 0;
-            }
-            actionCount[log.action]++;
+            actionCount[log.action] = (actionCount[log.action] || 0) + 1;
         });
 
         const topActions = Object.entries(actionCount)

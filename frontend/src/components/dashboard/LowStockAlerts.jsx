@@ -10,7 +10,7 @@ const LowStockAlerts = ({ items }) => {
     return (
       <div className="card">
         <div className="card-header">
-          <h3>✅ Low Stock Alerts</h3>
+          <h3>Low Stock Alerts</h3>
           <span className="badge badge-success">All items well stocked</span>
         </div>
         <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
@@ -23,7 +23,7 @@ const LowStockAlerts = ({ items }) => {
   return (
     <div className="card">
       <div className="card-header">
-        <h3>⚠️ Low Stock Alerts</h3>
+        <h3>Low Stock Alerts</h3>
         <span className="badge badge-danger">{items.length} items</span>
       </div>
       <div className="table-container">
@@ -43,9 +43,7 @@ const LowStockAlerts = ({ items }) => {
                 <td>{item.stock}</td>
                 <td>{item.threshold || 5}</td>
                 <td>
-                  <span className="badge badge-danger">
-                    ⚠️ Low Stock
-                  </span>
+                  <span className="badge badge-danger">Low Stock</span>
                 </td>
               </tr>
             ))}

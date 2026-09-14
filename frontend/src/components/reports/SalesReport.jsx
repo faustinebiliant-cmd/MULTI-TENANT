@@ -1,22 +1,12 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Sales Report (Multi-Year)
+// OSWAGO ELECTRICAL EQUIPMENT - Sales Report
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
 import {
-  FiDollarSign,
-  FiCreditCard,
-  FiClock,
-  FiShoppingCart,
-  FiBarChart2,
-  FiPackage,
-  FiSmartphone,
-  FiTrendingUp,
-  FiTrendingDown,
-  FiArrowUpCircle,
-  FiArrowDownCircle,
-  FiRefreshCw,
-  FiPercent
+  FiDollarSign, FiCreditCard, FiClock, FiShoppingCart, FiBarChart2,
+  FiPackage, FiSmartphone, FiTrendingDown, FiArrowUpCircle,
+  FiArrowDownCircle, FiRefreshCw, FiPercent
 } from 'react-icons/fi';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import api from '../../api/client';
@@ -35,7 +25,6 @@ const SalesReport = () => {
   const [data, setData] = useState(null);
   const [comparison, setComparison] = useState(null);
 
-  // ✅ State for expandable partial-payment rows in Recent Orders
   const [expandedPayments, setExpandedPayments] = useState({});
   const togglePaymentExpanded = (id) => {
     setExpandedPayments(prev => ({ ...prev, [id]: !prev[id] }));
@@ -81,7 +70,7 @@ const SalesReport = () => {
   const fetchReport = async () => {
     try {
       setLoading(true);
-      let params = {};
+      const params = {};
 
       if (period === 'today') {
         params.period = 'today';
@@ -134,9 +123,7 @@ const SalesReport = () => {
     }
   };
 
-  if (loading) {
-    return <Loader message="Loading sales report..." />;
-  }
+  if (loading) return <Loader message="Loading sales report..." />;
 
   if (!data) {
     return (
@@ -147,7 +134,16 @@ const SalesReport = () => {
     );
   }
 
-  const { summary, stockSummary, productStockMovements, productFinancials, paymentMethods, topProducts, orders, monthlyBreakdown } = data;
+  const {
+    summary,
+    stockSummary,
+    productStockMovements,
+    productFinancials,
+    paymentMethods,
+    topProducts,
+    orders,
+    monthlyBreakdown
+  } = data;
 
   const getNetStockColor = (value) => {
     if (value > 0) return '#10b981';
@@ -164,7 +160,7 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Period Selector */}
+      {/* Period selector */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="report-tabs">
           {periodOptions.map((opt) => (
@@ -230,7 +226,7 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards */}
       <div className="stats-grid-4">
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
@@ -238,7 +234,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalSales || 0)}</h3>
-            <p>Total Sales — WITHOUT VAT</p>
+            <p>Total Sales — Without VAT</p>
           </div>
         </div>
         <div className="stat-card">
@@ -256,7 +252,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalVATFromPayments || 0)}</h3>
-            <p>VAT Collected — separate</p>
+            <p>VAT Collected</p>
           </div>
         </div>
         <div className="stat-card">
@@ -265,12 +261,11 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.outstandingCredit || 0)}</h3>
-            <p>Outstanding Credit — unpaid</p>
+            <p>Outstanding Credit</p>
           </div>
         </div>
       </div>
 
-      {/* Orders / Total Money / Average / Items */}
       <div className="stats-grid-4">
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
@@ -278,11 +273,9 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>
-              {formatCurrency(
-                (summary.totalPaymentsReceived || 0) + (summary.totalVATFromPayments || 0)
-              )}
+              {formatCurrency((summary.totalPaymentsReceived || 0) + (summary.totalVATFromPayments || 0))}
             </h3>
-            <p>Total Money Received (incl. VAT)</p>
+            <p>Total Money Received</p>
           </div>
         </div>
         <div className="stat-card">
@@ -314,11 +307,11 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Stock Movement Summary */}
+      {/* Stock movement summary */}
       {stockSummary && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>📦 Stock Movement Summary</h3>
+            <h3>Stock Movement Summary</h3>
           </div>
           <div className="stats-grid">
             <div className="stat-card">
@@ -359,13 +352,19 @@ const SalesReport = () => {
             </div>
           </div>
           <div style={{
-            marginTop: '16px', padding: '12px', borderRadius: '8px',
-            backgroundColor: stockSummary.netStockChange > 0 ? '#ecfdf5' : stockSummary.netStockChange < 0 ? '#fef2f2' : '#f3f4f6',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            marginTop: '16px',
+            padding: '12px',
+            borderRadius: '8px',
+            backgroundColor: stockSummary.netStockChange > 0 ? '#ecfdf5' :
+                             stockSummary.netStockChange < 0 ? '#fef2f2' : '#f3f4f6',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
             <strong>Net Stock Change:</strong>
             <span style={{
-              fontSize: '20px', fontWeight: 'bold',
+              fontSize: '20px',
+              fontWeight: 'bold',
               color: getNetStockColor(stockSummary.netStockChange || 0)
             }}>
               {stockSummary.netStockChange > 0 ? '+' : ''}{stockSummary.netStockChange || 0} units
@@ -374,11 +373,11 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Product Stock Movements */}
+      {/* Product stock movements */}
       {productStockMovements && productStockMovements.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>📦 Product Stock Movements</h3>
+            <h3>Product Stock Movements</h3>
           </div>
           <div className="table-container">
             <table>
@@ -395,7 +394,7 @@ const SalesReport = () => {
               </thead>
               <tbody>
                 {productStockMovements.map((item, index) => {
-                  const netChange = (item.netChange || 0);
+                  const netChange = item.netChange || 0;
                   return (
                     <tr key={index}>
                       <td style={{ fontWeight: 500 }}>{item.name}</td>
@@ -419,11 +418,11 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Product Financial Summary */}
+      {/* Product financial summary */}
       {productFinancials && productFinancials.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>💰 Product Financial Summary</h3>
+            <h3>Product Financial Summary</h3>
           </div>
 
           <div className="stats-grid" style={{ marginBottom: '16px' }}>
@@ -515,7 +514,7 @@ const SalesReport = () => {
                 <tr>
                   <td style={{ fontWeight: '700', color: '#0f172a', padding: '12px 20px' }}>
                     <span style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      TOTALS
+                      Totals
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', color: '#059669', fontWeight: '700', fontSize: '15px', padding: '12px 20px' }}>
@@ -542,7 +541,7 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Year-over-Year */}
+      {/* Year over year */}
       {comparison && comparison.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
@@ -581,7 +580,7 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Monthly Breakdown */}
+      {/* Monthly breakdown */}
       {monthlyBreakdown && monthlyBreakdown.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
@@ -610,7 +609,7 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Payment Methods */}
+      {/* Payment methods */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
           <h3>Money Received By Method</h3>
@@ -646,7 +645,7 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Top Products */}
+      {/* Top products */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
           <h3>Top Selling Products</h3>
@@ -679,7 +678,7 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* ─── RECENT ORDERS (with Payment column) ─────────── */}
+      {/* Recent orders */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
           <h3>Recent Orders</h3>
@@ -711,8 +710,8 @@ const SalesReport = () => {
                   const owed = Math.max(0, total - paid);
 
                   const paymentMeta = {
-                    paid:    { label: 'Paid',    color: '#0bc518' },
-                    unpaid:  { label: 'Unpaid',  color: '#d00f0f' },
+                    paid: { label: 'Paid', color: '#0bc518' },
+                    unpaid: { label: 'Unpaid', color: '#d00f0f' },
                     partial: { label: 'Partial', color: '#d97706' }
                   }[paymentStatusRaw] || { label: 'Unpaid', color: '#d00f0f' };
 
@@ -728,7 +727,11 @@ const SalesReport = () => {
                       </td>
                       <td>
                         {!isPartial ? (
-                          <span style={{ color: paymentMeta.color, fontWeight: '600', textTransform: 'capitalize' }}>
+                          <span style={{
+                            color: paymentMeta.color,
+                            fontWeight: '600',
+                            textTransform: 'capitalize'
+                          }}>
                             {paymentMeta.label}
                           </span>
                         ) : (
@@ -743,18 +746,18 @@ const SalesReport = () => {
                                 cursor: 'pointer',
                                 color: paymentMeta.color,
                                 fontWeight: '600',
-                                textTransform: 'capitalize',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                transition: 'transform 220ms ease',
-                                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                                textTransform: 'capitalize'
                               }}
                             >
-                              {paymentMeta.label} ↻
+                              {paymentMeta.label}
                             </button>
                             {isOpen && (
-                              <div style={{ marginTop: '4px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                              <div style={{
+                                marginTop: '4px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                whiteSpace: 'nowrap'
+                              }}>
                                 <span style={{ color: '#059669' }}>{formatCurrency(paid)}</span>
                                 <span style={{ color: '#94a3b8', margin: '0 6px' }}>/</span>
                                 <span style={{ color: '#dc2626' }}>{formatCurrency(owed)}</span>

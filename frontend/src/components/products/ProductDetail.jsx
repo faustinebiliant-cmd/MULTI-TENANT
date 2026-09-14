@@ -43,7 +43,7 @@ const ProductDetail = () => {
     setDeleting(true);
     try {
       await api.deleteProduct(id);
-      toast.success(`"${product.name}" deleted successfully!`);
+      toast.success('Product deleted successfully');
       navigate('/products');
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -52,9 +52,7 @@ const ProductDetail = () => {
     }
   };
 
-  if (loading) {
-    return <Loader message="Loading product..." />;
-  }
+  if (loading) return <Loader message="Loading product..." />;
 
   if (!product) {
     return (
@@ -79,7 +77,6 @@ const ProductDetail = () => {
           <h1>{product.name}</h1>
           <p>{product.description || 'No description provided'}</p>
         </div>
-        {/* ✅ NO Edit/Delete buttons in header */}
       </div>
 
       <div className="grid-2">
@@ -143,9 +140,9 @@ const ProductDetail = () => {
             <span className="detail-label">Status</span>
             <span className="detail-value">
               {isLowStock ? (
-                <span className="badge badge-danger">⚠️ Low Stock</span>
+                <span className="badge badge-danger">Low Stock</span>
               ) : (
-                <span className="badge badge-success">✅ In Stock</span>
+                <span className="badge badge-success">In Stock</span>
               )}
             </span>
           </div>
@@ -154,17 +151,17 @@ const ProductDetail = () => {
         <div className="card">
           <h3>Actions</h3>
           <div className="flex" style={{ gap: '10px', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => setShowStockAdjustment(true)} 
+            <button
+              onClick={() => setShowStockAdjustment(true)}
               className="btn btn-secondary"
             >
-              📦 Adjust Stock
+              Adjust Stock
             </button>
             <Link to={`/products/${id}/edit`} className="btn btn-primary">
               <FiEdit size={18} /> Edit Product
             </Link>
-            <button 
-              onClick={handleDelete} 
+            <button
+              onClick={handleDelete}
               className="btn btn-danger"
               disabled={deleting}
             >

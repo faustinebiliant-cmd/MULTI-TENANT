@@ -1,28 +1,30 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Authentication Context (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Auth Context
 // ============================================================
 
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
+import { toastMessages } from '../styles/toastConfig';
 
 const AuthContext = createContext();
+
+// Auto-logout after 30 minutes of inactivity
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const inactivityTimerRef = useRef(null);
-  const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
-  // ✅ CHECK TOKEN VALIDITY ON MOUNT
+  // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
     if (token && storedUser) {
       try {
-        // Check if token is expired
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(
@@ -34,19 +36,15 @@ export const AuthProvider = ({ children }) => {
         const decoded = JSON.parse(jsonPayload);
 
         if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-          // Token expired - clear
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUser(null);
           setIsAuthenticated(false);
         } else {
-          // Token valid - restore session
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
+          setUser(JSON.parse(storedUser));
           setIsAuthenticated(true);
         }
       } catch (error) {
-        // Invalid token - clear
         console.error('Error parsing user:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -55,44 +53,29 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // ✅ INACTIVITY TIMEOUT - Auto logout after 30 minutes of inactivity
+  // Inactivity auto-logout
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const resetInactivityTimer = () => {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-      
+    const resetTimer = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = setTimeout(() => {
-        // Auto-logout due to inactivity
-        console.log('Auto-logout due to inactivity');
         logout();
         toast.warning('Logged out due to inactivity. Please login again.');
       }, INACTIVITY_TIMEOUT);
     };
 
-    // Reset timer on user activity
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach(event => {
-      window.addEventListener(event, resetInactivityTimer);
-    });
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer();
 
-    // Start the timer
-    resetInactivityTimer();
-
-    // Cleanup
     return () => {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-      events.forEach(event => {
-        window.removeEventListener(event, resetInactivityTimer);
-      });
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
     };
   }, [isAuthenticated]);
 
-  // ✅ LOGIN WITH TOKEN EXPIRY CHECK
+  // Login
   const login = async (email, password) => {
     try {
       const response = await api.auth.login({ email, password });
@@ -100,7 +83,6 @@ export const AuthProvider = ({ children }) => {
       if (response.success) {
         const { token, user: userData } = response;
 
-        // ✅ ONLY STORE ESSENTIAL USER DATA (Reduced for security)
         const minimalUser = {
           id: userData.id,
           full_name: userData.full_name,
@@ -115,36 +97,31 @@ export const AuthProvider = ({ children }) => {
         setUser(minimalUser);
         setIsAuthenticated(true);
 
-        toast.success(`Welcome back, ${userData.full_name}!`);
+        toast.success(`Welcome back, ${userData.full_name}`);
         return { success: true };
       } else {
-        toast.error(response.error || 'Login failed');
         return { success: false, error: response.error };
       }
     } catch (error) {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
-      toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
   };
 
-  // ✅ LOGOUT - Just clears state
+  // Logout
   const logout = () => {
-    // Clear inactivity timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
-    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
-    toast.success('Logged out successfully');
   };
 
-  // ✅ CHANGE PASSWORD
+  // Change password
   const changePassword = async (currentPassword, newPassword) => {
     try {
       const response = await api.auth.changePassword({
@@ -155,10 +132,9 @@ export const AuthProvider = ({ children }) => {
       if (response.success) {
         toast.success('Password changed successfully');
         return { success: true };
-      } else {
-        toast.error(response.error || 'Failed to change password');
-        return { success: false };
       }
+      toast.error(response.error || 'Failed to change password');
+      return { success: false };
     } catch (error) {
       console.error('Change password error:', error);
       const errorMessage = error.response?.data?.error || 'Failed to change password';

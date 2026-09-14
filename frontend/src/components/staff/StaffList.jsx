@@ -5,31 +5,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  FiPlus,
-  FiSearch,
-  FiX,
-  FiUsers,
-  FiAward,
-  FiBriefcase,
-  FiDollarSign,
-  FiArchive,
-  FiUserCheck,
+  FiPlus, FiSearch, FiX, FiUsers, FiAward, FiBriefcase,
+  FiDollarSign, FiArchive, FiUserCheck
 } from 'react-icons/fi';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
 
-// Role presentation kept in one place so icon, label and color
-// never drift apart.
+// Role presentation
 const ROLE_META = {
   boss: { label: 'Boss', icon: FiAward, color: '#dc2626' },
   manager: { label: 'Manager', icon: FiBriefcase, color: '#2563eb' },
   cashier: { label: 'Cashier', icon: FiDollarSign, color: '#d97706' },
   store_keeper: { label: 'Store Keeper', icon: FiArchive, color: '#7c3aed' },
-  sales_rep: { label: 'Sales Rep', icon: FiUserCheck, color: '#059669' },
+  sales_rep: { label: 'Sales Rep', icon: FiUserCheck, color: '#059669' }
 };
 
 const DEFAULT_ROLE_META = { label: 'Staff', icon: FiUsers, color: '#6b7280' };
-
 const getRoleMeta = (role) => ROLE_META[role] || { ...DEFAULT_ROLE_META, label: role || 'Staff' };
 
 const StaffList = () => {

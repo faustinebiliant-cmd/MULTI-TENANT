@@ -3067,6 +3067,13 @@ body.dark-mode .login-footer {
   }
 }
 
+.login-attempts {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--gray);
+  text-align: center;
+}
+
 /* ============================================================
    RESPONSIVE (global)
    ============================================================ */

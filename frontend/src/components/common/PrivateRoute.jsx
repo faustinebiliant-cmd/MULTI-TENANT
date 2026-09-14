@@ -1,11 +1,11 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Private Route Component (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Private Route
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
-// ✅ Helper function to check if token is expired
+// Check if token is expired (5s clock buffer)
 const isTokenExpired = (token) => {
   try {
     const base64Url = token.split('.')[1];
@@ -17,22 +17,18 @@ const isTokenExpired = (token) => {
         .join('')
     );
     const decoded = JSON.parse(jsonPayload);
-    
     if (decoded.exp) {
-      // Add 5 second buffer to account for clock skew
       return Date.now() >= (decoded.exp * 1000) - 5000;
     }
     return false;
-  } catch (error) {
-    // Invalid token format
+  } catch {
     return true;
   }
 };
 
-// ✅ Helper function to check token validity
 const isValidToken = (token) => {
   if (!token) return false;
-  if (token.split('.').length !== 3) return false; // JWT has 3 parts
+  if (token.split('.').length !== 3) return false;
   if (isTokenExpired(token)) return false;
   return true;
 };
@@ -45,11 +41,9 @@ const PrivateRoute = ({ children }) => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
-    // ✅ Check if token is valid
     if (token && user && isValidToken(token)) {
       setIsAuthenticated(true);
     } else {
-      // ✅ Clear invalid data
       if (token) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -59,7 +53,7 @@ const PrivateRoute = ({ children }) => {
     setIsValidating(false);
   }, []);
 
-  // ✅ Listen for storage events (logout in other tabs)
+  // Sync logout across tabs
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token' && !e.newValue) {
@@ -70,13 +64,12 @@ const PrivateRoute = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // ✅ Show nothing while validating
   if (isValidating) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         minHeight: '100vh'
       }}>
@@ -85,12 +78,10 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  // ✅ If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ If authenticated, render children
   return children;
 };
 

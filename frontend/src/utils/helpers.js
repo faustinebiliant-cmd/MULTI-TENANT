@@ -2,7 +2,7 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Helpers
 // ============================================================
 
-// Shift a Date by +3h and read UTC parts (EAT is UTC+3, no DST)
+// Read EAT (UTC+3) wall-clock parts from a Date
 const toEATParts = (date) => {
   const shifted = new Date(date.getTime() + 3 * 60 * 60 * 1000);
   return {
@@ -10,19 +10,24 @@ const toEATParts = (date) => {
     month: shifted.getUTCMonth(),
     day: shifted.getUTCDate(),
     hour: shifted.getUTCHours(),
-    minute: shifted.getUTCMinutes(),
-    second: shifted.getUTCSeconds(),
+    minute: shifted.getUTCMinutes()
   };
 };
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// Format "13 Sep 2026, 10:59 AM" in EAT
-export const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  const safe = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString) ? dateString : dateString + 'Z';
+// Normalize input to Date, assuming UTC if no zone suffix
+const parseDate = (value) => {
+  if (!value) return null;
+  const safe = /Z$|[+-]\d{2}:?\d{2}$/.test(value) ? value : value + 'Z';
   const date = new Date(safe);
-  if (isNaN(date.getTime())) return '-';
+  return isNaN(date.getTime()) ? null : date;
+};
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Format: "13 Sep 2026, 10:59 AM"
+export const formatDate = (value) => {
+  const date = parseDate(value);
+  if (!date) return '-';
   const t = toEATParts(date);
   const hour12 = t.hour % 12 === 0 ? 12 : t.hour % 12;
   const ampm = t.hour < 12 ? 'AM' : 'PM';
@@ -31,46 +36,59 @@ export const formatDate = (dateString) => {
   return `${t.day} ${MONTHS[t.month]} ${t.year}, ${hh}:${mm} ${ampm}`;
 };
 
-// Format "13 Sep 2026" in EAT
-export const formatDateOnly = (dateString) => {
-  if (!dateString) return '-';
-  const safe = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString) ? dateString : dateString + 'Z';
-  const date = new Date(safe);
-  if (isNaN(date.getTime())) return '-';
+// Format: "13 Sep 2026"
+export const formatDateOnly = (value) => {
+  const date = parseDate(value);
+  if (!date) return '-';
   const t = toEATParts(date);
   return `${t.day} ${MONTHS[t.month]} ${t.year}`;
 };
 
-// Format TZS currency
+// Format: "TZS 1,500"
 export const formatCurrency = (amount) => {
-  if (!amount && amount !== 0) return 'TZS 0';
+  if (amount === null || amount === undefined || amount === '') return 'TZS 0';
   return `TZS ${Number(amount).toLocaleString()}`;
 };
 
-// Status colour
+// Status colors — fallback when CSS classes aren't available
 export const getStatusColor = (status) => {
   const colors = {
-    pending: '#f59e0b', confirmed: '#3b82f6', delivered: '#10b981', cancelled: '#ef4444',
-    paid: '#10b981', unpaid: '#ef4444', partial: '#f59e0b', active: '#10b981', inactive: '#ef4444'
+    pending: '#b58a09',
+    confirmed: '#0c39ce',
+    delivered: '#08971d',
+    cancelled: '#c40e0e',
+    paid: '#0bc518',
+    unpaid: '#d00f0f',
+    partial: '#92400e',
+    active: '#059669',
+    inactive: '#dc2626'
   };
   return colors[status?.toLowerCase()] || '#6b7280';
 };
 
-// Status label
+// Human-readable status labels
 export const getStatusLabel = (status) => {
   const labels = {
-    pending: 'Pending', confirmed: 'Confirmed', delivered: 'Delivered', cancelled: 'Cancelled',
-    paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', active: 'Active', inactive: 'Inactive'
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+    paid: 'Paid',
+    unpaid: 'Unpaid',
+    partial: 'Partial',
+    active: 'Active',
+    inactive: 'Inactive'
   };
   return labels[status?.toLowerCase()] || status || '-';
 };
 
-// Generate order number
-export const generateOrderNumber = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-  return `ORD-${year}${month}${day}-${random}`;
+// Compute initials from a name for avatars
+export const getInitials = (name) => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 };

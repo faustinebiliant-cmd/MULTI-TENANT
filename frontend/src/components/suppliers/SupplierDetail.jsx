@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import api from '../../api/client';
+import { formatDate } from '../../utils/helpers';
 import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
@@ -40,7 +41,7 @@ const SupplierDetail = () => {
     setDeleting(true);
     try {
       await api.deleteSupplier(id);
-      toast.success(`"${supplier.name}" deleted successfully!`);
+      toast.success('Supplier deleted successfully');
       navigate('/suppliers');
     } catch (error) {
       console.error('Error deleting supplier:', error);
@@ -66,7 +67,10 @@ const SupplierDetail = () => {
     <div>
       <div className="page-header flex-between">
         <div>
-          <button onClick={() => navigate('/suppliers')} className="btn btn-sm btn-secondary">
+          <button
+            onClick={() => navigate('/suppliers')}
+            className="btn btn-sm btn-secondary"
+          >
             <FiArrowLeft size={16} /> Back
           </button>
           <h1>{supplier.name}</h1>
@@ -107,7 +111,7 @@ const SupplierDetail = () => {
           </div>
           <div className="detail-row">
             <span className="detail-label">Created At</span>
-            <span className="detail-value">{new Date(supplier.created_at).toLocaleDateString()}</span>
+            <span className="detail-value">{formatDate(supplier.created_at)}</span>
           </div>
         </div>
       </div>

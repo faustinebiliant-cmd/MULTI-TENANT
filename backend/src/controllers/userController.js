@@ -1,10 +1,17 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Users Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Users Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
 const bcrypt = require('bcryptjs');
-const { isValidRole } = require('../utils/validators');
+const {
+    isValidRole,
+    isValidEmail,
+    isValidPassword,
+    isValidName,
+    isValidPhone,
+    sanitize
+} = require('../utils/validators');
 
 // ============================================================
 // GET ALL USERS
@@ -74,13 +81,14 @@ const getUserById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE USER - FIXED
+// CREATE USER
 // ============================================================
 
 const createUser = async (req, res) => {
     try {
         const { full_name, email, phone, role, password } = req.body;
 
+        // Validate
         if (!full_name || !email || !password) {
             return res.status(400).json({
                 success: false,
@@ -88,10 +96,48 @@ const createUser = async (req, res) => {
             });
         }
 
-        const { data: existing, error: checkError } = await supabase
+        if (!isValidName(full_name)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Full name must be between 2 and 100 characters'
+            });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid email format'
+            });
+        }
+
+        if (!isValidPassword(password)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters with at least 1 number'
+            });
+        }
+
+        if (phone && !isValidPhone(phone)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number format'
+            });
+        }
+
+        if (role && !isValidRole(role)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid role. Allowed: boss, manager, cashier, store_keeper, sales_rep'
+            });
+        }
+
+        const cleanEmail = sanitize(email.toLowerCase().trim());
+
+        // Check duplicate email
+        const { data: existing } = await supabase
             .from('users')
             .select('id')
-            .eq('email', email)
+            .eq('email', cleanEmail)
             .single();
 
         if (existing) {
@@ -103,47 +149,36 @@ const createUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Get valid user ID
+        // Resolve valid creator ID
         let createdById = null;
         if (req.user && req.user.id) {
-            const { data: user, error: userError } = await supabase
+            const { data: user } = await supabase
                 .from('users')
                 .select('id')
                 .eq('id', req.user.id)
                 .single();
 
-            if (!userError && user) {
+            if (user) {
                 createdById = user.id;
-            } else {
-                const { data: boss } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('email', 'faustinebiliant@gmail.com')
-                    .single();
-                if (boss) {
-                    createdById = boss.id;
-                }
             }
         }
 
         const userData = {
-            full_name,
-            email,
-            phone: phone || '',
+            full_name: sanitize(full_name.trim()),
+            email: cleanEmail,
+            phone: phone ? sanitize(phone.trim()) : '',
             role: role || 'cashier',
             password_hash: hashedPassword,
             is_first_login: true,
             is_active: true
         };
 
-        if (createdById) {
-            userData.created_by = createdById;
-        }
+        if (createdById) userData.created_by = createdById;
 
         const { data: user, error } = await supabase
             .from('users')
             .insert(userData)
-            .select()
+            .select('id, full_name, email, phone, role, is_active, is_first_login, created_at')
             .single();
 
         if (error) {
@@ -160,10 +195,10 @@ const createUser = async (req, res) => {
                 user_id: req.user?.id || null,
                 user_name: req.user?.full_name || 'System',
                 action: 'Staff Created',
-                details: { 
-                    staff_id: user.id, 
-                    staff_name: user.full_name, 
-                    role: user.role 
+                details: {
+                    staff_id: user.id,
+                    staff_name: user.full_name,
+                    role: user.role
                 }
             });
 
@@ -183,7 +218,7 @@ const createUser = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE USER - WITH ROLE VALIDATION
+// UPDATE USER
 // ============================================================
 
 const updateUser = async (req, res) => {
@@ -204,7 +239,7 @@ const updateUser = async (req, res) => {
             });
         }
 
-        // ✅ SECURITY: Prevent deactivating self
+        // Prevent deactivating self
         if (id === req.user.id && is_active === false) {
             return res.status(400).json({
                 success: false,
@@ -213,13 +248,33 @@ const updateUser = async (req, res) => {
         }
 
         const updateData = {};
-        if (full_name !== undefined) updateData.full_name = full_name;
-        if (phone !== undefined) updateData.phone = phone;
+
+        if (full_name !== undefined) {
+            if (!isValidName(full_name)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Full name must be between 2 and 100 characters'
+                });
+            }
+            updateData.full_name = sanitize(full_name.trim());
+        }
+
+        if (phone !== undefined && phone !== '') {
+            if (!isValidPhone(phone)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid phone number format'
+                });
+            }
+            updateData.phone = sanitize(phone.trim());
+        } else if (phone === '') {
+            updateData.phone = '';
+        }
+
         if (is_active !== undefined) updateData.is_active = is_active;
 
-        // ✅ SECURITY: Role change validation
+        // Role change rules
         if (role !== undefined) {
-            // 1. Only Boss can change roles
             if (req.user.role !== 'boss') {
                 return res.status(403).json({
                     success: false,
@@ -227,7 +282,6 @@ const updateUser = async (req, res) => {
                 });
             }
 
-            // 2. Prevent changing your own role
             if (id === req.user.id) {
                 return res.status(400).json({
                     success: false,
@@ -235,7 +289,6 @@ const updateUser = async (req, res) => {
                 });
             }
 
-            // 3. Validate the role is allowed
             if (!isValidRole(role)) {
                 return res.status(400).json({
                     success: false,
@@ -243,7 +296,7 @@ const updateUser = async (req, res) => {
                 });
             }
 
-            // 4. Prevent changing the last Boss account
+            // Prevent demoting the last Boss
             if (existing.role === 'boss' && role !== 'boss') {
                 const { count, error: countError } = await supabase
                     .from('users')
@@ -265,11 +318,13 @@ const updateUser = async (req, res) => {
             updateData.role = role;
         }
 
+        updateData.updated_at = new Date();
+
         const { data: user, error } = await supabase
             .from('users')
             .update(updateData)
             .eq('id', id)
-            .select()
+            .select('id, full_name, email, phone, role, is_active, is_first_login, created_at')
             .single();
 
         if (error) throw error;
@@ -280,8 +335,8 @@ const updateUser = async (req, res) => {
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Staff Updated',
-                details: { 
-                    staff_id: id, 
+                details: {
+                    staff_id: id,
                     staff_name: user.full_name,
                     changes: updateData
                 }
@@ -303,7 +358,7 @@ const updateUser = async (req, res) => {
 };
 
 // ============================================================
-// DELETE USER
+// DELETE USER (soft delete)
 // ============================================================
 
 const deleteUser = async (req, res) => {
@@ -323,7 +378,6 @@ const deleteUser = async (req, res) => {
             });
         }
 
-        // ✅ SECURITY: Prevent deleting self
         if (id === req.user.id) {
             return res.status(400).json({
                 success: false,
@@ -331,7 +385,6 @@ const deleteUser = async (req, res) => {
             });
         }
 
-        // ✅ SECURITY: Prevent deleting Boss accounts
         if (existing.role === 'boss') {
             return res.status(400).json({
                 success: false,
@@ -358,8 +411,8 @@ const deleteUser = async (req, res) => {
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Staff Deleted',
-                details: { 
-                    staff_id: id, 
+                details: {
+                    staff_id: id,
                     staff_name: existing.full_name,
                     role: existing.role
                 }
@@ -388,10 +441,10 @@ const resetPassword = async (req, res) => {
         const { id } = req.params;
         const { new_password } = req.body;
 
-        if (!new_password || new_password.length < 6) {
+        if (!new_password || !isValidPassword(new_password)) {
             return res.status(400).json({
                 success: false,
-                error: 'New password must be at least 6 characters'
+                error: 'Password must be at least 6 characters with at least 1 number'
             });
         }
 
@@ -427,8 +480,8 @@ const resetPassword = async (req, res) => {
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Staff Password Reset',
-                details: { 
-                    staff_id: id, 
+                details: {
+                    staff_id: id,
                     staff_name: existing.full_name
                 }
             });

@@ -1,15 +1,14 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Server (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Server
 // ============================================================
 
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-// Import routes
+// Routes
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
@@ -25,14 +24,17 @@ const reportRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
 const settingsRoutes = require('./routes/settings');
 
+// Rate limiters
+const { apiLimiter, loginLimiter } = require('./middleware/rateLimiter');
+
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 // ============================================================
-// SECURITY MIDDLEWARE
+// SECURITY
 // ============================================================
 
-// ✅ 1. DISABLE CACHING FOR API RESPONSES
+// Disable caching for API responses
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -40,9 +42,9 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ 2. SECURITY HEADERS (Helmet)
+// Security headers
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     frameguard: { action: 'deny' },
     xssFilter: true,
     noSniff: true,
@@ -54,7 +56,7 @@ app.use(helmet({
     }
 }));
 
-// ✅ 3. CORS
+// CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
     'http://localhost:3001',
@@ -77,78 +79,23 @@ app.use(cors({
     maxAge: 86400
 }));
 
-// ✅ 4. LOGGING
-app.use(morgan('dev'));
+// ============================================================
+// PARSING & LOGGING
+// ============================================================
 
-// ✅ 5. JSON PARSING
+app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // ============================================================
 // RATE LIMITING
 // ============================================================
-//
-// ⚠️⚠️⚠️ DEVELOPMENT MODE — RATE LIMITERS DISABLED ⚠️⚠️⚠️
-//
-// Both the global API limiter and the login limiter are wrapped
-// in `if (false)` blocks so they don't run during development.
-//
-// >>> BEFORE PRODUCTION, DO THIS: <<<
-//   1. Search this file for "⚠️⚠️⚠️"
-//   2. Remove the `if (false) {` line and its matching closing `}`
-//      for EACH limiter you want to re-enable.
-//   3. Restart the server.
-//
-// Leaving them disabled in production means:
-//   - No protection against brute-force login attacks
-//   - No protection against API abuse / DoS
-// ============================================================
 
-// Global API rate limit (100000 requests per 1 min)
-if (false) {
-    const apiLimiter = rateLimit({
-        windowMs: 1 * 60 * 1000,
-        max: 100000,
-        message: {
-            success: false,
-            error: 'Too many requests. Please try again later.'
-        },
-        standardHeaders: true,
-        legacyHeaders: false,
-    });
-    app.use('/api', apiLimiter);
-}
+// Global API limiter
+app.use('/api', apiLimiter);
 
-// Login rate limit (5 attempts per 15 min)
-if (false) {
-    const loginLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 5,
-        message: {
-            success: false,
-            error: 'Too many login attempts. Try again in 15 minutes.'
-        },
-        standardHeaders: true,
-        legacyHeaders: false,
-    });
-    app.use('/api/auth/login', loginLimiter);
-}
-
-// ✅ NEW: Stricter rate limiting for order creation
-// ⚠️⚠️⚠️ Also disabled in development — re-enable before production.
-if (false) {
-    const orderCreationLimiter = rateLimit({
-        windowMs: 60 * 60 * 1000,
-        max: 50,
-        message: {
-            success: false,
-            error: 'Too many orders. Please try again later.'
-        },
-        standardHeaders: true,
-        legacyHeaders: false,
-    });
-    app.set('orderCreationLimiter', orderCreationLimiter);
-}
+// Stricter login limiter (failed attempts only)
+app.use('/api/auth/login', loginLimiter);
 
 // ============================================================
 // ROUTES
@@ -163,7 +110,7 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// API Routes
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -183,7 +130,7 @@ app.use('/api/settings', settingsRoutes);
 // ERROR HANDLING
 // ============================================================
 
-// 404 - Route not found
+// 404
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -194,18 +141,15 @@ app.use((req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
     console.error('Server error:', err.message);
-
     const isProduction = process.env.NODE_ENV === 'production';
-    const errorMessage = isProduction ? 'Internal server error' : err.message;
-
     res.status(500).json({
         success: false,
-        error: errorMessage
+        error: isProduction ? 'Internal server error' : err.message
     });
 });
 
 // ============================================================
-// START SERVER
+// START
 // ============================================================
 
 app.listen(PORT, () => {
@@ -214,6 +158,5 @@ app.listen(PORT, () => {
     console.log('========================================');
     console.log(`   Server: http://localhost:${PORT}`);
     console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log('⚠️  Rate limiters DISABLED (development mode)');
     console.log('========================================');
 });

@@ -41,7 +41,7 @@ const ExpenseDetail = () => {
     setDeleting(true);
     try {
       await api.deleteExpense(id);
-      toast.success(`"${expense.description}" deleted successfully!`);
+      toast.success('Expense deleted successfully');
       navigate('/expenses');
     } catch (error) {
       console.error('Error deleting expense:', error);
@@ -73,7 +73,6 @@ const ExpenseDetail = () => {
           <h1>{expense.description}</h1>
           <p>Expense recorded on {formatDateOnly(expense.expense_date)}</p>
         </div>
-        {/* ✅ REMOVED Edit & Delete buttons from header */}
       </div>
 
       <div className="grid-2">
@@ -122,18 +121,17 @@ const ExpenseDetail = () => {
         </div>
       </div>
 
-      {/* ✅ ONLY 2 BUTTONS at the bottom */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link 
-            to={`/expenses/${id}/edit`} 
+          <Link
+            to={`/expenses/${id}/edit`}
             className="btn btn-primary"
-            state={{ expense }}  // Pass expense data to edit form
+            state={{ expense }}
           >
             <FiEdit2 size={18} /> Edit Expense
           </Link>
-          <button 
-            onClick={handleDelete} 
+          <button
+            onClick={handleDelete}
             className="btn btn-danger"
             disabled={deleting}
           >

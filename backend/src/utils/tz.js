@@ -1,10 +1,10 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Timezone Helper
+// OSWAGO ELECTRICAL EQUIPMENT - Timezone Helper (EAT)
 // ============================================================
 
 const TZ = 'Africa/Dar_es_Salaam';
 
-// Read EAT (UTC+3) wall-clock values from a Date
+// Read EAT wall-clock parts from a Date
 const getEATParts = (date = new Date()) => {
   const formatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: TZ,
@@ -25,7 +25,7 @@ const getEATParts = (date = new Date()) => {
   };
 };
 
-// Ensure a value is treated as UTC even if the string lacks a "Z"
+// Treat strings without zone suffix as UTC
 const ensureUTC = (value) => {
   if (value instanceof Date) return value;
   if (typeof value !== 'string') return new Date(value);
@@ -33,7 +33,7 @@ const ensureUTC = (value) => {
   return new Date(hasZone ? value : value + 'Z');
 };
 
-// Build a UTC Date from EAT wall-clock (EAT = UTC+3)
+// Build UTC Date from EAT wall-clock (EAT = UTC+3)
 const eatWallClockToUTC = (year, month, day, hour = 0, minute = 0, second = 0, ms = 0) => {
   const asUTC = Date.UTC(year, month - 1, day, hour, minute, second, ms);
   return new Date(asUTC - 3 * 60 * 60 * 1000);
@@ -44,7 +44,7 @@ const getTodayRangeEAT = () => {
   const t = getEATParts();
   return {
     start: eatWallClockToUTC(t.year, t.month, t.day, 0, 0, 0, 0),
-    end:   eatWallClockToUTC(t.year, t.month, t.day, 23, 59, 59, 999),
+    end: eatWallClockToUTC(t.year, t.month, t.day, 23, 59, 59, 999),
   };
 };
 
@@ -66,14 +66,14 @@ const getMonthRangeEAT = (year, month) => {
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return {
     start: eatWallClockToUTC(year, month, 1, 0, 0, 0, 0),
-    end:   eatWallClockToUTC(year, month, last, 23, 59, 59, 999),
+    end: eatWallClockToUTC(year, month, last, 23, 59, 59, 999),
   };
 };
 
 // Specific year in EAT
 const getYearRangeEAT = (year) => ({
   start: eatWallClockToUTC(year, 1, 1, 0, 0, 0, 0),
-  end:   eatWallClockToUTC(year, 12, 31, 23, 59, 59, 999),
+  end: eatWallClockToUTC(year, 12, 31, 23, 59, 59, 999),
 });
 
 // Custom range in EAT (YYYY-MM-DD strings)
@@ -82,11 +82,11 @@ const getCustomRangeEAT = (startStr, endStr) => {
   const [ey, em, ed] = endStr.split('-').map(n => parseInt(n, 10));
   return {
     start: eatWallClockToUTC(sy, sm, sd, 0, 0, 0, 0),
-    end:   eatWallClockToUTC(ey, em, ed, 23, 59, 59, 999),
+    end: eatWallClockToUTC(ey, em, ed, 23, 59, 59, 999),
   };
 };
 
-// Format a Date as YYYY-MM-DD in EAT
+// Format Date as YYYY-MM-DD in EAT
 const formatDateEAT = (date) => {
   const t = getEATParts(date);
   return `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`;
@@ -102,7 +102,7 @@ const formatDateTimeForExcel = (input) => {
          `${String(hour12).padStart(2, '0')}:${String(t.minute).padStart(2, '0')} ${ampm}`;
 };
 
-// Parse query params into an EAT-based { start, end } UTC range
+// Parse query params into EAT-based UTC range
 const parsePeriodEAT = (query) => {
   const { year, month, startDate, endDate, period } = query;
   if (period === 'today') return getTodayRangeEAT();

@@ -1,18 +1,6 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Dashboard Controller
 // ============================================================
-//
-// What changed in this version:
-//   1. Timezone: "today" is now EAT (Africa/Dar_es_Salaam) midnight
-//      → midnight, not server-tz. Uses utils/tz.js.
-//   2. Removed getDashboardStatsLegacy — it duplicated logic and
-//      would become a maintenance trap.
-//   3. VAT card "vatCollectedFromPayments" now reflects VAT actually
-//      collected via payments (it already did — this is a
-//      pass-through — but now built on EAT range).
-//
-// Business rules remain here. SQL only does raw sums.
-// ============================================================
 
 const supabase = require('../config/supabase');
 const { getTodayRangeEAT } = require('../utils/tz');
@@ -23,13 +11,7 @@ const { getTodayRangeEAT } = require('../utils/tz');
 
 const getDashboardStats = async (req, res) => {
     try {
-        const allowedParams = ['_t'];
-        const extraParams = Object.keys(req.query).filter(p => !allowedParams.includes(p));
-        if (extraParams.length > 0) {
-            console.warn('Unexpected query parameters:', extraParams);
-        }
-
-        // ─── Today in EAT ────────────────────────────────────
+        // Today's range in EAT
         const { start, end } = getTodayRangeEAT();
         const startISO = start.toISOString();
         const endISO = end.toISOString();
@@ -54,13 +36,13 @@ const getDashboardStats = async (req, res) => {
                 end_date: endISO
             }),
 
-            // 3. Outstanding Credit (Today) — state-based on orders "touched today"
+            // 3. Outstanding credit (orders touched today)
             supabase.rpc('outstanding_today', {
                 start_date: startISO,
                 end_date: endISO
             }),
 
-            // 4. Low stock items
+            // 4. Low-stock candidates
             supabase
                 .from('products')
                 .select('id, name, stock_quantity, low_stock_threshold')
@@ -96,7 +78,7 @@ const getDashboardStats = async (req, res) => {
         if (customersResult.error) throw customersResult.error;
         if (recentOrdersResult.error) throw recentOrdersResult.error;
 
-        // ─── Order totals from SQL ────────────────────────────
+        // ---- Order totals from SQL ----
         const summaryRow = summaryResult.data?.[0] || {
             today_sales: 0,
             today_vat: 0,
@@ -105,15 +87,15 @@ const getDashboardStats = async (req, res) => {
         };
 
         const todaySales = Number(summaryRow.today_sales) || 0;
-        const todayVAT = Number(summaryRow.today_vat) || 0;
+        const todayVATBilled = Number(summaryRow.today_vat) || 0;
         const todayTotalWithVAT = Number(summaryRow.today_total_with_vat) || 0;
         const totalOrders = Number(summaryRow.today_order_count) || 0;
 
-        // ─── Payments: VAT split using the order each payment belongs to ─
+        // ---- Payments: split by VAT ratio of each order ----
         const paymentRows = paymentsByMethodResult.data || [];
         const paymentOrderIds = [...new Set(paymentRows.map(r => r.order_id).filter(Boolean))];
 
-        let orderVATRatioMap = {};
+        const orderVATRatioMap = {};
         if (paymentOrderIds.length > 0) {
             const { data: paymentOrders, error: poError } = await supabase
                 .from('orders')
@@ -144,21 +126,21 @@ const getDashboardStats = async (req, res) => {
             vatCollectedFromPayments += rowVAT;
         });
 
-        // ─── Outstanding Credit (Today) — from SQL function ───
+        // ---- Outstanding credit from SQL ----
         const outstandingRow = outstandingResult.data?.[0] || {
             outstanding_total: 0,
             unpaid_order_count: 0
         };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
-        // ─── Low stock ────────────────────────────────────────
+        // ---- Low stock ----
         const lowStock = lowStockResult.data || [];
         const lowStockItems = lowStock.filter(p => p.stock_quantity < p.low_stock_threshold);
 
-        // ─── Total customers ──────────────────────────────────
+        // ---- Total customers ----
         const totalCustomers = customersResult.count || 0;
 
-        // ─── Recent orders ────────────────────────────────────
+        // ---- Recent orders ----
         const recentOrders = recentOrdersResult.data || [];
         const formattedRecent = recentOrders.map(order => ({
             id: order.id,
@@ -171,7 +153,7 @@ const getDashboardStats = async (req, res) => {
             created_at: order.created_at
         }));
 
-        // ─── Low stock details ────────────────────────────────
+        // ---- Low stock details (top 5) ----
         const lowStockDetails = lowStockItems.slice(0, 5).map(p => ({
             name: p.name,
             stock: p.stock_quantity,
@@ -182,7 +164,8 @@ const getDashboardStats = async (req, res) => {
             success: true,
             data: {
                 todaySales,
-                todayVAT,
+                todayVATBilled,
+                todayVAT: todayVATBilled, // legacy alias — remove in next phase
                 todayTotalWithVAT,
                 businessMoneyReceived,
                 vatCollectedFromPayments,

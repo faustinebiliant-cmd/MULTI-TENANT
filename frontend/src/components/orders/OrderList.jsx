@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Order List (Paginated)
+// OSWAGO ELECTRICAL EQUIPMENT - Order List
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -9,56 +9,25 @@ import {
   FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import api from '../../api/client';
-import { formatCurrency, formatDate } from '../../utils/helpers';
+import { formatCurrency, formatDate, getStatusLabel } from '../../utils/helpers';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
-
-// ✅ STATUS COLORS - Text Only (No Background)
-const STATUS_COLORS = {
-  pending:   { text: '#b58a09', label: 'Pending' },
-  confirmed: { text: '#0c39ce', label: 'Confirmed' },
-  delivered: { text: '#08971d', label: 'Delivered' },
-  cancelled: { text: '#c40e0e', label: 'Cancelled' }
-};
-
-// ✅ PAYMENT STATUS COLORS - Text Only (No Background)
-const PAYMENT_STATUS_COLORS = {
-  paid:    { text: '#0bc518', label: 'Paid' },
-  unpaid:  { text: '#d00f0f', label: 'Unpaid' },
-  partial: { text: '#d97706', label: 'Partial' }
-};
-
-// ✅ HEADER STYLES
-const HEADER_STYLES = {
-  header: {
-    backgroundColor: '#0f172a',
-    color: '#f1f5f9',
-    padding: '14px 18px',
-    fontWeight: '600',
-    fontSize: '12px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.6px',
-    borderBottom: '2px solid #1e293b'
-  },
-  columns: {
-    order:    { color: '#94a3b8' },
-    customer: { color: '#94a3b8' },
-    amount:   { color: '#34d399' },
-    status:   { color: '#fbbf24' },
-    payment:  { color: '#60a5fa' },
-    date:     { color: '#94a3b8' },
-    actions:  { color: '#a78bfa' }
-  }
-};
 
 const PAGE_SIZE = 50;
 
-const useDebouncedValue = (value, delay = 400) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
+// Payment status presentation
+const PAYMENT_LABELS = {
+  paid: { label: 'Paid', color: '#0bc518' },
+  unpaid: { label: 'Unpaid', color: '#d00f0f' },
+  partial: { label: 'Partial', color: '#92400e' }
+};
+
+// Order status text colors
+const ORDER_STATUS_COLORS = {
+  pending: '#b58a09',
+  confirmed: '#0c39ce',
+  delivered: '#08971d',
+  cancelled: '#c40e0e'
 };
 
 const OrderList = () => {
@@ -66,31 +35,25 @@ const OrderList = () => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
 
-  // Filters (sent to backend)
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [filter, setFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
   const [showFilters, setShowFilters] = useState(false);
 
-  // Client-side sort toggle on the current page
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
 
-  // ✅ Track which partial-payment rows have their breakdown expanded
   const [expandedPayments, setExpandedPayments] = useState({});
   const togglePaymentExpanded = (id) => {
     setExpandedPayments(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // ─── Fetch page from backend ─────────────────────────────
   const fetchOrders = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const params = { page, limit: PAGE_SIZE };
-
       if (debouncedSearch) params.search = debouncedSearch;
       if (filter !== 'all') params.status = filter;
       if (startDate) params.startDate = startDate;
@@ -113,7 +76,6 @@ const OrderList = () => {
     fetchOrders(1);
   }, [fetchOrders]);
 
-  // ─── Sorting on the current page ──────────────────────────
   const sortedOrders = [...orders].sort((a, b) => {
     let aVal = a[sortField] || '';
     let bVal = b[sortField] || '';
@@ -155,28 +117,22 @@ const OrderList = () => {
 
   const hasActiveFilters = search || filter !== 'all' || startDate || endDate;
 
-  // ─── Status styles ────────────────────────────────────────
-  const getStatusStyle = (status) => {
-    const colors = STATUS_COLORS[status?.toLowerCase()] || STATUS_COLORS.pending;
-    return {
-      color: colors.text,
-      fontSize: '14px',
-      fontWeight: '600',
-      textTransform: 'capitalize',
-      display: 'inline-block'
-    };
-  };
+  const getStatusStyle = (status) => ({
+    color: ORDER_STATUS_COLORS[status?.toLowerCase()] || ORDER_STATUS_COLORS.pending,
+    fontSize: '14px',
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    display: 'inline-block'
+  });
 
-  // ─── Payment cell renderer ────────────────────────────────
   const renderPaymentCell = (order) => {
     const status = (order.payment_status || 'unpaid').toLowerCase();
-    const meta = PAYMENT_STATUS_COLORS[status] || PAYMENT_STATUS_COLORS.unpaid;
+    const meta = PAYMENT_LABELS[status] || PAYMENT_LABELS.unpaid;
 
-    // Paid / Unpaid: static text
     if (status !== 'partial') {
       return (
         <span style={{
-          color: meta.text,
+          color: meta.color,
           fontSize: '14px',
           fontWeight: '600',
           textTransform: 'capitalize',
@@ -187,7 +143,6 @@ const OrderList = () => {
       );
     }
 
-    // Partial: clickable expander
     const paid = parseFloat(order.paid_amount) || 0;
     const total = parseFloat(order.total_amount) || 0;
     const owed = Math.max(0, total - paid);
@@ -203,7 +158,7 @@ const OrderList = () => {
             border: 'none',
             padding: 0,
             cursor: 'pointer',
-            color: meta.text,
+            color: meta.color,
             fontSize: '14px',
             fontWeight: '600',
             textTransform: 'capitalize',
@@ -214,7 +169,7 @@ const OrderList = () => {
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
           }}
         >
-          {meta.label} ↻
+          {meta.label}
         </button>
         {isOpen && (
           <div style={{
@@ -232,7 +187,6 @@ const OrderList = () => {
     );
   };
 
-  // ─── Totals for the CURRENT PAGE only ────────────────────
   const pageTotalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
   const uniqueCustomersPage = new Set(orders.map(o => o.customer_id)).size;
 
@@ -250,21 +204,13 @@ const OrderList = () => {
       <div className="page-header">
         <div>
           <h1>Orders</h1>
-          <p className="text-gray" style={{ fontSize: '14px' }}>
-            Manage all customer orders
-          </p>
+          <p className="text-gray" style={{ fontSize: '14px' }}>Manage all customer orders</p>
         </div>
         <div className="flex" style={{ gap: '16px', alignItems: 'center' }}>
           <div className="flex" style={{ gap: '12px', alignItems: 'center' }}>
-            <span className="badge badge-info" style={{ fontSize: '13px', padding: '6px 14px' }}>
-              {pagination.total} orders
-            </span>
-            <span className="badge badge-success" style={{ fontSize: '13px', padding: '6px 14px' }}>
-              Page total: {formatCurrency(pageTotalRevenue)}
-            </span>
-            <span className="badge badge-secondary" style={{ fontSize: '13px', padding: '6px 14px' }}>
-              {uniqueCustomersPage} customers
-            </span>
+            <span className="badge badge-info">{pagination.total} orders</span>
+            <span className="badge badge-success">Page total: {formatCurrency(pageTotalRevenue)}</span>
+            <span className="badge badge-secondary">{uniqueCustomersPage} customers</span>
           </div>
           <Link to="/orders/new" className="btn btn-primary">
             <FiPlus size={18} /> New Order
@@ -325,8 +271,12 @@ const OrderList = () => {
 
         {showFilters && (
           <div className="flex" style={{
-            gap: '12px', flexWrap: 'wrap', alignItems: 'center',
-            marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0'
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid #e2e8f0'
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
@@ -364,69 +314,58 @@ const OrderList = () => {
         <table>
           <thead>
             <tr>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.order.color, cursor: 'pointer' }}
-                  onClick={() => handleSort('order_number')}>
+              <th onClick={() => handleSort('order_number')} style={{ cursor: 'pointer' }}>
                 Order {sortField === 'order_number' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.customer.color, cursor: 'pointer' }}
-                  onClick={() => handleSort('customer_name')}>
+              <th onClick={() => handleSort('customer_name')} style={{ cursor: 'pointer' }}>
                 Customer {sortField === 'customer_name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.amount.color, cursor: 'pointer' }}
-                  onClick={() => handleSort('total_amount')}>
+              <th onClick={() => handleSort('total_amount')} style={{ cursor: 'pointer' }}>
                 Amount {sortField === 'total_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.status.color }}>Status</th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.payment.color }}>Payment</th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.date.color, cursor: 'pointer' }}
-                  onClick={() => handleSort('created_at')}>
+              <th>Status</th>
+              <th>Payment</th>
+              <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
                 Date {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th style={{ ...HEADER_STYLES.header, color: HEADER_STYLES.columns.actions.color }}>Actions</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {sortedOrders.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
                   <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No orders found</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
                       ? 'Try adjusting or clearing your filters.'
-                      : 'Create your first order!'}
+                      : 'Create your first order.'}
                   </p>
                 </td>
               </tr>
             ) : (
               sortedOrders.map((order) => (
-                <tr key={order.id} style={{ transition: 'background 0.2s' }}>
+                <tr key={order.id}>
                   <td>
-                    <Link to={`/orders/${order.id}`} className="order-link" style={{
-                      fontWeight: '600', color: '#1a56db', fontSize: '14px', textDecoration: 'none'
-                    }}>
+                    <Link to={`/orders/${order.id}`} className="order-link">
                       {order.order_number}
                     </Link>
                   </td>
-                  <td style={{ fontSize: '14px', color: '#1e293b', fontWeight: '500' }}>
-                    {order.customer_name || 'Walk-in'}
-                  </td>
-                  <td style={{ fontSize: '14px', fontWeight: '600', color: '#10b981' }}>
+                  <td>{order.customer_name || 'Walk-in'}</td>
+                  <td style={{ fontWeight: '600', color: '#10b981' }}>
                     {formatCurrency(order.total_amount)}
                   </td>
                   <td>
                     <span style={getStatusStyle(order.order_status)}>
-                      {STATUS_COLORS[order.order_status?.toLowerCase()]?.label || order.order_status || 'Pending'}
+                      {getStatusLabel(order.order_status)}
                     </span>
                   </td>
                   <td>{renderPaymentCell(order)}</td>
-                  <td style={{ fontSize: '13px', color: '#64748b', fontWeight: '400' }}>
+                  <td style={{ fontSize: '13px', color: '#64748b' }}>
                     {formatDate(order.created_at)}
                   </td>
                   <td>
-                    <Link to={`/orders/${order.id}`} className="btn btn-sm btn-secondary" style={{
-                      padding: '6px 14px', fontSize: '12px', borderRadius: '6px'
-                    }}>
+                    <Link to={`/orders/${order.id}`} className="btn btn-sm btn-secondary">
                       View
                     </Link>
                   </td>
@@ -437,7 +376,6 @@ const OrderList = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="audit-pagination" style={{ marginTop: '16px' }}>
           <button
@@ -445,8 +383,7 @@ const OrderList = () => {
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page <= 1 || loading}
           >
-            <FiChevronLeft size={16} />
-            Previous
+            <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
             Page {pagination.page} of {pagination.pages}
@@ -456,27 +393,8 @@ const OrderList = () => {
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page >= pagination.pages || loading}
           >
-            Next
-            <FiChevronRight size={16} />
+            Next <FiChevronRight size={16} />
           </button>
-        </div>
-      )}
-
-      {/* Footer summary */}
-      {orders.length > 0 && (
-        <div className="card" style={{
-          marginTop: '16px', padding: '12px 20px',
-          backgroundColor: '#f8fafc', border: '1px solid #e2e8f0'
-        }}>
-          <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
-            <div>
-              Showing <strong>{orders.length}</strong> of <strong>{pagination.total}</strong> orders
-              {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
-            </div>
-            <div>
-              Page total: <strong style={{ color: '#10b981' }}>{formatCurrency(pageTotalRevenue)}</strong>
-            </div>
-          </div>
         </div>
       )}
     </div>

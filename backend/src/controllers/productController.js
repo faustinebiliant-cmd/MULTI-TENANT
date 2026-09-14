@@ -1,26 +1,26 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Products Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Products Controller
 // ============================================================
 
 const supabase = require('../config/supabase');
-const { 
-    isValidName, 
-    isValidAmount, 
-    isValidQuantity, 
+const {
+    isValidName,
+    isValidAmount,
+    isValidQuantity,
     isValidUUID,
     isValidLength,
     isSafeText,
-    sanitize 
+    sanitize
 } = require('../utils/validators');
 
 // ============================================================
-// UPDATE CATEGORY PRODUCT COUNT
+// UPDATE CATEGORY PRODUCT COUNT (helper)
 // ============================================================
 
 const updateCategoryProductCount = async (categoryId) => {
     try {
         if (!categoryId) return 0;
-        
+
         const { count, error } = await supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
@@ -31,7 +31,7 @@ const updateCategoryProductCount = async (categoryId) => {
 
         await supabase
             .from('categories')
-            .update({ 
+            .update({
                 product_count: count || 0,
                 updated_at: new Date()
             })
@@ -45,26 +45,14 @@ const updateCategoryProductCount = async (categoryId) => {
 };
 
 // ============================================================
-// GET ALL PRODUCTS  (paginated + server-side filters + totals)
+// GET ALL PRODUCTS (paginated + totals)
 // ============================================================
-//
-// Query params:
-//   page=1                    (default 1)
-//   limit=50                  (default 50, max 200)
-//   search=<text>             matches name OR sku OR description
-//   category_id=<uuid>        filter by category
-//   all=true                  legacy mode — returns everything
-//
-// Response:
-//   { success, data: [...], pagination: {...}, totals: {...} }
-//   - pagination is null when all=true
-//   - totals covers the ENTIRE filtered set, not just the page
 
 const getAllProducts = async (req, res) => {
     try {
         let { page = 1, limit = 50, all, search, category_id } = req.query;
 
-        // ─── Legacy mode: ?all=true ───────────────────────────
+        // Legacy: return everything
         if (all === 'true') {
             const { data: products, error } = await supabase
                 .from('products')
@@ -92,7 +80,6 @@ const getAllProducts = async (req, res) => {
             });
         }
 
-        // ─── Validate params ──────────────────────────────────
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -111,7 +98,7 @@ const getAllProducts = async (req, res) => {
             ? search.trim().replace(/[%_,()'"]/g, '')
             : null;
 
-        // ─── Run paginated query + totals in parallel ─────────
+        // Data query
         let dataQuery = supabase
             .from('products')
             .select(`
@@ -134,13 +121,13 @@ const getAllProducts = async (req, res) => {
         const to = from + limitNum - 1;
         dataQuery = dataQuery.order('name').range(from, to);
 
-        // Totals RPC uses the same filters — NULL for missing values
+        // Totals RPC
         const totalsPromise = supabase.rpc('sum_products_totals', {
             search_term: cleanSearch || null,
             category_filter: category_id || null
         });
 
-        // Count query (same filters)
+        // Count query
         let countQuery = supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
@@ -169,7 +156,6 @@ const getAllProducts = async (req, res) => {
         if (totalsError) throw totalsError;
         if (countError) throw countError;
 
-        // ─── Format rows ──────────────────────────────────────
         const formattedProducts = products.map(product => ({
             ...product,
             category_name: product.categories?.name || null,
@@ -179,7 +165,7 @@ const getAllProducts = async (req, res) => {
         const total = totalCount || 0;
         const pages = Math.ceil(total / limitNum);
 
-        // ─── Totals from SQL (whole filtered set) ─────────────
+        // Totals
         const totalsRow = totalsData?.[0] || {
             total_inventory_value: 0,
             total_cost_value: 0,
@@ -266,7 +252,7 @@ const getProductById = async (req, res) => {
 };
 
 // ============================================================
-// CREATE PRODUCT - WITH IMPROVED VALIDATION
+// CREATE PRODUCT
 // ============================================================
 
 const createProduct = async (req, res) => {
@@ -283,7 +269,6 @@ const createProduct = async (req, res) => {
             supplier_id
         } = req.body;
 
-        // ✅ VALIDATE NAME
         if (!isValidName(name)) {
             return res.status(400).json({
                 success: false,
@@ -291,7 +276,7 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION
+        // Description
         let cleanDescription = '';
         if (description) {
             if (!isValidLength(description, 0, 1000)) {
@@ -309,7 +294,6 @@ const createProduct = async (req, res) => {
             cleanDescription = sanitize(description);
         }
 
-        // ✅ VALIDATE PRICES
         if (!isValidAmount(cost_price)) {
             return res.status(400).json({
                 success: false,
@@ -324,7 +308,6 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE STOCK
         if (stock_quantity !== undefined && !isValidQuantity(stock_quantity)) {
             return res.status(400).json({
                 success: false,
@@ -332,7 +315,6 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE CATEGORY/SUPPLIER IDs
         if (category_id && !isValidUUID(category_id)) {
             return res.status(400).json({
                 success: false,
@@ -347,11 +329,10 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // ✅ SANITIZE INPUTS
         const cleanName = sanitize(name.trim());
         const cleanSku = sku ? sanitize(sku) : null;
 
-        // Check SKU
+        // SKU uniqueness
         if (cleanSku) {
             const { data: existing } = await supabase
                 .from('products')
@@ -386,12 +367,12 @@ const createProduct = async (req, res) => {
 
         if (error) throw error;
 
-        // ✅ Update category product count
+        // Update category product count
         if (product.category_id) {
             await updateCategoryProductCount(product.category_id);
         }
 
-        // ✅ RECORD INITIAL STOCK MOVEMENT
+        // Record initial stock movement
         if (parseInt(stock_quantity) > 0) {
             let validUserId = null;
             if (req.user && req.user.id) {
@@ -441,7 +422,7 @@ const createProduct = async (req, res) => {
 };
 
 // ============================================================
-// UPDATE PRODUCT - WITH IMPROVED VALIDATION
+// UPDATE PRODUCT
 // ============================================================
 
 const updateProduct = async (req, res) => {
@@ -456,7 +437,7 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE NAME IF PROVIDED
+        // Validate name
         if (updates.name) {
             if (!isValidName(updates.name)) {
                 return res.status(400).json({
@@ -467,7 +448,7 @@ const updateProduct = async (req, res) => {
             updates.name = sanitize(updates.name);
         }
 
-        // ✅ IMPROVED: VALIDATE DESCRIPTION IF PROVIDED
+        // Validate description
         if (updates.description) {
             if (!isValidLength(updates.description, 0, 1000)) {
                 return res.status(400).json({
@@ -484,7 +465,7 @@ const updateProduct = async (req, res) => {
             updates.description = sanitize(updates.description);
         }
 
-        // ✅ VALIDATE PRICES IF PROVIDED
+        // Validate prices
         if (updates.cost_price && !isValidAmount(updates.cost_price)) {
             return res.status(400).json({
                 success: false,
@@ -499,7 +480,7 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // ✅ VALIDATE STOCK IF PROVIDED
+        // Validate stock
         if (updates.stock_quantity !== undefined && !isValidQuantity(updates.stock_quantity)) {
             return res.status(400).json({
                 success: false,
@@ -507,10 +488,9 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // ✅ SANITIZE STRING FIELDS
         if (updates.sku) updates.sku = sanitize(updates.sku);
 
-        // Get old product
+        // Fetch old values
         const { data: oldProduct, error: oldError } = await supabase
             .from('products')
             .select('category_id, stock_quantity')
@@ -539,7 +519,7 @@ const updateProduct = async (req, res) => {
             throw error;
         }
 
-        // ✅ Update category counts
+        // Update category counts
         if (oldProduct.category_id) {
             await updateCategoryProductCount(oldProduct.category_id);
         }
@@ -547,10 +527,10 @@ const updateProduct = async (req, res) => {
             await updateCategoryProductCount(product.category_id);
         }
 
-        // ✅ RECORD STOCK MOVEMENT if stock changed
+        // Record stock change if any
         if (updates.stock_quantity && updates.stock_quantity !== oldProduct.stock_quantity) {
             const stockDiff = parseInt(updates.stock_quantity) - oldProduct.stock_quantity;
-            
+
             let validUserId = null;
             if (req.user && req.user.id) {
                 const { data: user } = await supabase
@@ -599,7 +579,7 @@ const updateProduct = async (req, res) => {
 };
 
 // ============================================================
-// DELETE PRODUCT
+// DELETE PRODUCT (soft delete)
 // ============================================================
 
 const deleteProduct = async (req, res) => {
@@ -664,7 +644,7 @@ const deleteProduct = async (req, res) => {
 };
 
 // ============================================================
-// ADJUST STOCK - WITH IMPROVED VALIDATION
+// ADJUST STOCK
 // ============================================================
 
 const adjustStock = async (req, res) => {
@@ -686,7 +666,6 @@ const adjustStock = async (req, res) => {
             });
         }
 
-        // ✅ IMPROVED: VALIDATE REASON
         if (!reason || !isValidLength(reason, 3, 200)) {
             return res.status(400).json({
                 success: false,
@@ -726,7 +705,7 @@ const adjustStock = async (req, res) => {
         let newStock = product.stock_quantity;
         if (type === 'add') {
             newStock += parseInt(quantity);
-        } else if (type === 'remove') {
+        } else {
             if (newStock < quantity) {
                 return res.status(400).json({
                     success: false,
@@ -748,7 +727,7 @@ const adjustStock = async (req, res) => {
 
         if (error) throw error;
 
-        // ✅ RECORD STOCK MOVEMENT
+        // Record stock movement
         let validUserId = null;
         if (req.user && req.user.id) {
             const { data: user } = await supabase
@@ -811,19 +790,24 @@ const adjustStock = async (req, res) => {
 
 const getLowStockProducts = async (req, res) => {
     try {
+        // Fetch all active products with low_stock_threshold, filter in JS
+        // (Supabase JS client cannot compare two columns in one filter).
         const { data: products, error } = await supabase
             .from('products')
             .select('id, name, stock_quantity, low_stock_threshold')
             .eq('is_active', true)
-            .lt('stock_quantity', supabase.raw('low_stock_threshold'))
             .order('stock_quantity');
 
         if (error) throw error;
 
+        const lowStock = (products || []).filter(
+            p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 5)
+        );
+
         return res.status(200).json({
             success: true,
-            count: products.length,
-            data: products
+            count: lowStock.length,
+            data: lowStock
         });
 
     } catch (error) {

@@ -1,25 +1,24 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Auth Controller (UPDATED)
+// OSWAGO ELECTRICAL EQUIPMENT - Auth Controller
 // ============================================================
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
-const { isValidEmail, isValidPassword, sanitize } = require('../utils/validators');
+const { isValidEmail, isValidPassword, isValidPhone, isValidName, sanitize } = require('../utils/validators');
 require('dotenv').config();
 
-// ✅ Track login attempts (simple in-memory, consider Redis for production)
+// Track login attempts in memory (per IP + email)
 const loginAttempts = new Map();
 
 // ============================================================
-// LOGIN - WITH IMPROVED SECURITY
+// LOGIN
 // ============================================================
 
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // ✅ VALIDATE INPUT
         if (!email || !password) {
             return res.status(400).json({
                 success: false,
@@ -41,22 +40,20 @@ const login = async (req, res) => {
             });
         }
 
-        // ✅ SANITIZE INPUT
         const cleanEmail = sanitize(email.toLowerCase().trim());
 
-        // ✅ Check login attempts (prevent brute force)
+        // Brute-force guard (per IP + email)
         const ip = req.ip || req.connection.remoteAddress || 'unknown';
         const attemptsKey = `${ip}:${cleanEmail}`;
         const now = Date.now();
         const attempts = loginAttempts.get(attemptsKey) || { count: 0, firstAttempt: now };
-        
-        // Reset if more than 15 minutes have passed
+
+        // Reset after 15 minutes
         if (now - attempts.firstAttempt > 15 * 60 * 1000) {
             attempts.count = 0;
             attempts.firstAttempt = now;
         }
 
-        // Block if too many attempts
         if (attempts.count >= 5) {
             return res.status(429).json({
                 success: false,
@@ -64,7 +61,7 @@ const login = async (req, res) => {
             });
         }
 
-        // Find user by email
+        // Fetch user
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -72,18 +69,14 @@ const login = async (req, res) => {
             .single();
 
         if (error || !user) {
-            // ✅ Increment failed attempts
             attempts.count++;
             loginAttempts.set(attemptsKey, attempts);
-            
-            // ✅ Generic message for security (don't reveal if user exists)
             return res.status(401).json({
                 success: false,
                 error: 'Invalid email or password'
             });
         }
 
-        // Check if account is active
         if (!user.is_active) {
             return res.status(401).json({
                 success: false,
@@ -91,7 +84,6 @@ const login = async (req, res) => {
             });
         }
 
-        // Check if account is deleted
         if (user.is_deleted) {
             return res.status(401).json({
                 success: false,
@@ -99,24 +91,21 @@ const login = async (req, res) => {
             });
         }
 
-        // Verify password
-        const isValidPasswordMatch = await bcrypt.compare(password, user.password_hash);
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
-        if (!isValidPasswordMatch) {
-            // ✅ Increment failed attempts
+        if (!passwordMatch) {
             attempts.count++;
             loginAttempts.set(attemptsKey, attempts);
-            
             return res.status(401).json({
                 success: false,
                 error: 'Invalid email or password'
             });
         }
 
-        // ✅ Successful login - reset attempts
+        // Success — clear attempts
         loginAttempts.delete(attemptsKey);
 
-        // ✅ GENERATE JWT WITH EXPIRY
+        // Issue JWT
         const token = jwt.sign(
             {
                 id: user.id,
@@ -140,7 +129,6 @@ const login = async (req, res) => {
                 ip_address: ip
             });
 
-        // Return user data (without password hash)
         const { password_hash, ...userData } = user;
 
         return res.status(200).json({
@@ -197,7 +185,80 @@ const getCurrentUser = async (req, res) => {
 };
 
 // ============================================================
-// CHANGE PASSWORD - WITH IMPROVED VALIDATION
+// UPDATE OWN PROFILE (name + phone only)
+// ============================================================
+
+const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { full_name, phone } = req.body;
+
+        const updates = {};
+
+        if (full_name !== undefined) {
+            if (!isValidName(full_name)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Full name must be between 2 and 100 characters'
+                });
+            }
+            updates.full_name = sanitize(full_name.trim());
+        }
+
+        if (phone !== undefined && phone !== '') {
+            if (!isValidPhone(phone)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid phone number format'
+                });
+            }
+            updates.phone = sanitize(phone.trim());
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nothing to update'
+            });
+        }
+
+        updates.updated_at = new Date();
+
+        const { data: user, error } = await supabase
+            .from('users')
+            .update(updates)
+            .eq('id', userId)
+            .select('id, full_name, email, phone, role, is_active, is_first_login, created_at')
+            .single();
+
+        if (error) throw error;
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                user_id: userId,
+                user_name: user.full_name,
+                action: 'Profile Updated',
+                details: updates
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            user
+        });
+
+    } catch (error) {
+        console.error('Update profile error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to update profile'
+        });
+    }
+};
+
+// ============================================================
+// CHANGE PASSWORD
 // ============================================================
 
 const changePassword = async (req, res) => {
@@ -205,7 +266,6 @@ const changePassword = async (req, res) => {
         const { current_password, new_password } = req.body;
         const userId = req.user.id;
 
-        // ✅ VALIDATE INPUT
         if (!current_password || !new_password) {
             return res.status(400).json({
                 success: false,
@@ -220,7 +280,6 @@ const changePassword = async (req, res) => {
             });
         }
 
-        // ✅ Prevent password reuse (optional but recommended)
         if (new_password === current_password) {
             return res.status(400).json({
                 success: false,
@@ -228,7 +287,6 @@ const changePassword = async (req, res) => {
             });
         }
 
-        // Get user with password hash
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -242,19 +300,16 @@ const changePassword = async (req, res) => {
             });
         }
 
-        // Verify current password
-        const isValidPasswordMatch = await bcrypt.compare(current_password, user.password_hash);
-        if (!isValidPasswordMatch) {
+        const passwordMatch = await bcrypt.compare(current_password, user.password_hash);
+        if (!passwordMatch) {
             return res.status(401).json({
                 success: false,
                 error: 'Current password is incorrect'
             });
         }
 
-        // Hash new password
         const hashedPassword = await bcrypt.hash(new_password, 12);
 
-        // Update password
         const { error: updateError } = await supabase
             .from('users')
             .update({
@@ -264,11 +319,8 @@ const changePassword = async (req, res) => {
             })
             .eq('id', userId);
 
-        if (updateError) {
-            throw updateError;
-        }
+        if (updateError) throw updateError;
 
-        // Log activity
         await supabase
             .from('activity_logs')
             .insert({
@@ -326,6 +378,7 @@ const logout = async (req, res) => {
 module.exports = {
     login,
     getCurrentUser,
+    updateProfile,
     changePassword,
     logout
 };

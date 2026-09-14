@@ -4,7 +4,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiPhone, FiMail, FiMapPin, FiShoppingBag, FiDollarSign, FiTrendingUp } from 'react-icons/fi';
+import {
+  FiArrowLeft, FiEdit2, FiTrash2, FiPhone, FiMail, FiMapPin,
+  FiShoppingBag, FiDollarSign, FiTrendingUp
+} from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import Loader from '../common/Loader';
@@ -24,9 +27,7 @@ const CustomerDetail = () => {
   const fetchCustomer = async () => {
     try {
       setLoading(true);
-      console.log('Fetching customer with ID:', id);
       const data = await api.getCustomer(id);
-      console.log('Customer fetched:', data);
       setCustomer(data);
     } catch (error) {
       console.error('Error fetching customer:', error);
@@ -38,14 +39,12 @@ const CustomerDetail = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${customer?.name}"?`)) {
-      return;
-    }
+    if (!window.confirm(`Are you sure you want to delete "${customer?.name}"?`)) return;
 
     setDeleting(true);
     try {
       await api.deleteCustomer(id);
-      toast.success(`"${customer.name}" deleted successfully!`);
+      toast.success('Customer deleted successfully');
       navigate('/customers');
     } catch (error) {
       console.error('Error deleting customer:', error);
@@ -54,9 +53,7 @@ const CustomerDetail = () => {
     }
   };
 
-  if (loading) {
-    return <Loader message="Loading customer..." />;
-  }
+  if (loading) return <Loader message="Loading customer..." />;
 
   if (!customer) {
     return (
@@ -79,16 +76,21 @@ const CustomerDetail = () => {
 
   return (
     <div>
-      <button onClick={() => navigate('/customers')} className="btn btn-sm btn-secondary" style={{ marginBottom: '16px' }}>
+      <button
+        onClick={() => navigate('/customers')}
+        className="btn btn-sm btn-secondary"
+        style={{ marginBottom: '16px' }}
+      >
         <FiArrowLeft size={16} /> Back
       </button>
 
-      {/* Profile header */}
       <div className="card customer-profile-header">
         <div className="customer-profile-avatar">{initials}</div>
         <div className="customer-profile-info">
           <h1 style={{ margin: 0 }}>{customer.name}</h1>
-          <p style={{ margin: '2px 0 10px 0' }}>Customer since {formatDate(customer.created_at)}</p>
+          <p style={{ margin: '2px 0 10px 0' }}>
+            Customer since {formatDate(customer.created_at)}
+          </p>
           <div className="customer-profile-contacts">
             {customer.phone && (
               <span className="customer-contact-pill">
@@ -117,7 +119,6 @@ const CustomerDetail = () => {
         </div>
       </div>
 
-      {/* Purchase stats */}
       <div className="stats-grid" style={{ marginTop: '20px' }}>
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
@@ -148,7 +149,6 @@ const CustomerDetail = () => {
         </div>
       </div>
 
-      {/* Additional details */}
       <div className="card" style={{ marginTop: '20px' }}>
         <h3>Additional Information</h3>
         <div className="detail-row">
