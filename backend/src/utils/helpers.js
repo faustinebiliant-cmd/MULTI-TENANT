@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Helper Functions
+// OSWAGO ELECTRICAL EQUIPMENT - Helper Functionss
 // ============================================================
 
 // Generate order number
