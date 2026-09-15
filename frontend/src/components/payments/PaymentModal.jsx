@@ -9,7 +9,13 @@ import { formatCurrency } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const PaymentModal = ({ order, onClose, onSuccess }) => {
-  const [amount, setAmount] = useState(order?.total_amount || 0);
+  const total = parseFloat(order.total_amount) || 0;
+  const paid = parseFloat(order.paid_amount) || 0;
+  const tax = parseFloat(order.tax_amount) || 0;
+  const remaining = total - paid;
+  const isSettled = remaining <= 0;
+
+  const [amount, setAmount] = useState(remaining > 0 ? remaining : 0);
   const [method, setMethod] = useState('cash');
   const [reference, setReference] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +25,6 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
     { value: 'mpesa', label: 'M-Pesa', icon: FiSmartphone },
     { value: 'tigo_pesa', label: 'Tigo Pesa', icon: FiSmartphone }
   ];
-
-  const remaining = (parseFloat(order.total_amount) || 0) - (parseFloat(order.paid_amount) || 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
     try {
       const paymentData = {
         amount: parseFloat(amount),
-        method: method,
+        method,
         reference_number: reference || null
       };
 
@@ -65,121 +69,111 @@ const PaymentModal = ({ order, onClose, onSuccess }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="flex-between" style={{ marginBottom: '18px' }}>
+        <div className="payment-modal-header">
           <div>
-            <h2 style={{ margin: 0 }}>Record Payment</h2>
-            <p style={{ fontSize: '13px', color: 'var(--gray)', marginTop: '2px' }}>
-              Order #{order.order_number}
+            <h2>Record Payment</h2>
+            <p className="order-ref">
+              Order #{order.order_number} · {order.customers?.name || order.customer_name || 'Walk-in'}
             </p>
           </div>
-          <button onClick={onClose} className="btn btn-sm btn-secondary" aria-label="Close">
-            <FiX size={18} />
+          <button onClick={onClose} className="modal-close-btn" aria-label="Close">
+            <FiX size={16} />
           </button>
         </div>
 
-        {/* Summary */}
-        <div className="payment-summary-card">
-          <div className="payment-summary-row">
-            <span>Customer</span>
-            <strong>{order.customers?.name || order.customer_name || 'Walk-in'}</strong>
+        {/* Balance summary */}
+        <div className="payment-balance-hero">
+          <div className="balance-label">{isSettled ? 'Fully Paid' : 'Balance Due'}</div>
+          <div className={`balance-amount ${isSettled ? 'is-settled' : ''}`}>
+            {formatCurrency(isSettled ? 0 : remaining)}
           </div>
-          <div className="payment-summary-row">
-            <span>Total Amount (incl. VAT)</span>
-            <strong>{formatCurrency(parseFloat(order.total_amount) || 0)}</strong>
-          </div>
-          {parseFloat(order.tax_amount) > 0 && (
-            <div className="payment-summary-row">
-              <span>VAT Included</span>
-              <strong style={{ color: '#b45309' }}>
-                {formatCurrency(parseFloat(order.tax_amount) || 0)}
-              </strong>
-            </div>
-          )}
-          {parseFloat(order.paid_amount) > 0 && (
-            <div className="payment-summary-row">
-              <span>Already Paid</span>
-              <strong style={{ color: 'var(--success)' }}>
-                {formatCurrency(parseFloat(order.paid_amount) || 0)}
-              </strong>
-            </div>
-          )}
-          <div className="payment-summary-row remaining">
-            <span>Remaining Balance</span>
-            <strong style={{ color: remaining > 0 ? 'var(--danger)' : 'var(--success)' }}>
-              {formatCurrency(remaining)}
-            </strong>
+          <div className="payment-balance-details">
+            <span className="detail">Total<strong>{formatCurrency(total)}</strong></span>
+            {tax > 0 && <span className="detail">VAT<strong>{formatCurrency(tax)}</strong></span>}
+            {paid > 0 && <span className="detail">Paid<strong>{formatCurrency(paid)}</strong></span>}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Payment Method</label>
-            <div className="payment-methods">
-              {paymentMethods.map((pm) => (
-                <button
-                  key={pm.value}
-                  type="button"
-                  className={`payment-method-btn ${method === pm.value ? 'active' : ''}`}
-                  onClick={() => setMethod(pm.value)}
-                >
-                  <pm.icon size={18} />
-                  {pm.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Amount (TZS)</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-              min="1"
-              max={remaining}
-              step="1"
-              required
-            />
-            <div className="payment-quick-amounts">
-              <button
-                type="button"
-                className="quick-amount-btn"
-                onClick={() => setAmount(Math.round(remaining / 2))}
-              >
-                Half — {formatCurrency(Math.round(remaining / 2))}
-              </button>
-              <button
-                type="button"
-                className="quick-amount-btn"
-                onClick={() => setAmount(remaining)}
-              >
-                Full — {formatCurrency(remaining)}
-              </button>
-            </div>
-          </div>
-
-          {(method === 'mpesa' || method === 'tigo_pesa') && (
+        {!isSettled && (
+          <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Reference Number</label>
-              <input
-                type="text"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Enter M-Pesa/Tigo reference number"
-                required
-              />
+              <label>Payment Method</label>
+              <div className="payment-methods">
+                {paymentMethods.map((pm) => (
+                  <button
+                    key={pm.value}
+                    type="button"
+                    className={`payment-method-btn ${method === pm.value ? 'active' : ''}`}
+                    onClick={() => setMethod(pm.value)}
+                  >
+                    <pm.icon size={18} />
+                    {pm.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          <div className="flex" style={{ gap: '10px', marginTop: '22px' }}>
-            <button type="submit" className="btn btn-success btn-block" disabled={loading}>
-              {loading ? 'Recording...' : `Record ${formatCurrency(amount)}`}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-          </div>
-        </form>
+            <div className="form-group">
+              <label>Amount</label>
+              <div className="amount-input-wrapper">
+                <span className="currency-prefix">TZS</span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                  min="1"
+                  max={remaining}
+                  step="1"
+                  required
+                />
+              </div>
+              <div className="payment-quick-amounts">
+                <button
+                  type="button"
+                  className="quick-amount-btn"
+                  onClick={() => setAmount(Math.round(remaining / 2))}
+                >
+                  Half — {formatCurrency(Math.round(remaining / 2))}
+                </button>
+                <button
+                  type="button"
+                  className="quick-amount-btn"
+                  onClick={() => setAmount(remaining)}
+                >
+                  Full — {formatCurrency(remaining)}
+                </button>
+              </div>
+            </div>
+
+            {(method === 'mpesa' || method === 'tigo_pesa') && (
+              <div className="form-group">
+                <label>Reference Number</label>
+                <input
+                  type="text"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="Enter M-Pesa/Tigo reference number"
+                  required
+                />
+              </div>
+            )}
+
+            <div className="modal-footer-actions">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-success btn-block" disabled={loading}>
+                {loading ? 'Recording…' : `Record ${formatCurrency(amount)}`}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {isSettled && (
+          <button type="button" className="btn btn-secondary btn-block" onClick={onClose}>
+            Close
+          </button>
+        )}
       </div>
     </div>
   );
