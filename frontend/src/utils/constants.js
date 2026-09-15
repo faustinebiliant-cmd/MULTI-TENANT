@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Constants
 // ============================================================
+// Application vocabulary only. Shop-specific values (name, address,
+// phone, currency, expense categories) live in the settings table
+// and are provided by ShopContext.
 
-// User roles (must match backend validators)
 export const ROLES = {
   BOSS: 'boss',
   MANAGER: 'manager',
@@ -11,7 +13,14 @@ export const ROLES = {
   SALES_REP: 'sales_rep'
 };
 
-// Order statuses (matches backend isValidOrderStatus)
+export const ROLE_META = {
+  boss: { label: 'Boss', color: '#dc2626', icon: 'FiAward' },
+  manager: { label: 'Manager', color: '#2563eb', icon: 'FiBriefcase' },
+  cashier: { label: 'Cashier', color: '#d97706', icon: 'FiDollarSign' },
+  store_keeper: { label: 'Store Keeper', color: '#7c3aed', icon: 'FiArchive' },
+  sales_rep: { label: 'Sales Rep', color: '#059669', icon: 'FiUserCheck' }
+};
+
 export const ORDER_STATUSES = [
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
@@ -19,36 +28,29 @@ export const ORDER_STATUSES = [
   { value: 'cancelled', label: 'Cancelled' }
 ];
 
-// Payment methods — icon is a react-icons component name
+export const PAYMENT_STATUS_META = {
+  paid: { label: 'Paid', color: '#0bc518' },
+  unpaid: { label: 'Unpaid', color: '#d00f0f' },
+  partial: { label: 'Partial', color: '#92400e' },
+  cancelled: { label: 'Cancelled', color: '#6b7280' }
+};
+
 export const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash', icon: 'FiDollarSign' },
   { value: 'mpesa', label: 'M-Pesa', icon: 'FiSmartphone' },
   { value: 'tigo_pesa', label: 'Tigo Pesa', icon: 'FiSmartphone' }
 ];
 
-// Payment statuses
 export const PAYMENT_STATUSES = [
   { value: 'paid', label: 'Paid' },
   { value: 'unpaid', label: 'Unpaid' },
   { value: 'partial', label: 'Partial' }
 ];
 
-// Expense categories
-export const EXPENSE_CATEGORIES = [
-  'Rent',
-  'Salaries',
-  'Utilities',
-  'Marketing',
-  'Transport',
-  'Maintenance',
-  'Supplies',
-  'Taxes',
-  'Insurance',
-  'Other'
-];
+export const LOW_STOCK_THRESHOLD = 5;
 
-// Default product categories (fallback if DB is empty)
-export const PRODUCT_CATEGORIES = [
+// Only used as a fallback if the categories table is empty.
+export const FALLBACK_PRODUCT_CATEGORIES = [
   'Cables & Wires',
   'Switches',
   'Sockets',
@@ -61,10 +63,3 @@ export const PRODUCT_CATEGORIES = [
   'Fans',
   'Other'
 ];
-
-// Shop defaults
-export const LOW_STOCK_THRESHOLD = 5;
-export const CURRENCY = 'TZS';
-export const APP_NAME = 'OSWAGO Electrical Equipment';
-export const SHOP_LOCATION = 'Darajani, Kigamboni, Dar es Salaam';
-export const SHOP_PHONE = '0750825721';

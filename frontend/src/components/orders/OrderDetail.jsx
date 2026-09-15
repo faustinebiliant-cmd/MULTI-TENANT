@@ -10,6 +10,7 @@ import {
 import api from '../../api/client';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '../../utils/helpers';
 import Loader from '../common/Loader';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 import PaymentModal from '../payments/PaymentModal';
 import Receipt from './Receipt';
@@ -32,7 +33,9 @@ const OrderDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
-  // Prevents auto-opening receipt after every refetch
+  // Status change confirmation
+  const [pendingStatus, setPendingStatus] = useState(null);
+
   const initialReceiptShownRef = useRef(false);
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -47,7 +50,6 @@ const OrderDetail = () => {
       const data = await api.getOrder(id);
       setOrder(data);
 
-      // Auto-show receipt on initial load only, for paid, non-cancelled orders
       if (
         isInitial &&
         !initialReceiptShownRef.current &&
@@ -77,14 +79,19 @@ const OrderDetail = () => {
     await fetchOrder();
   };
 
-  const handleStatusUpdate = async (newStatus) => {
-    if (!window.confirm(`Change order status to "${newStatus}"?`)) return;
+  const requestStatusUpdate = (newStatus) => {
+    setPendingStatus(newStatus);
+  };
+
+  const handleStatusUpdate = async () => {
+    if (!pendingStatus) return;
 
     setUpdating(true);
     try {
-      const response = await api.updateOrderStatus(id, newStatus);
+      const response = await api.updateOrderStatus(id, pendingStatus);
       setOrder(response.data);
-      toast.success(`Order status updated to ${newStatus}`);
+      toast.success(`Order status updated to ${pendingStatus}`);
+      setPendingStatus(null);
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error(error.response?.data?.error || 'Failed to update status');
@@ -124,6 +131,23 @@ const OrderDetail = () => {
   const paidAndNotBoss = paidAmount > 0 && currentUser.role !== 'boss';
   const canCancel = !isCancelled && roleAllowedToCancel && !paidAndNotBoss;
 
+  const pendingStatusMessages = {
+    confirmed: {
+      title: 'Confirm Order',
+      message: 'Mark this order as confirmed? This should be done when payment is complete.',
+      confirmLabel: 'Confirm',
+      variant: 'primary'
+    },
+    delivered: {
+      title: 'Mark Delivered',
+      message: 'Mark this order as delivered? The customer has received the goods.',
+      confirmLabel: 'Mark Delivered',
+      variant: 'primary'
+    }
+  };
+
+  const pendingMeta = pendingStatus ? pendingStatusMessages[pendingStatus] : null;
+
   return (
     <div>
       <div className="page-header flex-between" style={{ alignItems: 'flex-start' }}>
@@ -153,7 +177,7 @@ const OrderDetail = () => {
           )}
           {!isConfirmed && !isCancelled && isPaid && (
             <button
-              onClick={() => handleStatusUpdate('confirmed')}
+              onClick={() => requestStatusUpdate('confirmed')}
               className="btn btn-primary"
               disabled={updating}
             >
@@ -162,7 +186,7 @@ const OrderDetail = () => {
           )}
           {isConfirmed && !isDelivered && !isCancelled && (
             <button
-              onClick={() => handleStatusUpdate('delivered')}
+              onClick={() => requestStatusUpdate('delivered')}
               className="btn btn-success"
               disabled={updating}
             >
@@ -464,6 +488,20 @@ const OrderDetail = () => {
             vrn: receiptData.vrn
           }}
           onClose={() => setShowReceipt(false)}
+        />
+      )}
+
+      {pendingMeta && (
+        <ConfirmDialog
+          open={!!pendingStatus}
+          title={pendingMeta.title}
+          message={pendingMeta.message}
+          confirmLabel={pendingMeta.confirmLabel}
+          cancelLabel="Cancel"
+          variant={pendingMeta.variant}
+          loading={updating}
+          onConfirm={handleStatusUpdate}
+          onCancel={() => setPendingStatus(null)}
         />
       )}
     </div>

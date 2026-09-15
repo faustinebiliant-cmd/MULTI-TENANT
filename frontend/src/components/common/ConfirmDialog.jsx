@@ -12,6 +12,7 @@ const ConfirmDialog = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'primary',
+  loading = false,
   onConfirm,
   onCancel
 }) => {
@@ -20,7 +21,7 @@ const ConfirmDialog = ({
   const confirmClass = variant === 'danger' ? 'btn btn-danger' : 'btn btn-primary';
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay" onClick={loading ? undefined : onCancel}>
       <div className="modal-content confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-header">
           <div className={`confirm-dialog-icon confirm-dialog-icon--${variant}`}>
@@ -32,11 +33,21 @@ const ConfirmDialog = ({
         <p className="confirm-dialog-message">{message}</p>
 
         <div className="confirm-dialog-actions">
-          <button className="btn btn-secondary" onClick={onCancel}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onCancel}
+            disabled={loading}
+          >
             {cancelLabel}
           </button>
-          <button className={confirmClass} onClick={onConfirm}>
-            {confirmLabel}
+          <button
+            type="button"
+            className={confirmClass}
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Processing...' : confirmLabel}
           </button>
         </div>
       </div>

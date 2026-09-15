@@ -2,6 +2,8 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Helpers
 // ============================================================
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 // Read EAT (UTC+3) wall-clock parts from a Date
 const toEATParts = (date) => {
   const shifted = new Date(date.getTime() + 3 * 60 * 60 * 1000);
@@ -22,35 +24,50 @@ const parseDate = (value) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Format: "13 Sep 2026, 10:59 AM"
-export const formatDate = (value) => {
+// Internal shared formatter for both date helpers
+const formatEATDate = (value, includeTime) => {
   const date = parseDate(value);
   if (!date) return '-';
   const t = toEATParts(date);
+  const base = `${t.day} ${MONTHS[t.month]} ${t.year}`;
+  if (!includeTime) return base;
   const hour12 = t.hour % 12 === 0 ? 12 : t.hour % 12;
   const ampm = t.hour < 12 ? 'AM' : 'PM';
   const hh = String(hour12).padStart(2, '0');
   const mm = String(t.minute).padStart(2, '0');
-  return `${t.day} ${MONTHS[t.month]} ${t.year}, ${hh}:${mm} ${ampm}`;
+  return `${base}, ${hh}:${mm} ${ampm}`;
 };
 
-// Format: "13 Sep 2026"
-export const formatDateOnly = (value) => {
-  const date = parseDate(value);
-  if (!date) return '-';
-  const t = toEATParts(date);
-  return `${t.day} ${MONTHS[t.month]} ${t.year}`;
+// "13 Sep 2026, 10:59 AM"
+export const formatDate = (value) => formatEATDate(value, true);
+
+// "13 Sep 2026"
+export const formatDateOnly = (value) => formatEATDate(value, false);
+
+// Coerce any value to a safe finite number, default 0
+const toNumber = (value) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 };
 
-// Format: "TZS 1,500"
+// "TZS 1,500"
+// Handles null, undefined, empty string, non-numeric input safely.
 export const formatCurrency = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return 'TZS 0';
-  return `TZS ${Number(amount).toLocaleString()}`;
+  return `TZS ${toNumber(amount).toLocaleString()}`;
 };
 
-// Status colors — fallback when CSS classes aren't available
+// "1,500" (no currency prefix)
+export const formatNumber = (value) => {
+  return toNumber(value).toLocaleString();
+};
+
+// "18.5%" - pass a number like 18.5, not 0.185
+export const formatPercent = (value, decimals = 1) => {
+  return `${toNumber(value).toFixed(decimals)}%`;
+};
+
+// Status colors. Fallback when CSS classes are unavailable.
 export const getStatusColor = (status) => {
   const colors = {
     pending: '#b58a09',

@@ -5,12 +5,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatDate, getStatusColor } from '../../utils/helpers';
-
-const PAYMENT_LABELS = {
-  paid: { label: 'Paid', color: '#0bc518' },
-  unpaid: { label: 'Unpaid', color: '#d00f0f' },
-  partial: { label: 'Partial', color: '#92400e' }
-};
+import { PAYMENT_STATUS_META } from '../../utils/constants';
 
 const RecentOrders = ({ orders }) => {
   const [expanded, setExpanded] = useState({});
@@ -35,7 +30,7 @@ const RecentOrders = ({ orders }) => {
 
   const renderPaymentCell = (order) => {
     const status = (order.payment_status || 'unpaid').toLowerCase();
-    const meta = PAYMENT_LABELS[status] || PAYMENT_LABELS.unpaid;
+    const meta = PAYMENT_STATUS_META[status] || PAYMENT_STATUS_META.unpaid;
 
     if (status !== 'partial') {
       return (

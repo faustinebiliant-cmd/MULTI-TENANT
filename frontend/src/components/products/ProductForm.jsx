@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { PRODUCT_CATEGORIES } from '../../utils/constants';
+import { FALLBACK_PRODUCT_CATEGORIES } from '../../utils/constants';
 import toast from 'react-hot-toast';
 
 const ProductForm = () => {
@@ -25,7 +25,6 @@ const ProductForm = () => {
     low_stock_threshold: '5'
   });
 
-  // Load categories (DB or static fallback)
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -34,17 +33,16 @@ const ProductForm = () => {
         if (response && response.length > 0) {
           setCategories(response);
         } else {
-          setCategories(PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
+          setCategories(FALLBACK_PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
-        setCategories(PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
+        setCategories(FALLBACK_PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
       }
     };
     fetchCategories();
   }, []);
 
-  // Load product when editing
   useEffect(() => {
     if (!isEdit || !id) return;
 

@@ -10,7 +10,7 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDateOnly } from '../../utils/helpers';
-import { EXPENSE_CATEGORIES } from '../../utils/constants';
+import { useShop } from '../../contexts/ShopContext';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
@@ -27,6 +27,8 @@ const ExpenseList = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  const { expenseCategories } = useShop();
 
   const fetchExpenses = useCallback(async (page = 1) => {
     try {
@@ -109,7 +111,7 @@ const ExpenseList = () => {
             style={{ width: '160px', fontSize: '13px' }}
           >
             <option value="all">All Categories</option>
-            {EXPENSE_CATEGORIES.map((cat) => (
+            {expenseCategories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>

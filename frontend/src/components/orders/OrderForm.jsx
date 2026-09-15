@@ -2,11 +2,12 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Order Form
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPlus, FiTrash2, FiUser, FiPhone, FiMail, FiMapPin } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
+import SearchableSelect from '../common/SearchableSelect';
 import toast from 'react-hot-toast';
 
 const CUSTOMER_TYPES = {
@@ -18,8 +19,6 @@ const CUSTOMER_TYPES = {
 const OrderForm = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
   const [searchProduct, setSearchProduct] = useState('');
 
   const [order, setOrder] = useState({
@@ -36,10 +35,8 @@ const OrderForm = () => {
     address: ''
   });
 
-  const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
-  // VAT settings
   const [vatEnabled, setVatEnabled] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   const [tin, setTin] = useState('');
@@ -47,59 +44,64 @@ const OrderForm = () => {
 
   const [selectedCustomerDetails, setSelectedCustomerDetails] = useState(null);
 
-  // Load reference data
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchSettings = async () => {
       try {
-        const [customersData, productsData, settingsData] = await Promise.all([
-          api.getCustomers(),
-          api.getProducts(),
-          api.getSettings()
-        ]);
-        setCustomers(customersData || []);
-        setProducts(productsData || []);
-
+        const settingsData = await api.getSettings();
         setVatEnabled(settingsData?.vat_enabled === 'true' || settingsData?.vat_enabled === true);
         setVatRate(parseFloat(settingsData?.vat_rate) || 18);
         setTin(settingsData?.tin || '');
         setVrn(settingsData?.vrn || '');
       } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to load data');
+        console.error('Error fetching settings:', error);
       }
     };
-    fetchData();
+    fetchSettings();
   }, []);
 
-  const handleCustomerChange = (e) => {
-    const value = e.target.value;
+  // Backend search for products
+  const fetchProductOptions = useCallback(async (term) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '20');
+    if (term && term.trim()) params.set('search', term.trim());
+    const response = await api.getProductsPage(params.toString());
+    return response.data || [];
+  }, []);
 
-    if (value === 'walk-in') {
-      setOrder({ ...order, customer_id: '', customer_type: CUSTOMER_TYPES.WALK_IN });
-      setSelectedCustomerDetails(null);
-      setWalkInData({ phone: '', name: '', email: '', address: '' });
-    } else if (value === 'quick-create') {
-      setOrder({ ...order, customer_id: '', customer_type: CUSTOMER_TYPES.QUICK_CREATE });
-      setSelectedCustomerDetails(null);
-      setWalkInData({ phone: '', name: '', email: '', address: '' });
-    } else if (value) {
-      const selected = customers.find(c => c.id === value);
-      setOrder({ ...order, customer_id: value, customer_type: CUSTOMER_TYPES.EXISTING });
-      setSelectedCustomerDetails(selected);
-      setWalkInData({ phone: '', name: '', email: '', address: '' });
-    } else {
+  // Backend search for customers
+  const fetchCustomerOptions = useCallback(async (term) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '20');
+    if (term && term.trim()) params.set('search', term.trim());
+    const response = await api.getCustomersPage(params.toString());
+    return response.data || [];
+  }, []);
+
+  const handleCustomerSelect = (customerId) => {
+    if (!customerId) {
       setOrder({ ...order, customer_id: '', customer_type: CUSTOMER_TYPES.EXISTING });
       setSelectedCustomerDetails(null);
+      return;
     }
+    setOrder({ ...order, customer_id: customerId, customer_type: CUSTOMER_TYPES.EXISTING });
+    // Details will be resolved when picked; store minimal data
+    setSelectedCustomerDetails({ id: customerId });
+  };
+
+  const handleCustomerTypeChange = (e) => {
+    const value = e.target.value;
+    setOrder({ ...order, customer_id: '', customer_type: value });
+    setSelectedCustomerDetails(null);
+    setWalkInData({ phone: '', name: '', email: '', address: '' });
   };
 
   const handleWalkInChange = (e) => {
     const { name, value } = e.target;
     const sanitizedValue = value.replace(/[<>]/g, '');
-
     setWalkInData({ ...walkInData, [name]: sanitizedValue });
 
-    // Auto-generate name from phone
     if (name === 'phone' && sanitizedValue.length >= 7) {
       const lastFour = sanitizedValue.slice(-4);
       const autoName = `Customer ${lastFour}`;
@@ -139,21 +141,18 @@ const OrderForm = () => {
         notes: 'Created during order'
       };
 
-      // Reuse existing by phone
+      // Check for existing by phone (backend search)
       if (customerData.phone && customerData.phone !== '0000000000') {
-        const existing = customers.find(c => c.phone === customerData.phone);
-        if (existing) {
+        const existing = await fetchCustomerOptions(customerData.phone);
+        const match = existing.find(c => c.phone === customerData.phone);
+        if (match) {
           toast.success('Existing customer matched by phone');
-          return existing;
+          return match;
         }
       }
 
       const response = await api.createCustomer(customerData);
       toast.success('Customer created successfully');
-
-      const updatedCustomers = await api.getCustomers();
-      setCustomers(updatedCustomers || []);
-
       return response.data || response;
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -162,25 +161,30 @@ const OrderForm = () => {
     }
   };
 
+  const handleProductSelect = (productId, product) => {
+    if (!productId) return;
+    // product is not passed by SearchableSelect directly; we re-fetch
+    // Actually we store the picked product in a ref via a callback.
+    // Simpler: keep last picked product in state.
+    setLastPickedProduct(product || null);
+  };
+
+  const [lastPickedProduct, setLastPickedProduct] = useState(null);
+
   const addItem = () => {
-    if (!selectedProduct) {
+    if (!lastPickedProduct) {
       toast.error('Please select a product');
       return;
     }
 
-    const product = products.find(p => p.id === selectedProduct);
-    if (!product) {
-      toast.error('Product not found');
-      return;
-    }
-
-    const existingItem = order.items.find(item => item.product_id === selectedProduct);
+    const product = lastPickedProduct;
+    const existingItem = order.items.find(item => item.product_id === product.id);
 
     if (existingItem) {
       setOrder({
         ...order,
         items: order.items.map(item =>
-          item.product_id === selectedProduct
+          item.product_id === product.id
             ? { ...item, quantity: item.quantity + selectedQuantity }
             : item
         )
@@ -202,7 +206,7 @@ const OrderForm = () => {
       });
     }
 
-    setSelectedProduct('');
+    setLastPickedProduct(null);
     setSelectedQuantity(1);
     toast.success('Product added to order');
   };
@@ -285,10 +289,6 @@ const OrderForm = () => {
     }
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchProduct.toLowerCase())
-  );
-
   const { subtotal, tax, total } = calculateTotals();
 
   const isWalkInOrQuick =
@@ -308,31 +308,35 @@ const OrderForm = () => {
         {/* Customer */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <div className="form-group">
-            <label>Customer *</label>
+            <label>Customer Type</label>
             <select
-              value={
-                order.customer_type === CUSTOMER_TYPES.WALK_IN ? 'walk-in' :
-                order.customer_type === CUSTOMER_TYPES.QUICK_CREATE ? 'quick-create' :
-                order.customer_id || ''
-              }
-              onChange={handleCustomerChange}
+              value={order.customer_type}
+              onChange={handleCustomerTypeChange}
               className="form-control"
-              required
             >
-              <option value="">Select a customer</option>
-              <option value="walk-in">Walk-in Customer</option>
-              <option value="quick-create">Quick Create Customer</option>
-              <optgroup label="Existing Customers">
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} - {customer.phone || 'No phone'}
-                  </option>
-                ))}
-              </optgroup>
+              <option value={CUSTOMER_TYPES.EXISTING}>Existing Customer</option>
+              <option value={CUSTOMER_TYPES.WALK_IN}>Walk-in Customer</option>
+              <option value={CUSTOMER_TYPES.QUICK_CREATE}>Quick Create Customer</option>
             </select>
           </div>
 
-          {/* Existing customer info */}
+          {order.customer_type === CUSTOMER_TYPES.EXISTING && (
+            <div className="form-group">
+              <label>Customer *</label>
+              <SearchableSelect
+                value={order.customer_id}
+                onChange={handleCustomerSelect}
+                placeholder="Search and select customer..."
+                searchPlaceholder="Type customer name, phone, or email..."
+                fetchOptions={fetchCustomerOptions}
+                getOptionLabel={(c) => c.name}
+                getOptionValue={(c) => c.id}
+                getOptionMeta={(c) => c.phone || c.email || ''}
+                required
+              />
+            </div>
+          )}
+
           {selectedCustomerDetails && (
             <div style={{
               padding: '12px 16px',
@@ -342,23 +346,14 @@ const OrderForm = () => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <FiUser size={16} />
-                <strong>{selectedCustomerDetails.name}</strong>
+                <strong>Customer selected</strong>
               </div>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px', color: '#6b7280' }}>
-                {selectedCustomerDetails.phone && (
-                  <span><FiPhone size={12} style={{ marginRight: '4px' }} />{selectedCustomerDetails.phone}</span>
-                )}
-                {selectedCustomerDetails.email && (
-                  <span><FiMail size={12} style={{ marginRight: '4px' }} />{selectedCustomerDetails.email}</span>
-                )}
-                {selectedCustomerDetails.address && (
-                  <span><FiMapPin size={12} style={{ marginRight: '4px' }} />{selectedCustomerDetails.address}</span>
-                )}
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                {selectedCustomerDetails.id && `ID: ${selectedCustomerDetails.id.slice(0, 8)}...`}
               </div>
             </div>
           )}
 
-          {/* Walk-in / Quick create form */}
           {isWalkInOrQuick && (
             <div style={{
               padding: '16px',
@@ -463,20 +458,22 @@ const OrderForm = () => {
         <div className="card" style={{ marginBottom: '20px' }}>
           <div className="form-group">
             <label>Add Products</label>
-            <div className="flex" style={{ gap: '10px', flexWrap: 'wrap' }}>
-              <select
-                value={selectedProduct}
-                onChange={(e) => setSelectedProduct(e.target.value)}
-                className="form-control"
-                style={{ flex: 2, minWidth: '200px' }}
-              >
-                <option value="">Select a product</option>
-                {filteredProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} - {formatCurrency(product.selling_price)} (Stock: {product.stock_quantity})
-                  </option>
-                ))}
-              </select>
+            <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ flex: 2, minWidth: '240px' }}>
+                <SearchableSelect
+                  value={lastPickedProduct?.id || ''}
+                  onChange={(productId, meta) => handleProductSelect(productId, meta)}
+                  placeholder="Search and select a product..."
+                  searchPlaceholder="Type product name or SKU..."
+                  fetchOptions={async (term) => {
+                    const results = await fetchProductOptions(term);
+                    return results;
+                  }}
+                  getOptionLabel={(p) => p.name}
+                  getOptionValue={(p) => p.id}
+                  getOptionMeta={(p) => `Stock: ${p.stock_quantity} | ${formatCurrency(p.selling_price)}`}
+                />
+              </div>
               <input
                 type="number"
                 value={selectedQuantity}

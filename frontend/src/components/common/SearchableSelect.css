@@ -1,0 +1,176 @@
+/* ============================================================
+   OSWAGO ELECTRICAL EQUIPMENT - Searchable Select styles
+   ============================================================ */
+
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--light-dark);
+  border-radius: var(--radius);
+  background: var(--white);
+  font-size: 13.5px;
+  color: var(--dark);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 42px;
+}
+
+.searchable-select-trigger:hover:not(.disabled) {
+  border-color: var(--gray-light);
+}
+
+.searchable-select-trigger.open {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.12);
+}
+
+.searchable-select-trigger.disabled {
+  background: var(--light);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.searchable-select-placeholder {
+  color: var(--gray-light);
+}
+
+.searchable-select-value {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-select-clear {
+  background: transparent;
+  border: none;
+  color: var(--gray-light);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.searchable-select-clear:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.searchable-select-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--gray-light);
+}
+
+.searchable-select-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13.5px;
+  background: transparent;
+  color: var(--dark);
+}
+
+.searchable-select-search input::placeholder {
+  color: var(--gray-light);
+}
+
+.searchable-select-options {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.searchable-select-option {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background var(--transition-fast);
+}
+
+.searchable-select-option:hover {
+  background: var(--light);
+}
+
+.searchable-select-option.selected {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.searchable-select-option-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-select-option-meta {
+  font-size: 11.5px;
+  color: var(--gray);
+  font-weight: 400;
+}
+
+.searchable-select-option.selected .searchable-select-option-meta {
+  color: var(--primary);
+}
+
+.searchable-select-message {
+  padding: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--gray-light);
+}
+
+body.dark-mode .searchable-select-trigger {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.dark-mode .searchable-select-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.dark-mode .searchable-select-search {
+  border-bottom-color: #334155;
+}
+
+body.dark-mode .searchable-select-option:hover {
+  background: #334155;
+}
+
+body.dark-mode .searchable-select-option.selected {
+  background: rgba(26, 86, 219, 0.2);
+}

@@ -9,19 +9,25 @@ import {
   FiDollarSign, FiArchive, FiUserCheck
 } from 'react-icons/fi';
 import api from '../../api/client';
+import { ROLE_META } from '../../utils/constants';
 import toast from 'react-hot-toast';
 
-// Role presentation
-const ROLE_META = {
-  boss: { label: 'Boss', icon: FiAward, color: '#dc2626' },
-  manager: { label: 'Manager', icon: FiBriefcase, color: '#2563eb' },
-  cashier: { label: 'Cashier', icon: FiDollarSign, color: '#d97706' },
-  store_keeper: { label: 'Store Keeper', icon: FiArchive, color: '#7c3aed' },
-  sales_rep: { label: 'Sales Rep', icon: FiUserCheck, color: '#059669' }
+const ROLE_ICONS = {
+  boss: FiAward,
+  manager: FiBriefcase,
+  cashier: FiDollarSign,
+  store_keeper: FiArchive,
+  sales_rep: FiUserCheck
 };
 
-const DEFAULT_ROLE_META = { label: 'Staff', icon: FiUsers, color: '#6b7280' };
-const getRoleMeta = (role) => ROLE_META[role] || { ...DEFAULT_ROLE_META, label: role || 'Staff' };
+const getRoleMeta = (role) => {
+  const meta = ROLE_META[role] || { label: role || 'Staff', color: '#6b7280' };
+  return {
+    label: meta.label,
+    color: meta.color,
+    icon: ROLE_ICONS[role] || FiUsers
+  };
+};
 
 const StaffList = () => {
   const [staff, setStaff] = useState([]);
@@ -147,7 +153,7 @@ const StaffList = () => {
                       </div>
                     </td>
                     <td className="text-muted">{member.email}</td>
-                    <td className="text-muted">{member.phone || '—'}</td>
+                    <td className="text-muted">{member.phone || '-'}</td>
                     <td>
                       <span className="role-label" style={{ color }}>
                         <RoleIcon size={14} />

@@ -6,10 +6,30 @@ import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { FiPrinter, FiDownload } from 'react-icons/fi';
 import { formatCurrency, formatDate } from '../../utils/helpers';
+import { useShop } from '../../contexts/ShopContext';
 import toast from 'react-hot-toast';
+
+// Change these three values to control the top title on the receipt.
+// fontSize accepts any CSS unit: '20px', '1.5rem', '18pt', etc.
+// fontWeight accepts: 'normal', 'bold', '600', '700', '800', '900', etc.
+// color accepts any CSS color: '#000000', '#1a56db', 'black', 'rgb(0,0,0)'.
+const TITLE_STYLE = {
+  fontSize: '15px',
+  fontWeight: '800',
+  color: '#0f172a'
+};
 
 const Receipt = ({ order, onClose }) => {
   const receiptRef = useRef(null);
+
+  const {
+    location,
+    phone,
+    tin: shopTin,
+    vrn: shopVrn,
+    vatEnabled,
+    vatRate
+  } = useShop();
 
   if (!order) return null;
 
@@ -45,10 +65,12 @@ const Receipt = ({ order, onClose }) => {
 
   const items = order.order_items || order.items || [];
 
+  const displayTin = order.tin || shopTin;
+  const displayVrn = order.vrn || shopVrn;
+
   return (
     <div className="receipt-container">
       <div className="receipt" id="receipt" ref={receiptRef}>
-        {/* Cancelled banner */}
         {isCancelled && (
           <div style={{
             background: '#fef2f2',
@@ -66,11 +88,6 @@ const Receipt = ({ order, onClose }) => {
               marginBottom: '4px'
             }}>
               CANCELLED
-            </div>
-            <div style={{ fontSize: '11px', color: '#991b1b', lineHeight: 1.4 }}>
-              This order has been cancelled.
-              <br />
-              The items below are for reference only.
             </div>
             {order.cancellation_reason && (
               <div style={{
@@ -92,12 +109,11 @@ const Receipt = ({ order, onClose }) => {
         )}
 
         <div className="receipt-header">
-          <h2>OSWAGO</h2>
-          <p>Electrical Equipment</p>
-          <p style={{ fontSize: '12px', color: '#6b7280' }}>Darajani, Kigamboni, Dar es Salaam</p>
-          <p style={{ fontSize: '12px', color: '#6b7280' }}>0750825721</p>
-          {order.tin && <p style={{ fontSize: '11px', color: '#6b7280' }}>TIN: {order.tin}</p>}
-          {order.vrn && <p style={{ fontSize: '11px', color: '#6b7280' }}>VRN: {order.vrn}</p>}
+          <h2 style={TITLE_STYLE}>Oswago Electrical Equipment</h2>
+          {location && <p style={{ fontSize: '12px', color: '#6b7280' }}>{location}</p>}
+          {phone && <p style={{ fontSize: '12px', color: '#6b7280' }}>{phone}</p>}
+          {displayTin && <p style={{ fontSize: '11px', color: '#6b7280' }}>TIN: {displayTin}</p>}
+          {displayVrn && <p style={{ fontSize: '11px', color: '#6b7280' }}>VRN: {displayVrn}</p>}
           <hr />
         </div>
 
@@ -193,7 +209,7 @@ const Receipt = ({ order, onClose }) => {
 
                 {hasVAT && (
                   <div className="flex-between">
-                    <span>VAT</span>
+                    <span>VAT{vatEnabled && vatRate ? ` (${vatRate}%)` : ''}</span>
                     <span style={{ color: '#f59e0b' }}>{formatCurrency(taxAmount)}</span>
                   </div>
                 )}
@@ -234,7 +250,7 @@ const Receipt = ({ order, onClose }) => {
             {isCancelled ? (
               <>
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>
-                  Order cancelled — no payment is due
+                  Order cancelled - no payment is due
                 </p>
                 <p style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280' }}>
                   Keep this receipt for your records
@@ -243,7 +259,7 @@ const Receipt = ({ order, onClose }) => {
             ) : (
               <>
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280' }}>
-                  Thank you for shopping at OSWAGO Electrical Equipment.
+                  Thank you for shopping with us.
                 </p>
                 <p style={{ textAlign: 'center', fontSize: '10px', color: '#6b7280' }}>
                   Items sold are not returnable unless defective

@@ -16,7 +16,6 @@ const apiClient = axios.create({
   timeout: 10000
 });
 
-// Attach token to every request
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -28,13 +27,11 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Global error handling
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
 
-    // 401 — session expired; redirect to login
     if (status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -43,12 +40,10 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // 429 — rate limited
     if (status === 429) {
       toast.error(error.response?.data?.error || 'Too many requests. Please wait.');
     }
 
-    // Network / timeout
     if (error.code === 'ECONNABORTED') {
       toast.error('Request timeout. Check your connection.');
     }
@@ -56,14 +51,9 @@ apiClient.interceptors.response.use(
       toast.error('Network error. Check your internet connection.');
     }
 
-    // 403 / 404 / 500 are handled per-page so users see context
     return Promise.reject(error);
   }
 );
-
-// ============================================================
-// API FUNCTIONS
-// ============================================================
 
 const api = {
   // ---- Auth ----
@@ -105,10 +95,6 @@ const api = {
   },
 
   // ---- Products ----
-  getProducts: async () => {
-    const response = await apiClient.get('/products');
-    return response.data.data || [];
-  },
   getProductsPage: async (queryString = '') => {
     const url = queryString ? `/products?${queryString}` : '/products';
     const response = await apiClient.get(url);
@@ -167,10 +153,6 @@ const api = {
   },
 
   // ---- Customers ----
-  getCustomers: async () => {
-    const response = await apiClient.get('/customers');
-    return response.data.data || [];
-  },
   getCustomersPage: async (queryString = '') => {
     const url = queryString ? `/customers?${queryString}` : '/customers';
     const response = await apiClient.get(url);
@@ -199,10 +181,6 @@ const api = {
   },
 
   // ---- Orders ----
-  getOrders: async () => {
-    const response = await apiClient.get('/orders');
-    return response.data.data || [];
-  },
   getOrdersPage: async (queryString = '') => {
     const url = queryString ? `/orders?${queryString}` : '/orders';
     const response = await apiClient.get(url);
@@ -246,10 +224,6 @@ const api = {
   },
 
   // ---- Payments ----
-  getPayments: async () => {
-    const response = await apiClient.get('/payments');
-    return response.data.data || [];
-  },
   getPaymentsPage: async (queryString = '') => {
     const url = queryString ? `/payments?${queryString}` : '/payments';
     const response = await apiClient.get(url);
@@ -257,10 +231,6 @@ const api = {
   },
 
   // ---- Suppliers ----
-  getSuppliers: async () => {
-    const response = await apiClient.get('/suppliers');
-    return response.data.data || [];
-  },
   getSuppliersPage: async (queryString = '') => {
     const url = queryString ? `/suppliers?${queryString}` : '/suppliers';
     const response = await apiClient.get(url);
@@ -289,10 +259,6 @@ const api = {
   },
 
   // ---- Purchase Orders ----
-  getPurchaseOrders: async () => {
-    const response = await apiClient.get('/purchase-orders');
-    return response.data.data || [];
-  },
   getPurchaseOrdersPage: async (queryString = '') => {
     const url = queryString ? `/purchase-orders?${queryString}` : '/purchase-orders';
     const response = await apiClient.get(url);
@@ -367,12 +333,6 @@ const api = {
   },
 
   // ---- Expenses ----
-  getExpenses: async () => {
-    const response = await apiClient.get('/expenses');
-    if (response.data && response.data.data) return response.data.data;
-    if (Array.isArray(response.data)) return response.data;
-    return [];
-  },
   getExpensesPage: async (queryString = '') => {
     const url = queryString ? `/expenses?${queryString}` : '/expenses';
     const response = await apiClient.get(url);

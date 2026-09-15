@@ -4,27 +4,23 @@
 
 import React from 'react';
 import { FiUser, FiBell } from 'react-icons/fi';
-import { APP_NAME, SHOP_LOCATION } from '../../utils/constants';
+import { useShop } from '../../contexts/ShopContext';
+import { ROLE_META } from '../../utils/constants';
+
+const getRoleColor = (role) => {
+  const meta = ROLE_META[role];
+  return meta ? meta.color : '#6b7280';
+};
 
 const Header = () => {
+  const { appName, location } = useShop();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-  const getRoleBadge = (role) => {
-    const colors = {
-      boss: '#ef4444',
-      manager: '#3b82f6',
-      cashier: '#f59e0b',
-      store_keeper: '#8b5cf6',
-      sales_rep: '#10b981'
-    };
-    return colors[role] || '#6b7280';
-  };
 
   return (
     <header className="app-header">
       <div className="header-left">
-        <h1 className="header-title">{APP_NAME}</h1>
-        <span className="header-location">{SHOP_LOCATION}</span>
+        <h1 className="header-title">{appName}</h1>
+        <span className="header-location">{location}</span>
       </div>
 
       <div className="header-right">
@@ -41,7 +37,7 @@ const Header = () => {
             <span className="user-name">{user.full_name || 'User'}</span>
             <span
               className="user-role"
-              style={{ backgroundColor: getRoleBadge(user.role) }}
+              style={{ backgroundColor: getRoleColor(user.role) }}
             >
               {user.role || 'Staff'}
             </span>

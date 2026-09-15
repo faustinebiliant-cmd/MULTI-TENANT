@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiSearch } from 'react-icons/fi';
 import api from '../../api/client';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const CategoryManager = () => {
@@ -15,6 +16,9 @@ const CategoryManager = () => {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -68,16 +72,19 @@ const CategoryManager = () => {
     }
   };
 
-  const handleDeleteCategory = async (id, name) => {
-    if (!window.confirm(`Delete category "${name}"?`)) return;
-
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await api.deleteCategory(id);
-      toast.success(`"${name}" deleted successfully`);
+      await api.deleteCategory(deleteTarget.id);
+      toast.success(`"${deleteTarget.name}" deleted successfully`);
+      setDeleteTarget(null);
       fetchCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
       toast.error(error.response?.data?.error || 'Failed to delete category');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -263,7 +270,7 @@ const CategoryManager = () => {
                               <FiEdit2 size={14} />
                             </button>
                             <button
-                              onClick={() => handleDeleteCategory(category.id, category.name)}
+                              onClick={() => setDeleteTarget({ id: category.id, name: category.name })}
                               className="btn btn-sm btn-danger"
                               title="Delete category"
                             >
@@ -296,6 +303,18 @@ const CategoryManager = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Category"
+        message={deleteTarget ? `Delete category "${deleteTarget.name}"? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };

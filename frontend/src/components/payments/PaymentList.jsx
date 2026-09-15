@@ -24,6 +24,7 @@ const PaymentList = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [method, setMethod] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -34,6 +35,7 @@ const PaymentList = () => {
       const params = { page, limit: PAGE_SIZE };
       if (debouncedSearch) params.search = debouncedSearch;
       if (method !== 'all') params.method = method;
+      if (statusFilter !== 'all') params.status = statusFilter;
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
@@ -48,7 +50,7 @@ const PaymentList = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, method, startDate, endDate]);
+  }, [debouncedSearch, method, statusFilter, startDate, endDate]);
 
   useEffect(() => {
     fetchPayments(1);
@@ -65,7 +67,8 @@ const PaymentList = () => {
     setEndDate('');
   };
 
-  const hasActiveFilters = search || method !== 'all' || startDate || endDate;
+  const hasActiveFilters =
+    search || method !== 'all' || statusFilter !== 'all' || startDate || endDate;
 
   const getMethodLabel = (m) => {
     const labels = { cash: 'Cash', mpesa: 'M-Pesa', tigo_pesa: 'Tigo Pesa' };
@@ -73,6 +76,9 @@ const PaymentList = () => {
   };
 
   const getPaymentStatus = (payment) => {
+    if ((payment.status || '').toLowerCase() === 'voided') {
+      return { text: 'Voided', color: '#6b7280' };
+    }
     const orderStatus = payment.order_payment_status || 'unpaid';
     if (orderStatus === 'paid') return { text: 'Completed', color: '#10b981' };
     if (orderStatus === 'partial') return { text: 'Partial', color: '#f59e0b' };
@@ -80,7 +86,14 @@ const PaymentList = () => {
     return { text: 'Completed', color: '#10b981' };
   };
 
-  const pageTotal = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  // Page total excludes voided rows so the number matches what you actually received
+  const pageTotal = payments
+    .filter((p) => (p.status || '').toLowerCase() !== 'voided')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const pageVoidedTotal = payments
+    .filter((p) => (p.status || '').toLowerCase() === 'voided')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   if (loading && payments.length === 0) {
     return <Loader message="Loading payments..." />;
@@ -120,6 +133,17 @@ const PaymentList = () => {
             <option value="tigo_pesa">Tigo Pesa</option>
           </select>
 
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="form-control"
+            style={{ width: '150px', fontSize: '13px' }}
+          >
+            <option value="all">All Statuses</option>
+            <option value="completed">Completed</option>
+            <option value="voided">Voided</option>
+          </select>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn btn-secondary btn-sm"
@@ -132,7 +156,12 @@ const PaymentList = () => {
 
           {hasActiveFilters && (
             <button
-              onClick={() => { setSearch(''); setMethod('all'); clearDateFilters(); }}
+              onClick={() => {
+                setSearch('');
+                setMethod('all');
+                setStatusFilter('all');
+                clearDateFilters();
+              }}
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
@@ -209,15 +238,20 @@ const PaymentList = () => {
             ) : (
               payments.map((payment) => {
                 const statusInfo = getPaymentStatus(payment);
+                const isVoided = (payment.status || '').toLowerCase() === 'voided';
                 return (
-                  <tr key={payment.id}>
+                  <tr key={payment.id} style={isVoided ? { opacity: 0.6 } : {}}>
                     <td>
                       <Link to={`/orders/${payment.order_id}`} className="order-link">
                         {payment.order_number}
                       </Link>
                     </td>
                     <td>{payment.customer_name || '-'}</td>
-                    <td style={{ fontWeight: '600', color: '#10b981' }}>
+                    <td style={{
+                      fontWeight: '600',
+                      color: isVoided ? '#6b7280' : '#10b981',
+                      textDecoration: isVoided ? 'line-through' : 'none'
+                    }}>
                       {formatCurrency(payment.amount)}
                     </td>
                     <td>{getMethodLabel(payment.method)}</td>
@@ -274,8 +308,21 @@ const PaymentList = () => {
               Showing <strong>{payments.length}</strong> of <strong>{pagination.total}</strong> payments
               {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
             </div>
-            <div>
-              Page total: <strong style={{ color: '#10b981' }}>{formatCurrency(pageTotal)}</strong>
+            <div style={{ display: 'flex', gap: '20px' }}>
+              {pageVoidedTotal > 0 && (
+                <div>
+                  Voided:{' '}
+                  <strong style={{ color: '#6b7280', textDecoration: 'line-through' }}>
+                    {formatCurrency(pageVoidedTotal)}
+                  </strong>
+                </div>
+              )}
+              <div>
+                Page total:{' '}
+                <strong style={{ color: '#10b981' }}>
+                  {formatCurrency(pageTotal)}
+                </strong>
+              </div>
             </div>
           </div>
         </div>

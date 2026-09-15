@@ -6,9 +6,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiZap, FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { APP_NAME, SHOP_LOCATION } from '../../utils/constants';
+import { useShop } from '../../contexts/ShopContext';
 
-// Login lockout config
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
@@ -21,9 +20,9 @@ const Login = () => {
   const [attempts, setAttempts] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState(null);
   const { login } = useAuth();
+  const { appName, location, phone } = useShop();
   const navigate = useNavigate();
 
-  // Restore lockout state on mount
   useEffect(() => {
     const blocked = localStorage.getItem('loginBlocked');
     if (blocked) {
@@ -37,7 +36,6 @@ const Login = () => {
     }
   }, []);
 
-  // Auto-unblock when the timer expires
   useEffect(() => {
     if (!blockedUntil) return;
     const timer = setInterval(() => {
@@ -60,7 +58,6 @@ const Login = () => {
     e.preventDefault();
     setError('');
 
-    // Frontend validation
     if (!email || !isValidEmail(email)) {
       setError('Please enter a valid email address');
       return;
@@ -71,7 +68,6 @@ const Login = () => {
       return;
     }
 
-    // Blocked check
     if (blockedUntil && Date.now() < blockedUntil.getTime()) {
       const remaining = Math.ceil((blockedUntil.getTime() - Date.now()) / 60000);
       setError(`Too many attempts. Please wait ${remaining} minute${remaining === 1 ? '' : 's'}.`);
@@ -93,7 +89,6 @@ const Login = () => {
       const rawError = result.error || 'Invalid email or password';
       setError(rawError);
 
-      // Only count invalid-credential failures
       const isInvalidCredentials = rawError.toLowerCase().includes('invalid email or password');
       if (!isInvalidCredentials) return;
 
@@ -125,7 +120,7 @@ const Login = () => {
             <div className="login-logo">
               <FiZap size={26} />
             </div>
-            <h1>OSWAGO</h1>
+            <h1>{appName}</h1>
             <p>Electrical Equipment</p>
             <span className="login-subtitle">Shop Management System</span>
           </div>
@@ -210,8 +205,8 @@ const Login = () => {
           </form>
 
           <div className="login-footer">
-            <p>{APP_NAME}</p>
-            <small>{SHOP_LOCATION}</small>
+            <p>{appName}</p>
+            <small>{location}{phone ? ` - ${phone}` : ''}</small>
           </div>
         </div>
       </div>

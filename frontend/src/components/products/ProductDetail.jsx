@@ -4,18 +4,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiEdit, FiArrowLeft, FiTrash2 } from 'react-icons/fi';
+import { FiEdit2, FiArrowLeft, FiTrash2 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
 import Loader from '../common/Loader';
-import toast from 'react-hot-toast';
+import ConfirmDialog from '../common/ConfirmDialog';
 import StockAdjustment from './StockAdjustment';
+import toast from 'react-hot-toast';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showStockAdjustment, setShowStockAdjustment] = useState(false);
 
@@ -37,9 +39,7 @@ const ProductDetail = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${product?.name}"?`)) return;
-
+  const handleDeleteConfirm = async () => {
     setDeleting(true);
     try {
       await api.deleteProduct(id);
@@ -49,6 +49,7 @@ const ProductDetail = () => {
       console.error('Error deleting product:', error);
       toast.error(error.response?.data?.error || 'Failed to delete product');
       setDeleting(false);
+      setShowDelete(false);
     }
   };
 
@@ -158,14 +159,13 @@ const ProductDetail = () => {
               Adjust Stock
             </button>
             <Link to={`/products/${id}/edit`} className="btn btn-primary">
-              <FiEdit size={18} /> Edit Product
+              <FiEdit2 size={18} /> Edit Product
             </Link>
             <button
-              onClick={handleDelete}
+              onClick={() => setShowDelete(true)}
               className="btn btn-danger"
-              disabled={deleting}
             >
-              <FiTrash2 size={18} /> {deleting ? 'Deleting...' : 'Delete Product'}
+              <FiTrash2 size={18} /> Delete Product
             </button>
           </div>
         </div>
@@ -178,6 +178,18 @@ const ProductDetail = () => {
           onSuccess={fetchProduct}
         />
       )}
+
+      <ConfirmDialog
+        open={showDelete}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${product.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDelete(false)}
+      />
     </div>
   );
 };

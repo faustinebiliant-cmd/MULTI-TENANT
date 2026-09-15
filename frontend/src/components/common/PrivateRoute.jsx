@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import Loader from './Loader';
 
 // Check if token is expired (5s clock buffer)
 const isTokenExpired = (token) => {
@@ -65,17 +66,7 @@ const PrivateRoute = ({ children }) => {
   }, []);
 
   if (isValidating) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        minHeight: '100vh'
-      }}>
-        <div className="spinner"></div>
-      </div>
-    );
+    return <Loader fullPage message="" />;
   }
 
   if (!isAuthenticated) {

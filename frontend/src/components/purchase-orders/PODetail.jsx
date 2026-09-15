@@ -8,6 +8,7 @@ import { FiArrowLeft, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import Loader from '../common/Loader';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const PODetail = () => {
@@ -16,6 +17,9 @@ const PODetail = () => {
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+
+  const [showReceive, setShowReceive] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   useEffect(() => {
     fetchPO();
@@ -35,13 +39,12 @@ const PODetail = () => {
     }
   };
 
-  const handleReceive = async () => {
-    if (!window.confirm('Receive this purchase order? This will update your inventory.')) return;
-
+  const handleReceiveConfirm = async () => {
     setProcessing(true);
     try {
       await api.receivePurchaseOrder(id);
       toast.success('Purchase order received. Stock updated.');
+      setShowReceive(false);
       fetchPO();
     } catch (error) {
       console.error('Error receiving PO:', error);
@@ -51,9 +54,7 @@ const PODetail = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Delete purchase order "${po?.po_number}"?`)) return;
-
+  const handleDeleteConfirm = async () => {
     setProcessing(true);
     try {
       await api.deletePurchaseOrder(id);
@@ -62,8 +63,8 @@ const PODetail = () => {
     } catch (error) {
       console.error('Error deleting PO:', error);
       toast.error(error.response?.data?.error || 'Failed to delete PO');
-    } finally {
       setProcessing(false);
+      setShowDelete(false);
     }
   };
 
@@ -185,8 +186,8 @@ const PODetail = () => {
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {isPending && (
-            <button onClick={handleReceive} className="btn btn-success" disabled={processing}>
-              <FiCheckCircle size={18} /> {processing ? 'Processing...' : 'Receive Stock'}
+            <button onClick={() => setShowReceive(true)} className="btn btn-success">
+              <FiCheckCircle size={18} /> Receive Stock
             </button>
           )}
           {!isCancelled && (
@@ -195,12 +196,36 @@ const PODetail = () => {
             </Link>
           )}
           {!isReceived && (
-            <button onClick={handleDelete} className="btn btn-danger" disabled={processing}>
+            <button onClick={() => setShowDelete(true)} className="btn btn-danger">
               <FiTrash2 size={18} /> Delete
             </button>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showReceive}
+        title="Receive Purchase Order"
+        message="Receiving this PO will add all items to your inventory. Continue?"
+        confirmLabel="Receive"
+        cancelLabel="Cancel"
+        variant="primary"
+        loading={processing}
+        onConfirm={handleReceiveConfirm}
+        onCancel={() => setShowReceive(false)}
+      />
+
+      <ConfirmDialog
+        open={showDelete}
+        title="Delete Purchase Order"
+        message={`Are you sure you want to delete "${po.po_number}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={processing}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDelete(false)}
+      />
     </div>
   );
 };

@@ -5,7 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '../../utils/constants';
+import { useShop } from '../../contexts/ShopContext';
+import { PAYMENT_METHODS } from '../../utils/constants';
 import toast from 'react-hot-toast';
 
 const ExpenseForm = () => {
@@ -13,6 +14,7 @@ const ExpenseForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
+  const { expenseCategories } = useShop();
 
   const [formData, setFormData] = useState({
     description: '',
@@ -23,7 +25,6 @@ const ExpenseForm = () => {
     notes: ''
   });
 
-  // Load expense when editing
   useEffect(() => {
     if (!isEdit || !id) return;
 
@@ -137,7 +138,7 @@ const ExpenseForm = () => {
               required
             >
               <option value="">Select a category</option>
-              {EXPENSE_CATEGORIES.map((cat) => (
+              {expenseCategories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>

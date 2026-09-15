@@ -1446,6 +1446,238 @@ tbody tr:last-child td { border-bottom: none; }
 .pagination-status { font-size: 13px; color: #6b7280; }
 
 /* ============================================================
+   STATUS COLORS
+   ============================================================
+   All status colors in one place. Change here, updates everywhere.
+   ============================================================ */
+
+:root {
+  /* Order status */
+  --status-pending-bg: transparent;
+  --status-pending-text: #b58a09;
+  --status-pending-border: transparent;
+
+  --status-confirmed-bg: transparent;
+  --status-confirmed-text: #0c39ce;
+  --status-confirmed-border: transparent;
+
+  --status-delivered-bg: transparent;
+  --status-delivered-text: #08971d;
+  --status-delivered-border: transparent;
+
+  --status-cancelled-bg: transparent;
+  --status-cancelled-text: #c40e0e;
+  --status-cancelled-border: transparent;
+
+  /* Payment status */
+  --payment-paid-bg: transparent;
+  --payment-paid-text: #0bc518;
+  --payment-paid-border: transparent;
+
+  --payment-unpaid-bg: transparent;
+  --payment-unpaid-text: #d00f0f;
+  --payment-unpaid-border: transparent;
+
+  --payment-partial-bg: transparent;
+  --payment-partial-text: #92400e;
+  --payment-partial-border: transparent;
+}
+
+.status-pending {
+  background-color: var(--status-pending-bg) !important;
+  color: var(--status-pending-text) !important;
+  border: 1px solid var(--status-pending-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-confirmed {
+  background-color: var(--status-confirmed-bg) !important;
+  color: var(--status-confirmed-text) !important;
+  border: 1px solid var(--status-confirmed-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-delivered {
+  background-color: var(--status-delivered-bg) !important;
+  color: var(--status-delivered-text) !important;
+  border: 1px solid var(--status-delivered-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.status-cancelled {
+  background-color: var(--status-cancelled-bg) !important;
+  color: var(--status-cancelled-text) !important;
+  border: 1px solid var(--status-cancelled-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.payment-paid {
+  background-color: var(--payment-paid-bg) !important;
+  color: var(--payment-paid-text) !important;
+  border: 1px solid var(--payment-paid-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.payment-unpaid {
+  background-color: var(--payment-unpaid-bg) !important;
+  color: var(--payment-unpaid-text) !important;
+  border: 1px solid var(--payment-unpaid-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+.payment-partial {
+  background-color: var(--payment-partial-bg) !important;
+  color: var(--payment-partial-text) !important;
+  border: 1px solid var(--payment-partial-border) !important;
+  padding: 4px 14px !important;
+  border-radius: 50px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize !important;
+  display: inline-block !important;
+}
+
+@media (max-width: 480px) {
+  .status-pending,
+  .status-confirmed,
+  .status-delivered,
+  .status-cancelled,
+  .payment-paid,
+  .payment-unpaid,
+  .payment-partial {
+    font-size: 10px !important;
+    padding: 2px 10px !important;
+  }
+}
+
+/* ============================================================
+   TABLE HEADERS
+   ============================================================
+   Global table header colors. Change here, updates everywhere.
+   ============================================================ */
+
+:root {
+  --header-bg: #0a1e3d;
+  --header-text-default: #ffffff;
+  --header-border: #1a56db;
+  --header-border-width: 2px;
+
+  --header-order-color: #ffffff;
+  --header-customer-color: #ffffff;
+  --header-amount-color: #10b981;
+  --header-status-color: #f59e0b;
+  --header-payment-color: #3b82f6;
+  --header-date-color: #ffffff;
+  --header-actions-color: #8b5cf6;
+
+  --header-font-size: 13px;
+  --header-font-weight: 700;
+  --header-text-transform: uppercase;
+  --header-letter-spacing: 0.5px;
+  --header-padding: 14px 20px;
+}
+
+.table-container thead th,
+.table-container thead td {
+  background-color: var(--header-bg) !important;
+  color: var(--header-text-default) !important;
+  padding: var(--header-padding) !important;
+  font-weight: var(--header-font-weight) !important;
+  font-size: var(--header-font-size) !important;
+  text-transform: var(--header-text-transform) !important;
+  letter-spacing: var(--header-letter-spacing) !important;
+  border-bottom: var(--header-border-width) solid var(--header-border) !important;
+  white-space: nowrap !important;
+}
+
+.table-container thead th:nth-child(1),
+.table-container thead td:nth-child(1) {
+  color: var(--header-order-color) !important;
+}
+
+.table-container thead th:nth-child(2),
+.table-container thead td:nth-child(2) {
+  color: var(--header-customer-color) !important;
+}
+
+.table-container thead th:nth-child(3),
+.table-container thead td:nth-child(3) {
+  color: var(--header-amount-color) !important;
+}
+
+.table-container thead th:nth-child(4),
+.table-container thead td:nth-child(4) {
+  color: var(--header-status-color) !important;
+}
+
+.table-container thead th:nth-child(5),
+.table-container thead td:nth-child(5) {
+  color: var(--header-payment-color) !important;
+}
+
+.table-container thead th:nth-child(6),
+.table-container thead td:nth-child(6) {
+  color: var(--header-date-color) !important;
+}
+
+.table-container thead th:nth-child(7),
+.table-container thead td:nth-child(7) {
+  color: var(--header-actions-color) !important;
+}
+
+.table-container thead th:hover,
+.table-container thead td:hover {
+  background-color: #1a3a6b !important;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --header-font-size: 11px;
+    --header-padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --header-font-size: 10px;
+    --header-padding: 8px 10px;
+    --header-letter-spacing: 0px;
+  }
+}
+
+/* ============================================================
    DARK MODE
    ============================================================ */
 

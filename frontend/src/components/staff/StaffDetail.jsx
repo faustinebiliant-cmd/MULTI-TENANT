@@ -9,8 +9,16 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatDate } from '../../utils/helpers';
+import { ROLE_META } from '../../utils/constants';
 import Loader from '../common/Loader';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
+
+const getRoleMeta = (role) => {
+  const meta = ROLE_META[role];
+  if (!meta) return { color: '#6b7280', label: role || 'Staff', icon: 'FiUsers' };
+  return meta;
+};
 
 const StaffDetail = () => {
   const { id } = useParams();
@@ -19,6 +27,8 @@ const StaffDetail = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showToggleDialog, setShowToggleDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -40,13 +50,12 @@ const StaffDetail = () => {
     }
   };
 
-  const handleToggleStatus = async () => {
-    if (!window.confirm(`${staff.is_active ? 'Deactivate' : 'Activate'} "${staff.full_name}"?`)) return;
-
+  const handleToggleConfirm = async () => {
     setProcessing(true);
     try {
       await api.updateUser(id, { is_active: !staff.is_active });
       toast.success(`${staff.full_name} ${staff.is_active ? 'deactivated' : 'activated'}`);
+      setShowToggleDialog(false);
       fetchStaff();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -56,9 +65,7 @@ const StaffDetail = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${staff?.full_name}"?`)) return;
-
+  const handleDeleteConfirm = async () => {
     setProcessing(true);
     try {
       await api.deleteUser(id);
@@ -67,8 +74,8 @@ const StaffDetail = () => {
     } catch (error) {
       console.error('Error deleting staff:', error);
       toast.error(error.response?.data?.error || 'Failed to delete staff');
-    } finally {
       setProcessing(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -90,17 +97,6 @@ const StaffDetail = () => {
     } finally {
       setProcessing(false);
     }
-  };
-
-  const getRoleMeta = (role) => {
-    const map = {
-      boss: { color: '#ef4444', label: 'Boss' },
-      manager: { color: '#3b82f6', label: 'Manager' },
-      cashier: { color: '#f59e0b', label: 'Cashier' },
-      store_keeper: { color: '#8b5cf6', label: 'Store Keeper' },
-      sales_rep: { color: '#10b981', label: 'Sales Rep' }
-    };
-    return map[role] || { color: '#6b7280', label: role };
   };
 
   if (loading) return <Loader message="Loading staff..." />;
@@ -177,7 +173,7 @@ const StaffDetail = () => {
           <div className="detail-row">
             <span className="detail-label">First Login</span>
             <span className="detail-value">
-              {staff.is_first_login ? 'Yes — will be prompted to change password' : 'No'}
+              {staff.is_first_login ? 'Yes - will be prompted to change password' : 'No'}
             </span>
           </div>
           <div className="detail-row">
@@ -203,17 +199,15 @@ const StaffDetail = () => {
           {!isSelf && !isBoss && (
             <>
               <button
-                onClick={handleToggleStatus}
+                onClick={() => setShowToggleDialog(true)}
                 className="btn btn-secondary"
-                disabled={processing}
               >
                 {staff.is_active ? <FiUserX size={18} /> : <FiUserCheck size={18} />}
                 {staff.is_active ? ' Deactivate' : ' Activate'}
               </button>
               <button
-                onClick={handleDelete}
+                onClick={() => setShowDeleteDialog(true)}
                 className="btn btn-danger"
-                disabled={processing}
               >
                 <FiTrash2 size={18} /> Delete Staff
               </button>
@@ -260,6 +254,34 @@ const StaffDetail = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={showToggleDialog}
+        title={staff.is_active ? 'Deactivate Staff' : 'Activate Staff'}
+        message={
+          staff.is_active
+            ? `Deactivating ${staff.full_name} will prevent them from logging in. Continue?`
+            : `Reactivate ${staff.full_name}? They will be able to log in again.`
+        }
+        confirmLabel={staff.is_active ? 'Deactivate' : 'Activate'}
+        cancelLabel="Cancel"
+        variant={staff.is_active ? 'danger' : 'primary'}
+        loading={processing}
+        onConfirm={handleToggleConfirm}
+        onCancel={() => setShowToggleDialog(false)}
+      />
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete Staff"
+        message={`Are you sure you want to delete "${staff.full_name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={processing}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
     </div>
   );
 };

@@ -11,6 +11,7 @@ import {
 import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import Loader from '../common/Loader';
+import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const CustomerDetail = () => {
@@ -18,6 +19,7 @@ const CustomerDetail = () => {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -38,9 +40,7 @@ const CustomerDetail = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${customer?.name}"?`)) return;
-
+  const handleDeleteConfirm = async () => {
     setDeleting(true);
     try {
       await api.deleteCustomer(id);
@@ -50,6 +50,7 @@ const CustomerDetail = () => {
       console.error('Error deleting customer:', error);
       toast.error(error.response?.data?.error || 'Failed to delete customer');
       setDeleting(false);
+      setShowDelete(false);
     }
   };
 
@@ -113,8 +114,8 @@ const CustomerDetail = () => {
           <Link to={`/customers/${id}/edit`} className="btn btn-secondary">
             <FiEdit2 size={16} /> Edit
           </Link>
-          <button onClick={handleDelete} className="btn btn-danger" disabled={deleting}>
-            <FiTrash2 size={16} /> {deleting ? 'Deleting...' : 'Delete'}
+          <button onClick={() => setShowDelete(true)} className="btn btn-danger">
+            <FiTrash2 size={16} /> Delete
           </button>
         </div>
       </div>
@@ -156,6 +157,18 @@ const CustomerDetail = () => {
           <span className="detail-value">{customer.notes || '-'}</span>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDelete}
+        title="Delete Customer"
+        message={`Are you sure you want to delete "${customer.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDelete(false)}
+      />
     </div>
   );
 };

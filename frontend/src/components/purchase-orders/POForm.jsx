@@ -2,11 +2,12 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Purchase Order Form
 // ============================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
+import SearchableSelect from '../common/SearchableSelect';
 import toast from 'react-hot-toast';
 
 const POForm = () => {
@@ -14,8 +15,6 @@ const POForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
-  const [suppliers, setSuppliers] = useState([]);
-  const [products, setProducts] = useState([]);
 
   const [po, setPo] = useState({
     supplier_id: '',
@@ -23,25 +22,27 @@ const POForm = () => {
     notes: ''
   });
 
-  const [selectedProduct, setSelectedProduct] = useState('');
+  const [lastPickedProduct, setLastPickedProduct] = useState(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
-  // Load reference data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [suppliersData, productsData] = await Promise.all([
-          api.getSuppliers(),
-          api.getProducts()
-        ]);
-        setSuppliers(suppliersData || []);
-        setProducts(productsData || []);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast.error('Failed to load data');
-      }
-    };
-    fetchData();
+  // Backend search for suppliers
+  const fetchSupplierOptions = useCallback(async (term) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '20');
+    if (term && term.trim()) params.set('search', term.trim());
+    const response = await api.getSuppliersPage(params.toString());
+    return response.data || [];
+  }, []);
+
+  // Backend search for products
+  const fetchProductOptions = useCallback(async (term) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '20');
+    if (term && term.trim()) params.set('search', term.trim());
+    const response = await api.getProductsPage(params.toString());
+    return response.data || [];
   }, []);
 
   // Load existing PO when editing
@@ -75,25 +76,24 @@ const POForm = () => {
     fetchPO();
   }, [isEdit, id, navigate]);
 
+  const handleProductSelect = (productId, product) => {
+    setLastPickedProduct(product || null);
+  };
+
   const addItem = () => {
-    if (!selectedProduct) {
+    if (!lastPickedProduct) {
       toast.error('Please select a product');
       return;
     }
 
-    const product = products.find(p => p.id === selectedProduct);
-    if (!product) {
-      toast.error('Product not found');
-      return;
-    }
-
-    const existingItem = po.items.find(item => item.product_id === selectedProduct);
+    const product = lastPickedProduct;
+    const existingItem = po.items.find(item => item.product_id === product.id);
 
     if (existingItem) {
       setPo({
         ...po,
         items: po.items.map(item =>
-          item.product_id === selectedProduct
+          item.product_id === product.id
             ? { ...item, quantity: item.quantity + selectedQuantity }
             : item
         )
@@ -114,7 +114,7 @@ const POForm = () => {
       });
     }
 
-    setSelectedProduct('');
+    setLastPickedProduct(null);
     setSelectedQuantity(1);
     toast.success('Product added to PO');
   };
@@ -199,36 +199,34 @@ const POForm = () => {
         <div className="card">
           <div className="form-group">
             <label>Supplier *</label>
-            <select
+            <SearchableSelect
               value={po.supplier_id}
-              onChange={(e) => setPo({ ...po, supplier_id: e.target.value })}
+              onChange={(supplierId) => setPo({ ...po, supplier_id: supplierId })}
+              placeholder="Search and select a supplier..."
+              searchPlaceholder="Type supplier name, phone, or email..."
+              fetchOptions={fetchSupplierOptions}
+              getOptionLabel={(s) => s.name}
+              getOptionValue={(s) => s.id}
+              getOptionMeta={(s) => s.phone || s.email || ''}
               required
-            >
-              <option value="">Select a supplier</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="form-group">
             <label>Add Products</label>
-            <div className="flex" style={{ gap: '10px', flexWrap: 'wrap' }}>
-              <select
-                value={selectedProduct}
-                onChange={(e) => setSelectedProduct(e.target.value)}
-                style={{ flex: 2, minWidth: '200px' }}
-                className="form-control"
-              >
-                <option value="">Select a product</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} - {formatCurrency(product.cost_price)} (Stock: {product.stock_quantity})
-                  </option>
-                ))}
-              </select>
+            <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ flex: 2, minWidth: '240px' }}>
+                <SearchableSelect
+                  value={lastPickedProduct?.id || ''}
+                  onChange={handleProductSelect}
+                  placeholder="Search and select a product..."
+                  searchPlaceholder="Type product name or SKU..."
+                  fetchOptions={fetchProductOptions}
+                  getOptionLabel={(p) => p.name}
+                  getOptionValue={(p) => p.id}
+                  getOptionMeta={(p) => `Stock: ${p.stock_quantity} | Cost: ${formatCurrency(p.cost_price)}`}
+                />
+              </div>
               <input
                 type="number"
                 value={selectedQuantity}
