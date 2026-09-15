@@ -13,10 +13,6 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL USERS
-// ============================================================
-
 const getAllUsers = async (req, res) => {
     try {
         const { data: users, error } = await supabase
@@ -41,10 +37,6 @@ const getAllUsers = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET SINGLE USER
-// ============================================================
 
 const getUserById = async (req, res) => {
     try {
@@ -80,15 +72,10 @@ const getUserById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE USER
-// ============================================================
-
 const createUser = async (req, res) => {
     try {
         const { full_name, email, phone, role, password } = req.body;
 
-        // Validate
         if (!full_name || !email || !password) {
             return res.status(400).json({
                 success: false,
@@ -133,7 +120,6 @@ const createUser = async (req, res) => {
 
         const cleanEmail = sanitize(email.toLowerCase().trim());
 
-        // Check duplicate email
         const { data: existing } = await supabase
             .from('users')
             .select('id')
@@ -149,20 +135,6 @@ const createUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Resolve valid creator ID
-        let createdById = null;
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                createdById = user.id;
-            }
-        }
-
         const userData = {
             full_name: sanitize(full_name.trim()),
             email: cleanEmail,
@@ -170,10 +142,9 @@ const createUser = async (req, res) => {
             role: role || 'cashier',
             password_hash: hashedPassword,
             is_first_login: true,
-            is_active: true
+            is_active: true,
+            created_by: req.user.id
         };
-
-        if (createdById) userData.created_by = createdById;
 
         const { data: user, error } = await supabase
             .from('users')
@@ -192,8 +163,8 @@ const createUser = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: req.user?.id || null,
-                user_name: req.user?.full_name || 'System',
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Staff Created',
                 details: {
                     staff_id: user.id,
@@ -217,10 +188,6 @@ const createUser = async (req, res) => {
     }
 };
 
-// ============================================================
-// UPDATE USER
-// ============================================================
-
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -239,7 +206,6 @@ const updateUser = async (req, res) => {
             });
         }
 
-        // Prevent deactivating self
         if (id === req.user.id && is_active === false) {
             return res.status(400).json({
                 success: false,
@@ -273,7 +239,6 @@ const updateUser = async (req, res) => {
 
         if (is_active !== undefined) updateData.is_active = is_active;
 
-        // Role change rules
         if (role !== undefined) {
             if (req.user.role !== 'boss') {
                 return res.status(403).json({
@@ -296,7 +261,6 @@ const updateUser = async (req, res) => {
                 });
             }
 
-            // Prevent demoting the last Boss
             if (existing.role === 'boss' && role !== 'boss') {
                 const { count, error: countError } = await supabase
                     .from('users')
@@ -356,10 +320,6 @@ const updateUser = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// DELETE USER (soft delete)
-// ============================================================
 
 const deleteUser = async (req, res) => {
     try {
@@ -431,10 +391,6 @@ const deleteUser = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// RESET PASSWORD
-// ============================================================
 
 const resetPassword = async (req, res) => {
     try {

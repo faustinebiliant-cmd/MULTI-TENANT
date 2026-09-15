@@ -13,31 +13,10 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL CUSTOMERS (paginated + search)
-// ============================================================
-
 const getAllCustomers = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search } = req.query;
+        let { page = 1, limit = 50, search } = req.query;
 
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data, error } = await supabase
-                .from('customers')
-                .select('*')
-                .order('name');
-
-            if (error) throw error;
-
-            return res.status(200).json({
-                success: true,
-                data,
-                pagination: null
-            });
-        }
-
-        // Validate
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -48,7 +27,6 @@ const getAllCustomers = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        // Data query
         let dataQuery = supabase.from('customers').select('*');
 
         if (search && search.trim()) {
@@ -67,7 +45,6 @@ const getAllCustomers = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // Count
         let countQuery = supabase
             .from('customers')
             .select('id', { count: 'exact', head: true });
@@ -101,10 +78,6 @@ const getAllCustomers = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET CUSTOMER BY ID
-// ============================================================
 
 const getCustomerById = async (req, res) => {
     try {
@@ -147,10 +120,6 @@ const getCustomerById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE CUSTOMER
-// ============================================================
-
 const createCustomer = async (req, res) => {
     try {
         const { name, phone, email, address, notes } = req.body;
@@ -176,7 +145,6 @@ const createCustomer = async (req, res) => {
             });
         }
 
-        // Address
         let cleanAddress = '';
         if (address) {
             if (!isValidLength(address, 0, 500)) {
@@ -194,7 +162,6 @@ const createCustomer = async (req, res) => {
             cleanAddress = sanitize(address);
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -261,10 +228,6 @@ const createCustomer = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE CUSTOMER
-// ============================================================
 
 const updateCustomer = async (req, res) => {
     try {
@@ -374,10 +337,6 @@ const updateCustomer = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// DELETE CUSTOMER
-// ============================================================
 
 const deleteCustomer = async (req, res) => {
     try {

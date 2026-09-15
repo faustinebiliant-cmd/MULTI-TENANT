@@ -15,45 +15,10 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL ORDERS (paginated + server-side filters)
-// ============================================================
-
 const getAllOrders = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search, status, startDate, endDate } = req.query;
+        let { page = 1, limit = 50, search, status, startDate, endDate } = req.query;
 
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data: orders, error } = await supabase
-                .from('orders')
-                .select(`
-                    *,
-                    customers:customer_id (name, phone),
-                    created_by_user:created_by (full_name),
-                    payment_recorded_by_user:payment_recorded_by (full_name),
-                    confirmed_by_user:confirmed_by (full_name)
-                `)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            const formattedOrders = orders.map(order => ({
-                ...order,
-                customer_name: order.customers?.name || null,
-                created_by_name: order.created_by_user?.full_name || order.created_by_name || null,
-                payment_recorded_by_name: order.payment_recorded_by_user?.full_name || order.payment_recorded_by_name || null,
-                confirmed_by_name: order.confirmed_by_user?.full_name || order.confirmed_by_name || null
-            }));
-
-            return res.status(200).json({
-                success: true,
-                data: formattedOrders,
-                pagination: null
-            });
-        }
-
-        // Validate params
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -69,7 +34,6 @@ const getAllOrders = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid status filter. Valid: ' + VALID_STATUSES.join(', ') });
         }
 
-        // Pre-resolve IDs from search (order_number OR customer name)
         let matchingIdsFromSearch = null;
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
@@ -103,7 +67,6 @@ const getAllOrders = async (req, res) => {
             }
         }
 
-        // Data query
         let dataQuery = supabase
             .from('orders')
             .select(`
@@ -134,7 +97,6 @@ const getAllOrders = async (req, res) => {
         const { data: orders, error } = await dataQuery;
         if (error) throw error;
 
-        // Count query
         let countQuery = supabase
             .from('orders')
             .select('id', { count: 'exact', head: true });
@@ -153,7 +115,6 @@ const getAllOrders = async (req, res) => {
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        // Format + respond
         const formattedOrders = orders.map(order => ({
             ...order,
             customer_name: order.customers?.name || null,
@@ -179,10 +140,6 @@ const getAllOrders = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET SINGLE ORDER
-// ============================================================
 
 const getOrderById = async (req, res) => {
     try {
@@ -232,10 +189,6 @@ const getOrderById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE ORDER
-// ============================================================
-
 const createOrder = async (req, res) => {
     try {
         const { customer_id, items, notes } = req.body;
@@ -261,7 +214,6 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Validate each item
         for (const item of items) {
             if (!item.product_id || !isValidUUID(item.product_id)) {
                 return res.status(400).json({
@@ -283,7 +235,6 @@ const createOrder = async (req, res) => {
             }
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -301,7 +252,6 @@ const createOrder = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // Customer must exist
         const { data: customer, error: customerError } = await supabase
             .from('customers')
             .select('id')
@@ -315,7 +265,6 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // VAT settings
         const { data: settingsData, error: settingsError } = await supabase
             .from('settings')
             .select('key, value')
@@ -333,27 +282,8 @@ const createOrder = async (req, res) => {
         const vatEnabled = settingsMap['vat_enabled'] === 'true';
         const vatRate = parseFloat(settingsMap['vat_rate'] || 18);
 
-        // Resolve creator
-        let createdById = null;
-        let createdByName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                createdById = user.id;
-                createdByName = user.full_name;
-            }
-        }
-
-        // Build line items + track stock changes for rollback
         let subtotal = 0;
         const orderItems = [];
-        const stockChanges = []; // { product_id, previous_stock }
 
         for (const item of items) {
             const itemTotal = item.unit_price * item.quantity;
@@ -361,48 +291,16 @@ const createOrder = async (req, res) => {
 
             const { data: product, error: productError } = await supabase
                 .from('products')
-                .select('id, stock_quantity, name')
+                .select('id, name')
                 .eq('id', item.product_id)
                 .single();
 
             if (productError || !product) {
-                // Rollback any prior stock changes before returning
-                await rollbackStock(stockChanges);
                 return res.status(404).json({
                     success: false,
                     error: `Product ${item.name || 'not found'} not found`
                 });
             }
-
-            if (product.stock_quantity < item.quantity) {
-                await rollbackStock(stockChanges);
-                return res.status(400).json({
-                    success: false,
-                    error: `Insufficient stock for ${product.name}. Available: ${product.stock_quantity}`
-                });
-            }
-
-            const newStock = product.stock_quantity - item.quantity;
-            const { error: updateStockErr } = await supabase
-                .from('products')
-                .update({
-                    stock_quantity: newStock,
-                    updated_at: new Date()
-                })
-                .eq('id', item.product_id);
-
-            if (updateStockErr) {
-                await rollbackStock(stockChanges);
-                return res.status(500).json({
-                    success: false,
-                    error: 'Failed to reserve stock. Please retry.'
-                });
-            }
-
-            stockChanges.push({
-                product_id: item.product_id,
-                previous_stock: product.stock_quantity
-            });
 
             orderItems.push({
                 product_id: item.product_id,
@@ -414,111 +312,32 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Compute totals
         const tax_amount = vatEnabled ? subtotal * (vatRate / 100) : 0;
         const total_amount = subtotal + tax_amount;
         const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
 
-        // Insert order
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                order_number: orderNumber,
-                customer_id: customer_id,
-                subtotal: subtotal,
-                tax_amount: tax_amount,
-                discount_amount: 0,
-                total_amount: total_amount,
-                order_status: 'pending',
-                payment_status: 'unpaid',
-                created_by: createdById,
-                created_by_name: createdByName,
-                notes: cleanNotes || ''
-            })
-            .select()
-            .single();
+        const payload = {
+            order_number: orderNumber,
+            customer_id,
+            subtotal,
+            tax_amount,
+            total_amount,
+            created_by: req.user.id,
+            created_by_name: req.user.full_name,
+            notes: cleanNotes || '',
+            items: orderItems,
+            vat_enabled: vatEnabled
+        };
 
-        if (orderError) {
-            await rollbackStock(stockChanges);
+        const { data: order, error: rpcError } = await supabase.rpc('create_order_atomic', { payload });
+
+        if (rpcError) {
+            console.error('Create order RPC error:', rpcError);
             return res.status(500).json({
                 success: false,
-                error: 'Failed to create order: ' + orderError.message
+                error: 'Failed to create order: ' + rpcError.message
             });
         }
-
-        // Insert order items
-        const orderItemsWithOrderId = orderItems.map(item => ({
-            ...item,
-            order_id: order.id
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItemsWithOrderId);
-
-        if (itemsError) {
-            await rollbackStock(stockChanges);
-            await supabase.from('orders').delete().eq('id', order.id);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create order items: ' + itemsError.message
-            });
-        }
-
-        // Record stock movements (non-critical; failure doesn't rollback)
-        const stockMovements = orderItems.map(item => ({
-            product_id: item.product_id,
-            quantity: -item.quantity,
-            movement_type: 'SALE',
-            reference_id: order.id,
-            reference_number: orderNumber,
-            created_by: createdById,
-            reason: 'Sale of goods'
-        }));
-
-        const { error: movementError } = await supabase
-            .from('stock_movements')
-            .insert(stockMovements);
-
-        if (movementError) {
-            console.error('Failed to record stock movements:', movementError);
-        }
-
-        // Update customer stats
-        const { data: currentCustomer } = await supabase
-            .from('customers')
-            .select('total_orders, total_spent')
-            .eq('id', customer_id)
-            .single();
-
-        if (currentCustomer) {
-            await supabase
-                .from('customers')
-                .update({
-                    total_orders: (currentCustomer.total_orders || 0) + 1,
-                    total_spent: (currentCustomer.total_spent || 0) + total_amount
-                })
-                .eq('id', customer_id);
-        }
-
-        // Activity log
-        await supabase
-            .from('activity_logs')
-            .insert({
-                user_id: createdById,
-                user_name: createdByName,
-                action: 'Order Created',
-                order_id: order.id,
-                order_number: orderNumber,
-                details: {
-                    customer_id,
-                    subtotal,
-                    tax: tax_amount,
-                    total: total_amount,
-                    items: items.length,
-                    vat_enabled: vatEnabled
-                }
-            });
 
         return res.status(201).json({
             success: true,
@@ -535,20 +354,6 @@ const createOrder = async (req, res) => {
     }
 };
 
-// Internal helper — reverse all stock changes recorded so far
-const rollbackStock = async (stockChanges) => {
-    for (const change of stockChanges) {
-        await supabase
-            .from('products')
-            .update({ stock_quantity: change.previous_stock })
-            .eq('id', change.product_id);
-    }
-};
-
-// ============================================================
-// UPDATE ORDER STATUS
-// ============================================================
-
 const updateOrderStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -561,7 +366,6 @@ const updateOrderStatus = async (req, res) => {
             });
         }
 
-        // Cancellation must go through /cancel endpoint
         if (status === 'cancelled') {
             return res.status(400).json({
                 success: false,
@@ -615,10 +419,6 @@ const updateOrderStatus = async (req, res) => {
     }
 };
 
-// ============================================================
-// RECORD PAYMENT (against an order)
-// ============================================================
-
 const recordPayment = async (req, res) => {
     try {
         const { id } = req.params;
@@ -651,7 +451,6 @@ const recordPayment = async (req, res) => {
             });
         }
 
-        // Prevent overpayment
         const orderTotal = parseFloat(order.total_amount) || 0;
         const previousPaid = parseFloat(order.paid_amount) || 0;
         const remaining = orderTotal - previousPaid;
@@ -664,27 +463,11 @@ const recordPayment = async (req, res) => {
             });
         }
 
-        // Resolve actor
-        let validUserId = null;
-        let validUserName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                validUserId = user.id;
-                validUserName = user.full_name;
-            }
-        }
+        const validUserId = req.user.id;
+        const validUserName = req.user.full_name;
 
         const paidAmount = previousPaid + paymentAmount;
         const paymentStatus = paidAmount >= orderTotal ? 'paid' : 'partial';
-
-        // Only set payment_method if it hasn't been set yet (first payment wins on order row)
         const firstPaymentMethod = order.payment_method || method;
 
         const { data: updatedOrder, error: updateError } = await supabase
@@ -709,7 +492,6 @@ const recordPayment = async (req, res) => {
             });
         }
 
-        // Record payment row
         const { error: paymentError } = await supabase
             .from('payments')
             .insert({
@@ -727,7 +509,6 @@ const recordPayment = async (req, res) => {
             console.error('Failed to record payment:', paymentError);
         }
 
-        // Activity log
         await supabase
             .from('activity_logs')
             .insert({
@@ -757,10 +538,6 @@ const recordPayment = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// CONFIRM ORDER
-// ============================================================
 
 const confirmOrder = async (req, res) => {
     try {
@@ -827,16 +604,11 @@ const confirmOrder = async (req, res) => {
     }
 };
 
-// ============================================================
-// CANCEL ORDER (preserves audit trail)
-// ============================================================
-
 const cancelOrder = async (req, res) => {
     try {
         const { id } = req.params;
         const { reason } = req.body;
 
-        // Validate reason
         let cleanReason = 'No reason provided';
         if (reason) {
             if (!isValidLength(reason, 3, 500)) {
@@ -877,7 +649,6 @@ const cancelOrder = async (req, res) => {
             });
         }
 
-        // Only Boss can cancel an order that has received payment
         const paidAmount = parseFloat(order.paid_amount) || 0;
         if (paidAmount > 0 && req.user.role !== 'boss') {
             return res.status(403).json({
@@ -886,7 +657,7 @@ const cancelOrder = async (req, res) => {
             });
         }
 
-        // Restore stock
+        // Restore stock and record movement
         if (order.order_items && order.order_items.length > 0) {
             for (const item of order.order_items) {
                 const { data: product, error: productError } = await supabase
@@ -906,7 +677,6 @@ const cancelOrder = async (req, res) => {
                     .eq('id', item.product_id);
             }
 
-            // Record stock movements
             const stockMovements = order.order_items.map(item => ({
                 product_id: item.product_id,
                 quantity: item.quantity,
@@ -926,7 +696,7 @@ const cancelOrder = async (req, res) => {
             }
         }
 
-        // Adjust customer stats
+        // Reverse customer stats
         if (order.customer_id) {
             const { data: customer } = await supabase
                 .from('customers')
@@ -945,20 +715,25 @@ const cancelOrder = async (req, res) => {
             }
         }
 
-        // Delete payments linked to this order
+        // Void payments (do not delete). Preserves audit trail.
         if (paidAmount > 0) {
-            const { error: deletePaymentError } = await supabase
+            const { error: voidError } = await supabase
                 .from('payments')
-                .delete()
-                .eq('order_id', id);
+                .update({
+                    status: 'voided',
+                    voided_at: new Date().toISOString(),
+                    voided_by: req.user.id,
+                    voided_by_name: req.user.full_name,
+                    void_reason: cleanReason
+                })
+                .eq('order_id', id)
+                .neq('status', 'voided');
 
-            if (deletePaymentError) {
-                console.error('Failed to delete payments on cancel:', deletePaymentError);
+            if (voidError) {
+                console.error('Failed to void payments on cancel:', voidError);
             }
         }
 
-        // Update order: KEEP subtotal, tax_amount, total_amount for audit trail.
-        // Only zero out paid_amount (since it was refunded/voided).
         const { data: updatedOrder, error: updateError } = await supabase
             .from('orders')
             .update({

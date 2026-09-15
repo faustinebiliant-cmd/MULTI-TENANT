@@ -5,13 +5,8 @@
 const supabase = require('../config/supabase');
 const { getTodayRangeEAT } = require('../utils/tz');
 
-// ============================================================
-// GET DASHBOARD STATS
-// ============================================================
-
 const getDashboardStats = async (req, res) => {
     try {
-        // Today's range in EAT
         const { start, end } = getTodayRangeEAT();
         const startISO = start.toISOString();
         const endISO = end.toISOString();
@@ -24,36 +19,30 @@ const getDashboardStats = async (req, res) => {
             customersResult,
             recentOrdersResult
         ] = await Promise.all([
-            // 1. Today's order totals
             supabase.rpc('dashboard_summary', {
                 start_date: startISO,
                 end_date: endISO
             }),
 
-            // 2. Today's payments grouped by (method, order_id)
             supabase.rpc('sum_payments_by_method', {
                 start_date: startISO,
                 end_date: endISO
             }),
 
-            // 3. Outstanding credit (orders touched today)
             supabase.rpc('outstanding_today', {
                 start_date: startISO,
                 end_date: endISO
             }),
 
-            // 4. Low-stock candidates
             supabase
                 .from('products')
                 .select('id, name, stock_quantity, low_stock_threshold')
                 .eq('is_active', true),
 
-            // 5. Total customers
             supabase
                 .from('customers')
                 .select('*', { count: 'exact', head: true }),
 
-            // 6. Recent orders
             supabase
                 .from('orders')
                 .select(`
@@ -78,7 +67,6 @@ const getDashboardStats = async (req, res) => {
         if (customersResult.error) throw customersResult.error;
         if (recentOrdersResult.error) throw recentOrdersResult.error;
 
-        // ---- Order totals from SQL ----
         const summaryRow = summaryResult.data?.[0] || {
             today_sales: 0,
             today_vat: 0,
@@ -87,11 +75,11 @@ const getDashboardStats = async (req, res) => {
         };
 
         const todaySales = Number(summaryRow.today_sales) || 0;
-        const todayVATBilled = Number(summaryRow.today_vat) || 0;
+        const todayVAT = Number(summaryRow.today_vat) || 0;
         const todayTotalWithVAT = Number(summaryRow.today_total_with_vat) || 0;
         const totalOrders = Number(summaryRow.today_order_count) || 0;
 
-        // ---- Payments: split by VAT ratio of each order ----
+        // Split payments by VAT ratio of each order
         const paymentRows = paymentsByMethodResult.data || [];
         const paymentOrderIds = [...new Set(paymentRows.map(r => r.order_id).filter(Boolean))];
 
@@ -126,21 +114,17 @@ const getDashboardStats = async (req, res) => {
             vatCollectedFromPayments += rowVAT;
         });
 
-        // ---- Outstanding credit from SQL ----
         const outstandingRow = outstandingResult.data?.[0] || {
             outstanding_total: 0,
             unpaid_order_count: 0
         };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
-        // ---- Low stock ----
         const lowStock = lowStockResult.data || [];
         const lowStockItems = lowStock.filter(p => p.stock_quantity < p.low_stock_threshold);
 
-        // ---- Total customers ----
         const totalCustomers = customersResult.count || 0;
 
-        // ---- Recent orders ----
         const recentOrders = recentOrdersResult.data || [];
         const formattedRecent = recentOrders.map(order => ({
             id: order.id,
@@ -153,7 +137,6 @@ const getDashboardStats = async (req, res) => {
             created_at: order.created_at
         }));
 
-        // ---- Low stock details (top 5) ----
         const lowStockDetails = lowStockItems.slice(0, 5).map(p => ({
             name: p.name,
             stock: p.stock_quantity,
@@ -164,8 +147,7 @@ const getDashboardStats = async (req, res) => {
             success: true,
             data: {
                 todaySales,
-                todayVATBilled,
-                todayVAT: todayVATBilled, // legacy alias — remove in next phase
+                todayVATBilled: todayVAT,
                 todayTotalWithVAT,
                 businessMoneyReceived,
                 vatCollectedFromPayments,

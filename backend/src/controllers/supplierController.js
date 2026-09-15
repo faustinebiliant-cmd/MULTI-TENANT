@@ -12,29 +12,9 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL SUPPLIERS (paginated + search)
-// ============================================================
-
 const getAllSuppliers = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search } = req.query;
-
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data, error } = await supabase
-                .from('suppliers')
-                .select('*')
-                .order('name');
-
-            if (error) throw error;
-
-            return res.status(200).json({
-                success: true,
-                data,
-                pagination: null
-            });
-        }
+        let { page = 1, limit = 50, search } = req.query;
 
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
@@ -50,7 +30,6 @@ const getAllSuppliers = async (req, res) => {
             ? search.trim().replace(/[%_,()'"]/g, '')
             : null;
 
-        // Data query
         let dataQuery = supabase.from('suppliers').select('*');
 
         if (cleanSearch) {
@@ -66,7 +45,6 @@ const getAllSuppliers = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // Count
         let countQuery = supabase
             .from('suppliers')
             .select('id', { count: 'exact', head: true });
@@ -97,10 +75,6 @@ const getAllSuppliers = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET SUPPLIER BY ID
-// ============================================================
 
 const getSupplierById = async (req, res) => {
     try {
@@ -136,10 +110,6 @@ const getSupplierById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE SUPPLIER
-// ============================================================
-
 const createSupplier = async (req, res) => {
     try {
         const { name, contact_person, phone, email, address, notes } = req.body;
@@ -158,7 +128,6 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // Contact person (optional)
         let cleanContactPerson = '';
         if (contact_person) {
             if (!isValidName(contact_person)) {
@@ -184,7 +153,6 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        // Address
         let cleanAddress = '';
         if (address) {
             if (!isValidLength(address, 0, 500)) {
@@ -202,7 +170,6 @@ const createSupplier = async (req, res) => {
             cleanAddress = sanitize(address);
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -262,10 +229,6 @@ const createSupplier = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE SUPPLIER
-// ============================================================
 
 const updateSupplier = async (req, res) => {
     try {
@@ -399,14 +362,69 @@ const updateSupplier = async (req, res) => {
     }
 };
 
-// ============================================================
-// DELETE SUPPLIER
-// ============================================================
-
 const deleteSupplier = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Confirm the supplier exists
+        const { data: supplier, error: checkError } = await supabase
+            .from('suppliers')
+            .select('id, name')
+            .eq('id', id)
+            .single();
+
+        if (checkError || !supplier) {
+            return res.status(404).json({
+                success: false,
+                error: 'Supplier not found'
+            });
+        }
+
+        // Block deletion if any active products use this supplier
+        const { count: activeCount, error: activeErr } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('supplier_id', id)
+            .eq('is_active', true);
+
+        if (activeErr) throw activeErr;
+
+        if ((activeCount || 0) > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Supplier is in use by products'
+            });
+        }
+
+        // Detach soft-deleted products from this supplier so the FK does not block deletion
+        const { error: detachError } = await supabase
+            .from('products')
+            .update({ supplier_id: null })
+            .eq('supplier_id', id)
+            .eq('is_active', false);
+
+        if (detachError) throw detachError;
+
+        // Also detach purchase orders, which reference supplier_id
+        // and are not soft-deleted. Purchase orders stay for audit.
+        const { error: poDetachError } = await supabase
+            .from('purchase_orders')
+            .update({ supplier_id: null })
+            .eq('supplier_id', id);
+
+        if (poDetachError) {
+            // If this fails, purchase_orders.supplier_id may be NOT NULL.
+            // In that case the supplier cannot be deleted while POs exist.
+            if (poDetachError.code === '23502') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Supplier has purchase orders and cannot be deleted'
+                });
+            }
+            throw poDetachError;
+        }
+
+        // Delete the supplier
         const { error } = await supabase
             .from('suppliers')
             .delete()
@@ -417,6 +435,12 @@ const deleteSupplier = async (req, res) => {
                 return res.status(404).json({
                     success: false,
                     error: 'Supplier not found'
+                });
+            }
+            if (error.code === '23503') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Supplier is in use by other records'
                 });
             }
             throw error;

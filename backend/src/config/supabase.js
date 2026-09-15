@@ -8,14 +8,13 @@ require('dotenv').config();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Validate credentials exist
 if (!supabaseUrl || !supabaseServiceKey) {
     console.error('ERROR: Missing Supabase credentials.');
     console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
     process.exit(1);
 }
 
-// Service role key bypasses RLS — backend only
+// Service role key bypasses RLS. Backend only.
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
         persistSession: false,
@@ -24,6 +23,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
     }
 });
 
-console.log('Supabase connected');
+if (process.env.NODE_ENV !== 'production') {
+    console.log('Supabase connected');
+}
 
 module.exports = supabase;

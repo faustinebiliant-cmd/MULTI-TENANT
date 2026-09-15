@@ -6,14 +6,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 const { isValidEmail, isValidPassword, isValidPhone, isValidName, sanitize } = require('../utils/validators');
-require('dotenv').config();
-
-// Track login attempts in memory (per IP + email)
-const loginAttempts = new Map();
-
-// ============================================================
-// LOGIN
-// ============================================================
 
 const login = async (req, res) => {
     try {
@@ -41,27 +33,8 @@ const login = async (req, res) => {
         }
 
         const cleanEmail = sanitize(email.toLowerCase().trim());
-
-        // Brute-force guard (per IP + email)
         const ip = req.ip || req.connection.remoteAddress || 'unknown';
-        const attemptsKey = `${ip}:${cleanEmail}`;
-        const now = Date.now();
-        const attempts = loginAttempts.get(attemptsKey) || { count: 0, firstAttempt: now };
 
-        // Reset after 15 minutes
-        if (now - attempts.firstAttempt > 15 * 60 * 1000) {
-            attempts.count = 0;
-            attempts.firstAttempt = now;
-        }
-
-        if (attempts.count >= 5) {
-            return res.status(429).json({
-                success: false,
-                error: 'Too many login attempts. Please wait 15 minutes before trying again.'
-            });
-        }
-
-        // Fetch user
         const { data: user, error } = await supabase
             .from('users')
             .select('*')
@@ -69,8 +42,6 @@ const login = async (req, res) => {
             .single();
 
         if (error || !user) {
-            attempts.count++;
-            loginAttempts.set(attemptsKey, attempts);
             return res.status(401).json({
                 success: false,
                 error: 'Invalid email or password'
@@ -94,18 +65,12 @@ const login = async (req, res) => {
         const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!passwordMatch) {
-            attempts.count++;
-            loginAttempts.set(attemptsKey, attempts);
             return res.status(401).json({
                 success: false,
                 error: 'Invalid email or password'
             });
         }
 
-        // Success — clear attempts
-        loginAttempts.delete(attemptsKey);
-
-        // Issue JWT
         const token = jwt.sign(
             {
                 id: user.id,
@@ -118,7 +83,6 @@ const login = async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
         );
 
-        // Log activity
         await supabase
             .from('activity_logs')
             .insert({
@@ -148,10 +112,6 @@ const login = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET CURRENT USER
-// ============================================================
 
 const getCurrentUser = async (req, res) => {
     try {
@@ -183,10 +143,6 @@ const getCurrentUser = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE OWN PROFILE (name + phone only)
-// ============================================================
 
 const updateProfile = async (req, res) => {
     try {
@@ -256,10 +212,6 @@ const updateProfile = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// CHANGE PASSWORD
-// ============================================================
 
 const changePassword = async (req, res) => {
     try {
@@ -343,10 +295,6 @@ const changePassword = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// LOGOUT
-// ============================================================
 
 const logout = async (req, res) => {
     try {

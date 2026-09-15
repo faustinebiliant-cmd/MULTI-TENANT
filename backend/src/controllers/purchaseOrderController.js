@@ -13,54 +13,10 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL PURCHASE ORDERS (paginated + filters)
-// ============================================================
-
 const getAllPurchaseOrders = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search, status, startDate, endDate } = req.query;
+        let { page = 1, limit = 50, search, status, startDate, endDate } = req.query;
 
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data: pos, error } = await supabase
-                .from('purchase_orders')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            const supplierIds = [...new Set(pos.map(po => po.supplier_id).filter(id => id))];
-            let supplierMap = {};
-
-            if (supplierIds.length > 0) {
-                const { data: suppliers } = await supabase
-                    .from('suppliers')
-                    .select('id, name')
-                    .in('id', supplierIds);
-
-                if (suppliers) {
-                    supplierMap = suppliers.reduce((acc, s) => {
-                        acc[s.id] = s.name;
-                        return acc;
-                    }, {});
-                }
-            }
-
-            const formatted = pos.map(po => ({
-                ...po,
-                supplier_name: supplierMap[po.supplier_id] || null,
-                created_by_name: po.created_by_name || 'System'
-            }));
-
-            return res.status(200).json({
-                success: true,
-                data: formatted,
-                pagination: null
-            });
-        }
-
-        // Validate params
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -79,7 +35,6 @@ const getAllPurchaseOrders = async (req, res) => {
             });
         }
 
-        // Resolve IDs from search (po_number OR supplier name)
         let matchingPoIdsByNumber = null;
         let matchingSupplierIdsFromSearch = null;
 
@@ -113,7 +68,6 @@ const getAllPurchaseOrders = async (req, res) => {
             }
         }
 
-        // Data query
         let dataQuery = supabase.from('purchase_orders').select('*');
 
         if (status) dataQuery = dataQuery.eq('status', status);
@@ -124,7 +78,6 @@ const getAllPurchaseOrders = async (req, res) => {
             dataQuery = dataQuery.lte('created_at', end.toISOString());
         }
 
-        // Search filter
         if (matchingPoIdsByNumber !== null || matchingSupplierIdsFromSearch !== null) {
             const ids = new Set();
             (matchingPoIdsByNumber || []).forEach(id => ids.add(id));
@@ -158,7 +111,6 @@ const getAllPurchaseOrders = async (req, res) => {
         const { data: pos, error } = await dataQuery;
         if (error) throw error;
 
-        // Count
         let countQuery = supabase
             .from('purchase_orders')
             .select('id', { count: 'exact', head: true });
@@ -187,7 +139,6 @@ const getAllPurchaseOrders = async (req, res) => {
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        // Enrich with supplier names
         const supplierIds = [...new Set(pos.map(po => po.supplier_id).filter(id => id))];
         let supplierMap = {};
 
@@ -229,10 +180,6 @@ const getAllPurchaseOrders = async (req, res) => {
     }
 };
 
-// ============================================================
-// GET SINGLE PURCHASE ORDER
-// ============================================================
-
 const getPurchaseOrderById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -260,7 +207,6 @@ const getPurchaseOrderById = async (req, res) => {
             throw error;
         }
 
-        // Supplier name
         let supplierName = null;
         if (po.supplier_id) {
             const { data: supplier } = await supabase
@@ -272,7 +218,6 @@ const getPurchaseOrderById = async (req, res) => {
             if (supplier) supplierName = supplier.name;
         }
 
-        // Items
         const { data: items } = await supabase
             .from('purchase_order_items')
             .select('*')
@@ -296,10 +241,6 @@ const getPurchaseOrderById = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// CREATE PURCHASE ORDER
-// ============================================================
 
 const createPurchaseOrder = async (req, res) => {
     try {
@@ -347,7 +288,6 @@ const createPurchaseOrder = async (req, res) => {
             }
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -365,7 +305,6 @@ const createPurchaseOrder = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // Supplier must exist
         const { data: supplier, error: supplierError } = await supabase
             .from('suppliers')
             .select('id')
@@ -379,24 +318,6 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
-        // Resolve creator
-        let validUserId = null;
-        let validUserName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                validUserId = user.id;
-                validUserName = user.full_name;
-            }
-        }
-
-        // Build items + total
         let total = 0;
         const poItems = items.map(item => {
             const subtotal = item.cost_price * item.quantity;
@@ -420,8 +341,8 @@ const createPurchaseOrder = async (req, res) => {
                 total_amount: total,
                 status: 'pending',
                 notes: cleanNotes,
-                created_by: validUserId,
-                created_by_name: validUserName
+                created_by: req.user.id,
+                created_by_name: req.user.full_name
             })
             .select()
             .single();
@@ -455,8 +376,8 @@ const createPurchaseOrder = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: validUserId,
-                user_name: validUserName,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Purchase Order Created',
                 order_number: poNumber,
                 details: { supplier_id, total, items: items.length }
@@ -476,10 +397,6 @@ const createPurchaseOrder = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// RECEIVE PURCHASE ORDER
-// ============================================================
 
 const receivePurchaseOrder = async (req, res) => {
     try {
@@ -508,7 +425,6 @@ const receivePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Guard: cannot receive if already received
         if (po.status === 'received') {
             return res.status(400).json({
                 success: false,
@@ -516,7 +432,6 @@ const receivePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Guard: cannot receive if cancelled
         if (po.status === 'cancelled') {
             return res.status(400).json({
                 success: false,
@@ -524,24 +439,6 @@ const receivePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Resolve actor
-        let validUserId = null;
-        let validUserName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                validUserId = user.id;
-                validUserName = user.full_name;
-            }
-        }
-
-        // Update stock + record movements
         for (const item of po.purchase_order_items) {
             const { data: product } = await supabase
                 .from('products')
@@ -569,7 +466,7 @@ const receivePurchaseOrder = async (req, res) => {
                     movement_type: 'PURCHASE',
                     reference_id: po.id,
                     reference_number: po.po_number,
-                    created_by: validUserId,
+                    created_by: req.user.id,
                     reason: 'Purchase order received'
                 });
         }
@@ -590,8 +487,8 @@ const receivePurchaseOrder = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: validUserId,
-                user_name: validUserName,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Purchase Order Received',
                 order_number: po.po_number,
                 details: { supplier_id: po.supplier_id, items: po.purchase_order_items.length }
@@ -611,10 +508,6 @@ const receivePurchaseOrder = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE PURCHASE ORDER
-// ============================================================
 
 const updatePurchaseOrder = async (req, res) => {
     try {
@@ -648,7 +541,6 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Update header
         const updateData = {};
 
         if (supplier_id !== undefined) {
@@ -697,7 +589,6 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        // Update items if provided
         if (items && items.length > 0) {
             if (!isValidArrayLength(items, 100)) {
                 return res.status(400).json({
@@ -727,7 +618,6 @@ const updatePurchaseOrder = async (req, res) => {
                 }
             }
 
-            // Delete then insert
             await supabase
                 .from('purchase_order_items')
                 .delete()
@@ -753,7 +643,6 @@ const updatePurchaseOrder = async (req, res) => {
                 });
             }
 
-            // Recalculate total
             const total = newItems.reduce((sum, item) => sum + item.subtotal, 0);
             await supabase
                 .from('purchase_orders')
@@ -761,7 +650,6 @@ const updatePurchaseOrder = async (req, res) => {
                 .eq('id', id);
         }
 
-        // Fetch final
         const { data: finalPO } = await supabase
             .from('purchase_orders')
             .select(`
@@ -785,10 +673,6 @@ const updatePurchaseOrder = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// DELETE PURCHASE ORDER
-// ============================================================
 
 const deletePurchaseOrder = async (req, res) => {
     try {

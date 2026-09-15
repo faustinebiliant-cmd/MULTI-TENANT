@@ -13,10 +13,6 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// UPDATE CATEGORY PRODUCT COUNT (helper)
-// ============================================================
-
 const updateCategoryProductCount = async (categoryId) => {
     try {
         if (!categoryId) return 0;
@@ -44,41 +40,9 @@ const updateCategoryProductCount = async (categoryId) => {
     }
 };
 
-// ============================================================
-// GET ALL PRODUCTS (paginated + totals)
-// ============================================================
-
 const getAllProducts = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search, category_id } = req.query;
-
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data: products, error } = await supabase
-                .from('products')
-                .select(`
-                    *,
-                    categories:category_id (name),
-                    suppliers:supplier_id (name)
-                `)
-                .eq('is_active', true)
-                .order('name');
-
-            if (error) throw error;
-
-            const formattedProducts = products.map(product => ({
-                ...product,
-                category_name: product.categories?.name || null,
-                supplier_name: product.suppliers?.name || null
-            }));
-
-            return res.status(200).json({
-                success: true,
-                data: formattedProducts,
-                pagination: null,
-                totals: null
-            });
-        }
+        let { page = 1, limit = 50, search, category_id } = req.query;
 
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
@@ -98,7 +62,6 @@ const getAllProducts = async (req, res) => {
             ? search.trim().replace(/[%_,()'"]/g, '')
             : null;
 
-        // Data query
         let dataQuery = supabase
             .from('products')
             .select(`
@@ -121,13 +84,11 @@ const getAllProducts = async (req, res) => {
         const to = from + limitNum - 1;
         dataQuery = dataQuery.order('name').range(from, to);
 
-        // Totals RPC
         const totalsPromise = supabase.rpc('sum_products_totals', {
             search_term: cleanSearch || null,
             category_filter: category_id || null
         });
 
-        // Count query
         let countQuery = supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
@@ -165,7 +126,6 @@ const getAllProducts = async (req, res) => {
         const total = totalCount || 0;
         const pages = Math.ceil(total / limitNum);
 
-        // Totals
         const totalsRow = totalsData?.[0] || {
             total_inventory_value: 0,
             total_cost_value: 0,
@@ -197,10 +157,6 @@ const getAllProducts = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET SINGLE PRODUCT
-// ============================================================
 
 const getProductById = async (req, res) => {
     try {
@@ -251,10 +207,6 @@ const getProductById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE PRODUCT
-// ============================================================
-
 const createProduct = async (req, res) => {
     try {
         const {
@@ -276,7 +228,6 @@ const createProduct = async (req, res) => {
             });
         }
 
-        // Description
         let cleanDescription = '';
         if (description) {
             if (!isValidLength(description, 0, 1000)) {
@@ -332,7 +283,6 @@ const createProduct = async (req, res) => {
         const cleanName = sanitize(name.trim());
         const cleanSku = sku ? sanitize(sku) : null;
 
-        // SKU uniqueness
         if (cleanSku) {
             const { data: existing } = await supabase
                 .from('products')
@@ -367,23 +317,11 @@ const createProduct = async (req, res) => {
 
         if (error) throw error;
 
-        // Update category product count
         if (product.category_id) {
             await updateCategoryProductCount(product.category_id);
         }
 
-        // Record initial stock movement
         if (parseInt(stock_quantity) > 0) {
-            let validUserId = null;
-            if (req.user && req.user.id) {
-                const { data: user } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('id', req.user.id)
-                    .single();
-                if (user) validUserId = user.id;
-            }
-
             await supabase
                 .from('stock_movements')
                 .insert({
@@ -392,7 +330,7 @@ const createProduct = async (req, res) => {
                     movement_type: 'ADJUSTMENT',
                     reference_id: product.id,
                     reference_number: product.sku || null,
-                    created_by: validUserId,
+                    created_by: req.user.id,
                     reason: 'Initial stock'
                 });
         }
@@ -421,10 +359,6 @@ const createProduct = async (req, res) => {
     }
 };
 
-// ============================================================
-// UPDATE PRODUCT
-// ============================================================
-
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
@@ -437,7 +371,6 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // Validate name
         if (updates.name) {
             if (!isValidName(updates.name)) {
                 return res.status(400).json({
@@ -448,7 +381,6 @@ const updateProduct = async (req, res) => {
             updates.name = sanitize(updates.name);
         }
 
-        // Validate description
         if (updates.description) {
             if (!isValidLength(updates.description, 0, 1000)) {
                 return res.status(400).json({
@@ -465,7 +397,6 @@ const updateProduct = async (req, res) => {
             updates.description = sanitize(updates.description);
         }
 
-        // Validate prices
         if (updates.cost_price && !isValidAmount(updates.cost_price)) {
             return res.status(400).json({
                 success: false,
@@ -480,7 +411,6 @@ const updateProduct = async (req, res) => {
             });
         }
 
-        // Validate stock
         if (updates.stock_quantity !== undefined && !isValidQuantity(updates.stock_quantity)) {
             return res.status(400).json({
                 success: false,
@@ -490,7 +420,6 @@ const updateProduct = async (req, res) => {
 
         if (updates.sku) updates.sku = sanitize(updates.sku);
 
-        // Fetch old values
         const { data: oldProduct, error: oldError } = await supabase
             .from('products')
             .select('category_id, stock_quantity')
@@ -519,7 +448,6 @@ const updateProduct = async (req, res) => {
             throw error;
         }
 
-        // Update category counts
         if (oldProduct.category_id) {
             await updateCategoryProductCount(oldProduct.category_id);
         }
@@ -527,19 +455,8 @@ const updateProduct = async (req, res) => {
             await updateCategoryProductCount(product.category_id);
         }
 
-        // Record stock change if any
         if (updates.stock_quantity && updates.stock_quantity !== oldProduct.stock_quantity) {
             const stockDiff = parseInt(updates.stock_quantity) - oldProduct.stock_quantity;
-
-            let validUserId = null;
-            if (req.user && req.user.id) {
-                const { data: user } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('id', req.user.id)
-                    .single();
-                if (user) validUserId = user.id;
-            }
 
             await supabase
                 .from('stock_movements')
@@ -549,7 +466,7 @@ const updateProduct = async (req, res) => {
                     movement_type: 'ADJUSTMENT',
                     reference_id: id,
                     reference_number: product.sku || null,
-                    created_by: validUserId,
+                    created_by: req.user.id,
                     reason: 'Stock updated'
                 });
         }
@@ -577,10 +494,6 @@ const updateProduct = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// DELETE PRODUCT (soft delete)
-// ============================================================
 
 const deleteProduct = async (req, res) => {
     try {
@@ -642,10 +555,6 @@ const deleteProduct = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// ADJUST STOCK
-// ============================================================
 
 const adjustStock = async (req, res) => {
     try {
@@ -727,17 +636,6 @@ const adjustStock = async (req, res) => {
 
         if (error) throw error;
 
-        // Record stock movement
-        let validUserId = null;
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id')
-                .eq('id', req.user.id)
-                .single();
-            if (user) validUserId = user.id;
-        }
-
         const movementQuantity = type === 'add' ? parseInt(quantity) : -parseInt(quantity);
 
         await supabase
@@ -748,7 +646,7 @@ const adjustStock = async (req, res) => {
                 movement_type: 'ADJUSTMENT',
                 reference_id: id,
                 reference_number: product.sku || null,
-                created_by: validUserId,
+                created_by: req.user.id,
                 reason: cleanReason
             });
 
@@ -784,14 +682,8 @@ const adjustStock = async (req, res) => {
     }
 };
 
-// ============================================================
-// GET LOW STOCK PRODUCTS
-// ============================================================
-
 const getLowStockProducts = async (req, res) => {
     try {
-        // Fetch all active products with low_stock_threshold, filter in JS
-        // (Supabase JS client cannot compare two columns in one filter).
         const { data: products, error } = await supabase
             .from('products')
             .select('id, name, stock_quantity, low_stock_threshold')

@@ -10,29 +10,9 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL EXPENSES (paginated + filters)
-// ============================================================
-
 const getAllExpenses = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search, category, startDate, endDate } = req.query;
-
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data, error } = await supabase
-                .from('expenses')
-                .select('*')
-                .order('expense_date', { ascending: false });
-
-            if (error) throw error;
-
-            return res.status(200).json({
-                success: true,
-                data,
-                pagination: null
-            });
-        }
+        let { page = 1, limit = 50, search, category, startDate, endDate } = req.query;
 
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
@@ -44,7 +24,6 @@ const getAllExpenses = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        // Data query
         let dataQuery = supabase.from('expenses').select('*');
 
         if (search && search.trim()) {
@@ -64,7 +43,6 @@ const getAllExpenses = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // Count
         let countQuery = supabase
             .from('expenses')
             .select('id', { count: 'exact', head: true });
@@ -97,10 +75,6 @@ const getAllExpenses = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET EXPENSE BY ID
-// ============================================================
 
 const getExpenseById = async (req, res) => {
     try {
@@ -136,10 +110,6 @@ const getExpenseById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE EXPENSE
-// ============================================================
-
 const createExpense = async (req, res) => {
     try {
         const { description, amount, category, expense_date, payment_method, notes } = req.body;
@@ -172,7 +142,6 @@ const createExpense = async (req, res) => {
             });
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -192,35 +161,6 @@ const createExpense = async (req, res) => {
 
         const cleanDescription = sanitize(description.trim());
 
-        // Resolve valid user
-        let validUserId = null;
-        let validUserName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                validUserId = user.id;
-                validUserName = user.full_name;
-            } else {
-                // Fallback to boss
-                const { data: boss } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('email', 'faustinebiliant@gmail.com')
-                    .single();
-
-                if (boss) {
-                    validUserId = boss.id;
-                    validUserName = boss.full_name;
-                }
-            }
-        }
-
         const { data, error } = await supabase
             .from('expenses')
             .insert({
@@ -230,8 +170,8 @@ const createExpense = async (req, res) => {
                 expense_date: expense_date || new Date().toISOString().split('T')[0],
                 payment_method: payment_method || '',
                 notes: cleanNotes,
-                created_by: validUserId,
-                created_by_name: validUserName
+                created_by: req.user.id,
+                created_by_name: req.user.full_name
             })
             .select()
             .single();
@@ -247,8 +187,8 @@ const createExpense = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: validUserId,
-                user_name: validUserName,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Expense Created',
                 details: { expense_id: data.id, description, amount }
             });
@@ -267,10 +207,6 @@ const createExpense = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE EXPENSE
-// ============================================================
 
 const updateExpense = async (req, res) => {
     try {
@@ -369,10 +305,6 @@ const updateExpense = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// DELETE EXPENSE
-// ============================================================
 
 const deleteExpense = async (req, res) => {
     try {

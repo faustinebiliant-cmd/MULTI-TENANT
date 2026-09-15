@@ -3,11 +3,9 @@
 // ============================================================
 
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 const authenticate = async (req, res, next) => {
     try {
-        // Token must be in Authorization header
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({
@@ -18,10 +16,8 @@ const authenticate = async (req, res, next) => {
 
         const token = authHeader.split(' ')[1];
 
-        // Verify signature and payload
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Reject expired tokens
         if (decoded.exp && Date.now() >= decoded.exp * 1000) {
             return res.status(401).json({
                 success: false,

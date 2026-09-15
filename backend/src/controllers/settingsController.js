@@ -9,10 +9,6 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL SETTINGS
-// ============================================================
-
 const getSettings = async (req, res) => {
     try {
         const { data: settings, error } = await supabase
@@ -40,15 +36,10 @@ const getSettings = async (req, res) => {
     }
 };
 
-// ============================================================
-// UPDATE SETTINGS
-// ============================================================
-
 const updateSettings = async (req, res) => {
     try {
         const updates = req.body;
 
-        // Allowed keys with validation
         const allowedSettings = {
             vat_enabled: {
                 validate: (value) => value === 'true' || value === 'false' || value === true || value === false,
@@ -96,10 +87,27 @@ const updateSettings = async (req, res) => {
                     return !isNaN(num) && num >= 0 && num <= 100;
                 },
                 transform: (value) => String(parseFloat(value) || 0)
+            },
+            expense_categories: {
+                validate: (value) => {
+                    if (!value) return true;
+                    try {
+                        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+                        if (!Array.isArray(parsed)) return false;
+                        if (parsed.length > 50) return false;
+                        return parsed.every(c => typeof c === 'string' && c.length > 0 && c.length <= 50);
+                    } catch {
+                        return false;
+                    }
+                },
+                transform: (value) => {
+                    if (!value) return '[]';
+                    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+                    return JSON.stringify(parsed);
+                }
             }
         };
 
-        // Validate + save each
         for (const [key, value] of Object.entries(updates)) {
             if (!allowedSettings[key]) {
                 console.warn(`Unknown setting key: ${key} - skipping`);

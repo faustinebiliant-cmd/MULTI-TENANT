@@ -8,7 +8,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
-// Routes
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
@@ -24,7 +23,6 @@ const reportRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
 const settingsRoutes = require('./routes/settings');
 
-// Rate limiters
 const { apiLimiter, loginLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
@@ -34,7 +32,6 @@ const PORT = process.env.PORT || 5001;
 // SECURITY
 // ============================================================
 
-// Disable caching for API responses
 app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -42,7 +39,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// Security headers
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     frameguard: { action: 'deny' },
@@ -56,7 +52,6 @@ app.use(helmet({
     }
 }));
 
-// CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
     'http://localhost:3001',
@@ -83,7 +78,7 @@ app.use(cors({
 // PARSING & LOGGING
 // ============================================================
 
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
@@ -91,17 +86,13 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // RATE LIMITING
 // ============================================================
 
-// Global API limiter
 app.use('/api', apiLimiter);
-
-// Stricter login limiter (failed attempts only)
 app.use('/api/auth/login', loginLimiter);
 
 // ============================================================
 // ROUTES
 // ============================================================
 
-// Health check
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'Server is running',
@@ -110,7 +101,6 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -130,7 +120,6 @@ app.use('/api/settings', settingsRoutes);
 // ERROR HANDLING
 // ============================================================
 
-// 404
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -138,7 +127,6 @@ app.use((req, res) => {
     });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
     console.error('Server error:', err.message);
     const isProduction = process.env.NODE_ENV === 'production';

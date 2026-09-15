@@ -3,11 +3,7 @@
 // ============================================================
 
 const supabase = require('../config/supabase');
-const { parsePeriodEAT } = require('../utils/tz');
-
-// ============================================================
-// SALES REPORT
-// ============================================================
+const { parsePeriodEAT, getYearRangeEAT } = require('../utils/tz');
 
 const getSalesReport = async (req, res) => {
     try {
@@ -90,7 +86,6 @@ const getSalesReport = async (req, res) => {
         };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
-        // Monthly breakdown
         const monthlyBreakdown = monthlyRows.map(row => {
             const d = new Date(row.month_start);
             const label = d.toLocaleString('default', {
@@ -108,7 +103,6 @@ const getSalesReport = async (req, res) => {
         .sort((a, b) => a._sortKey - b._sortKey)
         .map(({ _sortKey, ...rest }) => rest);
 
-        // Top products
         const topProducts = productSalesRows
             .map(row => ({
                 name: row.product_name,
@@ -118,7 +112,6 @@ const getSalesReport = async (req, res) => {
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 10);
 
-        // Stock movements
         const currentStockMap = {};
         allProducts.forEach(product => {
             currentStockMap[product.id] = {
@@ -207,7 +200,6 @@ const getSalesReport = async (req, res) => {
             })
             .sort((a, b) => (b.added + b.sold + b.adjusted + b.returned) - (a.added + a.sold + a.adjusted + a.returned));
 
-        // Payments — VAT split per order
         const paymentMethods = { cash: 0, mpesa: 0, tigo_pesa: 0 };
         let totalPaymentsReceived = 0;
         let totalVATFromPayments = 0;
@@ -247,7 +239,6 @@ const getSalesReport = async (req, res) => {
             }
         });
 
-        // Product financials (VAT scales with % paid per order)
         const productFinancials = {};
         orders.forEach(order => {
             if (!order.order_items) return;
@@ -343,10 +334,6 @@ const getSalesReport = async (req, res) => {
     }
 };
 
-// ============================================================
-// YEAR-OVER-YEAR COMPARISON
-// ============================================================
-
 const getYearOverYear = async (req, res) => {
     try {
         const currentYearEAT = new Date().toLocaleString('en-GB', {
@@ -359,8 +346,6 @@ const getYearOverYear = async (req, res) => {
         for (let i = 0; i < 5; i++) {
             years.push(currentYear - i);
         }
-
-        const { getYearRangeEAT } = require('../utils/tz');
 
         const results = await Promise.all(years.map(async (year) => {
             const { start, end } = getYearRangeEAT(year);
@@ -418,10 +403,6 @@ const getYearOverYear = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// PROFIT REPORT
-// ============================================================
 
 const getProfitReport = async (req, res) => {
     try {
@@ -505,10 +486,6 @@ const getProfitReport = async (req, res) => {
     }
 };
 
-// ============================================================
-// INVENTORY REPORT
-// ============================================================
-
 const getInventoryReport = async (req, res) => {
     try {
         const { data: products, error } = await supabase
@@ -542,7 +519,6 @@ const getInventoryReport = async (req, res) => {
                 });
             }
 
-            // Fixed: read from nested categories object
             const category = product.categories?.name || 'Uncategorized';
             if (!categoryBreakdown[category]) {
                 categoryBreakdown[category] = { items: 0, value: 0 };
@@ -582,10 +558,6 @@ const getInventoryReport = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// TOP CUSTOMERS
-// ============================================================
 
 const getTopCustomers = async (req, res) => {
     try {

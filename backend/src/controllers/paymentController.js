@@ -12,50 +12,10 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL PAYMENTS (paginated + filters)
-// ============================================================
-
 const getAllPayments = async (req, res) => {
     try {
-        let { page = 1, limit = 50, all, search, method, startDate, endDate } = req.query;
+        let { page = 1, limit = 50, search, method, status, startDate, endDate } = req.query;
 
-        // Legacy: return everything
-        if (all === 'true') {
-            const { data, error } = await supabase
-                .from('payments')
-                .select(`
-                    *,
-                    orders:order_id (
-                        order_number,
-                        customer_id,
-                        payment_status,
-                        total_amount,
-                        paid_amount,
-                        customers:customer_id (name)
-                    )
-                `)
-                .order('payment_date', { ascending: false });
-
-            if (error) throw error;
-
-            const formatted = data.map(payment => ({
-                ...payment,
-                order_number: payment.orders?.order_number || null,
-                customer_name: payment.orders?.customers?.name || null,
-                order_payment_status: payment.orders?.payment_status || 'unpaid',
-                order_total: payment.orders?.total_amount || 0,
-                order_paid: payment.orders?.paid_amount || 0
-            }));
-
-            return res.status(200).json({
-                success: true,
-                data: formatted,
-                pagination: null
-            });
-        }
-
-        // Validate
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
             return res.status(400).json({ success: false, error: 'Page must be a positive number' });
@@ -74,7 +34,14 @@ const getAllPayments = async (req, res) => {
             });
         }
 
-        // Resolve order IDs from search (order_number OR customer name)
+        const VALID_STATUSES = ['completed', 'voided'];
+        if (status && !VALID_STATUSES.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status filter. Valid: completed, voided'
+            });
+        }
+
         let matchingOrderIds = null;
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
@@ -108,7 +75,6 @@ const getAllPayments = async (req, res) => {
             }
         }
 
-        // Data query
         let dataQuery = supabase
             .from('payments')
             .select(`
@@ -124,6 +90,8 @@ const getAllPayments = async (req, res) => {
             `);
 
         if (method) dataQuery = dataQuery.eq('method', method);
+        if (status === 'voided') dataQuery = dataQuery.eq('status', 'voided');
+        if (status === 'completed') dataQuery = dataQuery.neq('status', 'voided');
         if (startDate) dataQuery = dataQuery.gte('payment_date', new Date(startDate).toISOString());
         if (endDate) {
             const end = new Date(endDate);
@@ -143,12 +111,13 @@ const getAllPayments = async (req, res) => {
         const { data, error } = await dataQuery;
         if (error) throw error;
 
-        // Count
         let countQuery = supabase
             .from('payments')
             .select('id', { count: 'exact', head: true });
 
         if (method) countQuery = countQuery.eq('method', method);
+        if (status === 'voided') countQuery = countQuery.eq('status', 'voided');
+        if (status === 'completed') countQuery = countQuery.neq('status', 'voided');
         if (startDate) countQuery = countQuery.gte('payment_date', new Date(startDate).toISOString());
         if (endDate) {
             const end = new Date(endDate);
@@ -188,10 +157,6 @@ const getAllPayments = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// GET SINGLE PAYMENT
-// ============================================================
 
 const getPaymentById = async (req, res) => {
     try {
@@ -234,10 +199,6 @@ const getPaymentById = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE PAYMENT (standalone)
-// ============================================================
-
 const createPayment = async (req, res) => {
     try {
         const { order_id, amount, method, reference_number, notes } = req.body;
@@ -263,7 +224,6 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // Reference number
         let cleanReference = null;
         if (reference_number) {
             if (!isValidLength(reference_number, 3, 50)) {
@@ -281,7 +241,6 @@ const createPayment = async (req, res) => {
             cleanReference = sanitize(reference_number.trim());
         }
 
-        // Notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -299,7 +258,6 @@ const createPayment = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        // Order must exist
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('id, total_amount, paid_amount')
@@ -321,23 +279,6 @@ const createPayment = async (req, res) => {
             });
         }
 
-        // Resolve actor
-        let validUserId = null;
-        let validUserName = 'System';
-
-        if (req.user && req.user.id) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('id', req.user.id)
-                .single();
-
-            if (user) {
-                validUserId = user.id;
-                validUserName = user.full_name;
-            }
-        }
-
         const { data, error } = await supabase
             .from('payments')
             .insert({
@@ -346,8 +287,9 @@ const createPayment = async (req, res) => {
                 method,
                 reference_number: cleanReference,
                 notes: cleanNotes,
-                recorded_by: validUserId,
-                recorded_by_name: validUserName,
+                status: 'completed',
+                recorded_by: req.user.id,
+                recorded_by_name: req.user.full_name,
                 payment_date: new Date().toISOString()
             })
             .select()
@@ -355,7 +297,6 @@ const createPayment = async (req, res) => {
 
         if (error) throw error;
 
-        // Update order paid amount + status
         const newPaidAmount = (parseFloat(order.paid_amount) || 0) + parseFloat(amount);
         const orderTotal = parseFloat(order.total_amount) || 0;
         const paymentStatus = newPaidAmount >= orderTotal ? 'paid' : 'partial';
@@ -372,8 +313,8 @@ const createPayment = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: validUserId,
-                user_name: validUserName,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Payment Created',
                 details: {
                     payment_id: data.id,

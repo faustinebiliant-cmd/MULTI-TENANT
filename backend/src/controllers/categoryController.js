@@ -10,10 +10,6 @@ const {
     sanitize
 } = require('../utils/validators');
 
-// ============================================================
-// GET ALL CATEGORIES (with product count)
-// ============================================================
-
 const getAllCategories = async (req, res) => {
     try {
         const { data: categories, error } = await supabase
@@ -52,10 +48,6 @@ const getAllCategories = async (req, res) => {
     }
 };
 
-// ============================================================
-// CREATE CATEGORY
-// ============================================================
-
 const createCategory = async (req, res) => {
     try {
         const { name, description } = req.body;
@@ -67,7 +59,6 @@ const createCategory = async (req, res) => {
             });
         }
 
-        // Description
         let cleanDescription = '';
         if (description) {
             if (!isValidLength(description, 0, 500)) {
@@ -120,10 +111,6 @@ const createCategory = async (req, res) => {
         });
     }
 };
-
-// ============================================================
-// UPDATE CATEGORY
-// ============================================================
 
 const updateCategory = async (req, res) => {
     try {
@@ -206,14 +193,50 @@ const updateCategory = async (req, res) => {
     }
 };
 
-// ============================================================
-// DELETE CATEGORY
-// ============================================================
-
 const deleteCategory = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Confirm the category exists
+        const { data: category, error: checkError } = await supabase
+            .from('categories')
+            .select('id, name')
+            .eq('id', id)
+            .single();
+
+        if (checkError || !category) {
+            return res.status(404).json({
+                success: false,
+                error: 'Category not found'
+            });
+        }
+
+        // Block deletion if any active products use this category
+        const { count: activeCount, error: activeErr } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('category_id', id)
+            .eq('is_active', true);
+
+        if (activeErr) throw activeErr;
+
+        if ((activeCount || 0) > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Category is in use by products'
+            });
+        }
+
+        // Detach soft-deleted products from this category so the FK does not block deletion
+        const { error: detachError } = await supabase
+            .from('products')
+            .update({ category_id: null })
+            .eq('category_id', id)
+            .eq('is_active', false);
+
+        if (detachError) throw detachError;
+
+        // Delete the category
         const { error } = await supabase
             .from('categories')
             .delete()
