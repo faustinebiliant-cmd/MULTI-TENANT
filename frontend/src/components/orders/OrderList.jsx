@@ -10,12 +10,19 @@ import {
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDate, getStatusLabel } from '../../utils/helpers';
-import { PAYMENT_STATUS_META } from '../../utils/constants';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
 
+// Payment status presentation
+const PAYMENT_LABELS = {
+  paid: { label: 'Paid', color: '#0bc518' },
+  unpaid: { label: 'Unpaid', color: '#d00f0f' },
+  partial: { label: 'Partial', color: '#92400e' }
+};
+
+// Order status text colors
 const ORDER_STATUS_COLORS = {
   pending: '#b58a09',
   confirmed: '#0c39ce',
@@ -120,7 +127,7 @@ const OrderList = () => {
 
   const renderPaymentCell = (order) => {
     const status = (order.payment_status || 'unpaid').toLowerCase();
-    const meta = PAYMENT_STATUS_META[status] || PAYMENT_STATUS_META.unpaid;
+    const meta = PAYMENT_LABELS[status] || PAYMENT_LABELS.unpaid;
 
     if (status !== 'partial') {
       return (

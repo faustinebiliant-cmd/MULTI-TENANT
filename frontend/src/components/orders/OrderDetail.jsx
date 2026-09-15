@@ -33,7 +33,7 @@ const OrderDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
 
-  // Status change confirmation
+  // Confirmation state for status change
   const [pendingStatus, setPendingStatus] = useState(null);
 
   const initialReceiptShownRef = useRef(false);
@@ -79,6 +79,7 @@ const OrderDetail = () => {
     await fetchOrder();
   };
 
+  // Ask for confirmation before applying the status change
   const requestStatusUpdate = (newStatus) => {
     setPendingStatus(newStatus);
   };
@@ -131,6 +132,7 @@ const OrderDetail = () => {
   const paidAndNotBoss = paidAmount > 0 && currentUser.role !== 'boss';
   const canCancel = !isCancelled && roleAllowedToCancel && !paidAndNotBoss;
 
+  // Text shown in the confirmation dialog, based on the pending status
   const pendingStatusMessages = {
     confirmed: {
       title: 'Confirm Order',
@@ -491,6 +493,7 @@ const OrderDetail = () => {
         />
       )}
 
+      {/* Status change confirmation */}
       {pendingMeta && (
         <ConfirmDialog
           open={!!pendingStatus}

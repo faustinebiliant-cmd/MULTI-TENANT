@@ -13,9 +13,11 @@ const WHITE = 'FFFFFFFF';
 const LIGHT_GRAY = 'FFF4F6F9';
 const GRAY_TEXT = 'FF64748B';
 const CURRENCY_FORMAT = '#,##0.00';
-const DATE_FORMAT = 'yyyy-mm-dd';
 
-// Table styles
+// ============================================================
+// Shared styles
+// ============================================================
+
 const applyHeaderStyle = (row) => {
   row.font = { bold: true, color: { argb: WHITE }, size: 11 };
   row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND_BLUE } };
@@ -67,6 +69,10 @@ const addSectionHeader = (sheet, label) => {
   applyHeaderStyle(row);
 };
 
+// ============================================================
+// Period helpers
+// ============================================================
+
 const parsePeriod = (query) => parsePeriodEAT(query);
 
 const formatPeriodLabel = (start, end) => {
@@ -75,34 +81,88 @@ const formatPeriodLabel = (start, end) => {
   return a === b ? a : `${a}_to_${b}`;
 };
 
+// ============================================================
 // Data fetchers
-const fetchOrders = async (startISO, endISO) => {
-  const { data, error } = await supabase
+// ============================================================
+
+// includeCancelled default false so tax-oriented exports stay clean
+const fetchOrders = async (startISO, endISO, includeCancelled = false) => {
+  let query = supabase
     .from('orders')
     .select(`
       id, order_number, order_status, payment_status,
       subtotal, tax_amount, total_amount, paid_amount, created_at,
+      cancellation_reason, cancelled_at, cancelled_by_name,
       customers:customer_id (name, phone),
       order_items (id, product_id, product_name, quantity, unit_price, subtotal, cost_price)
     `)
     .gte('created_at', startISO)
-    .lte('created_at', endISO)
-    .neq('order_status', 'cancelled')
-    .order('created_at', { ascending: false });
+    .lte('created_at', endISO);
+
+  if (!includeCancelled) {
+    query = query.neq('order_status', 'cancelled');
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
   return data || [];
 };
 
-const fetchPayments = async (startISO, endISO) => {
-  const { data, error } = await supabase
+// includeVoided default false so totals exclude refunds
+const fetchPayments = async (startISO, endISO, includeVoided = false) => {
+  let query = supabase
     .from('payments')
     .select('*')
     .gte('payment_date', startISO)
-    .lte('payment_date', endISO)
-    .order('payment_date', { ascending: false });
+    .lte('payment_date', endISO);
+
+  if (!includeVoided) {
+    query = query.neq('status', 'voided');
+  }
+
+  const { data, error } = await query.order('payment_date', { ascending: false });
   if (error) throw error;
   return data || [];
 };
+
+// Real business only. Used for every total on the summary sheets.
+const filterRealOrders = (orders) =>
+  orders.filter(o => o.order_status !== 'cancelled');
+
+const filterRealPayments = (payments) =>
+  payments.filter(p => (p.status || '').toLowerCase() !== 'voided');
+
+// Resolve order numbers by ID. Combines orders already in memory with a
+// chunked lookup for any orders created outside the export date range.
+const resolveOrderNumberMap = async (orders, payments) => {
+  const map = {};
+  orders.forEach(o => { map[o.id] = o.order_number; });
+
+  const missingIds = [...new Set(
+    payments
+      .map(p => p.order_id)
+      .filter(id => id && !map[id])
+  )];
+
+  if (missingIds.length === 0) return map;
+
+  const CHUNK = 200;
+  for (let i = 0; i < missingIds.length; i += CHUNK) {
+    const chunk = missingIds.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, order_number')
+      .in('id', chunk);
+    if (error) throw error;
+    (data || []).forEach(o => { map[o.id] = o.order_number; });
+  }
+
+  return map;
+};
+
+// ============================================================
+// Payment VAT math
+// ============================================================
 
 const fetchVATRatioMapForPayments = async (orders, payments) => {
   const map = {};
@@ -111,25 +171,30 @@ const fetchVATRatioMapForPayments = async (orders, payments) => {
     const v = parseFloat(o.tax_amount) || 0;
     if (t > 0 && v > 0) map[o.id] = v / t;
   });
+
   const ids = [...new Set(payments.map(p => p.order_id).filter(Boolean))];
-  if (ids.length > 0) {
-    const { data } = await supabase
-      .from('orders')
-      .select('id, total_amount, tax_amount')
-      .in('id', ids);
-    (data || []).forEach(o => {
-      const t = parseFloat(o.total_amount) || 0;
-      const v = parseFloat(o.tax_amount) || 0;
-      if (t > 0 && v > 0 && !map[o.id]) map[o.id] = v / t;
-    });
-  }
+  if (ids.length === 0) return map;
+
+  const { data } = await supabase
+    .from('orders')
+    .select('id, total_amount, tax_amount')
+    .in('id', ids);
+
+  (data || []).forEach(o => {
+    const t = parseFloat(o.total_amount) || 0;
+    const v = parseFloat(o.tax_amount) || 0;
+    if (t > 0 && v > 0 && !map[o.id]) map[o.id] = v / t;
+  });
+
   return map;
 };
 
 const computePaymentTotals = (payments, vatMap) => {
   let business = 0, vat = 0;
   const methods = { cash: 0, mpesa: 0, tigo_pesa: 0 };
+
   payments.forEach(p => {
+    if ((p.status || '').toLowerCase() === 'voided') return;
     const amt = parseFloat(p.amount) || 0;
     const ratio = vatMap[p.order_id] || 0;
     const pVAT = amt * ratio;
@@ -139,12 +204,13 @@ const computePaymentTotals = (payments, vatMap) => {
     const m = (p.method || '').toLowerCase();
     if (methods[m] !== undefined) methods[m] += pBiz;
   });
+
   return { business, vat, methods, total: business + vat };
 };
 
-// VAT actually collected (scaled by fraction paid)
 const computeVATCollectedFromOrders = (orders) => {
   return orders.reduce((sum, o) => {
+    if (o.order_status === 'cancelled') return sum;
     const total = parseFloat(o.total_amount) || 0;
     const tax = parseFloat(o.tax_amount) || 0;
     const paid = parseFloat(o.paid_amount) || 0;
@@ -153,6 +219,230 @@ const computeVATCollectedFromOrders = (orders) => {
     }
     return sum;
   }, 0);
+};
+
+// ============================================================
+// Sheet writers (shared, no duplication)
+// ============================================================
+
+// Orders sheet. `hideCancelledFinancials` zeroes Paid/Balance on cancelled rows
+// so the columns do not suggest money is still owed on a cancelled order.
+const writeOrdersSheet = (wb, orders) => {
+  const ord = wb.addWorksheet('Orders');
+  ord.columns = [
+    { header: 'Order #', key: 'order_number', width: 20 },
+    { header: 'Customer', key: 'customer', width: 30 },
+    { header: 'Phone', key: 'phone', width: 20 },
+    { header: 'Status', key: 'order_status', width: 14 },
+    { header: 'Payment Status', key: 'payment_status', width: 16 },
+    { header: 'Subtotal', key: 'subtotal', width: 15 },
+    { header: 'VAT', key: 'tax_amount', width: 15 },
+    { header: 'Total', key: 'total_amount', width: 15 },
+    { header: 'Paid', key: 'paid_amount', width: 15 },
+    { header: 'Balance', key: 'balance', width: 15 },
+    { header: 'Cancellation Reason', key: 'cancellation_reason', width: 30 },
+    { header: 'Date', key: 'created_at', width: 20 }
+  ];
+  applyHeaderStyle(ord.getRow(1));
+  ord.views = [{ state: 'frozen', ySplit: 1 }];
+
+  orders.forEach(o => {
+    const tt = parseFloat(o.total_amount) || 0;
+    const pp = parseFloat(o.paid_amount) || 0;
+    const isCancelled = o.order_status === 'cancelled';
+    ord.addRow({
+      order_number: o.order_number,
+      customer: o.customers?.name || 'Walk-in',
+      phone: o.customers?.phone || '',
+      order_status: o.order_status,
+      payment_status: o.payment_status,
+      subtotal: parseFloat(o.subtotal) || 0,
+      tax_amount: parseFloat(o.tax_amount) || 0,
+      total_amount: tt,
+      paid_amount: isCancelled ? 0 : pp,
+      balance: isCancelled ? 0 : (tt - pp),
+      cancellation_reason: isCancelled ? (o.cancellation_reason || '') : '',
+      created_at: formatDateTimeForExcel(o.created_at)
+    });
+  });
+
+  ['subtotal', 'tax_amount', 'total_amount', 'paid_amount', 'balance'].forEach(c => {
+    ord.getColumn(c).numFmt = CURRENCY_FORMAT;
+  });
+
+  return ord;
+};
+
+// Order Items sheet. Pass only real (non-cancelled) orders.
+const writeOrderItemsSheet = (wb, realOrders) => {
+  const itm = wb.addWorksheet('Order Items');
+  itm.columns = [
+    { header: 'Order #', key: 'order_number', width: 20 },
+    { header: 'Product', key: 'product_name', width: 35 },
+    { header: 'Quantity', key: 'quantity', width: 12 },
+    { header: 'Unit Price', key: 'unit_price', width: 15 },
+    { header: 'Subtotal', key: 'subtotal', width: 15 }
+  ];
+  applyHeaderStyle(itm.getRow(1));
+  itm.views = [{ state: 'frozen', ySplit: 1 }];
+
+  realOrders.forEach(o => {
+    (o.order_items || []).forEach(i => {
+      itm.addRow({
+        order_number: o.order_number,
+        product_name: i.product_name || 'Unknown',
+        quantity: i.quantity,
+        unit_price: parseFloat(i.unit_price) || 0,
+        subtotal: parseFloat(i.subtotal) || 0
+      });
+    });
+  });
+
+  itm.getColumn('unit_price').numFmt = CURRENCY_FORMAT;
+  itm.getColumn('subtotal').numFmt = CURRENCY_FORMAT;
+
+  return itm;
+};
+
+// Payments sheet. `showStatusColumn` adds Completed/Voided column.
+// Always writes two total rows: completed only, and including voided.
+const writePaymentsSheet = (wb, allPayments, orderNumberMap, showStatusColumn = true) => {
+  const psheet = wb.addWorksheet('Payments');
+
+  const columns = [
+    { header: 'Payment Date', key: 'payment_date', width: 20 },
+    { header: 'Order #', key: 'order_number', width: 20 },
+    { header: 'Amount', key: 'amount', width: 15 },
+    { header: 'Method', key: 'method', width: 15 }
+  ];
+  if (showStatusColumn) {
+    columns.push({ header: 'Status', key: 'status', width: 14 });
+  }
+  columns.push(
+    { header: 'Reference', key: 'reference_number', width: 20 },
+    { header: 'Recorded By', key: 'recorded_by_name', width: 25 }
+  );
+  psheet.columns = columns;
+  applyHeaderStyle(psheet.getRow(1));
+  psheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  let totalAll = 0;
+  let totalCompleted = 0;
+
+  allPayments.forEach(p => {
+    const amt = parseFloat(p.amount) || 0;
+    const isVoided = (p.status || '').toLowerCase() === 'voided';
+    totalAll += amt;
+    if (!isVoided) totalCompleted += amt;
+
+    const row = {
+      payment_date: formatDateTimeForExcel(p.payment_date),
+      order_number: orderNumberMap[p.order_id] || '(no order)',
+      amount: amt,
+      method: (p.method || '').toUpperCase(),
+      reference_number: p.reference_number || '',
+      recorded_by_name: p.recorded_by_name || ''
+    };
+    if (showStatusColumn) {
+      row.status = isVoided ? 'Voided' : 'Completed';
+    }
+    psheet.addRow(row);
+  });
+
+  psheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
+
+  if (allPayments.length > 0) {
+    const tr1 = psheet.addRow({
+      payment_date: 'TOTALS (completed only)',
+      amount: totalCompleted
+    });
+    tr1.getCell('amount').numFmt = CURRENCY_FORMAT;
+    applyTotalRowStyle(tr1);
+
+    const tr2 = psheet.addRow({
+      payment_date: 'TOTALS (including voided)',
+      amount: totalAll
+    });
+    tr2.getCell('amount').numFmt = CURRENCY_FORMAT;
+    applyTotalRowStyle(tr2);
+  }
+
+  return psheet;
+};
+
+// Products sheet. `includeFinancials` controls Cost/Selling columns.
+const writeProductsSheet = (wb, products, includeFinancials = true) => {
+  const prod = wb.addWorksheet('Products');
+
+  const columns = [
+    { header: 'Product', key: 'name', width: 35 },
+    { header: 'Category', key: 'category', width: 20 },
+    { header: 'SKU', key: 'sku', width: 15 }
+  ];
+  if (includeFinancials) {
+    columns.push(
+      { header: 'Cost Price', key: 'cost_price', width: 15 },
+      { header: 'Selling Price', key: 'selling_price', width: 15 }
+    );
+  }
+  columns.push({ header: 'Stock', key: 'stock_quantity', width: 10 });
+  prod.columns = columns;
+
+  applyHeaderStyle(prod.getRow(1));
+  prod.views = [{ state: 'frozen', ySplit: 1 }];
+
+  products.forEach(p => {
+    const row = {
+      name: p.name,
+      category: p.categories?.name || 'Uncategorized',
+      sku: p.sku || '',
+      stock_quantity: parseInt(p.stock_quantity) || 0
+    };
+    if (includeFinancials) {
+      row.cost_price = parseFloat(p.cost_price) || 0;
+      row.selling_price = parseFloat(p.selling_price) || 0;
+    }
+    prod.addRow(row);
+  });
+
+  if (includeFinancials) {
+    prod.getColumn('cost_price').numFmt = CURRENCY_FORMAT;
+    prod.getColumn('selling_price').numFmt = CURRENCY_FORMAT;
+  }
+
+  return prod;
+};
+
+// Product Sales sheet (from sum_product_sales RPC).
+const writeProductSalesSheet = (wb, productSales) => {
+  const prodSales = wb.addWorksheet('Product Sales');
+  prodSales.columns = [
+    { header: 'Product', key: 'product_name', width: 40 },
+    { header: 'Quantity Sold', key: 'total_quantity', width: 15 },
+    { header: 'Revenue (excl. VAT)', key: 'total_revenue', width: 20 },
+    { header: 'Cost', key: 'total_cost', width: 15 },
+    { header: 'Profit', key: 'total_profit', width: 15 }
+  ];
+  applyHeaderStyle(prodSales.getRow(1));
+  prodSales.views = [{ state: 'frozen', ySplit: 1 }];
+
+  productSales.forEach(p => {
+    const r = Number(p.total_revenue) || 0;
+    const c = Number(p.total_cost) || 0;
+    prodSales.addRow({
+      product_name: p.product_name || '',
+      total_quantity: Number(p.total_quantity) || 0,
+      total_revenue: r,
+      total_cost: c,
+      total_profit: r - c
+    });
+  });
+
+  ['total_revenue', 'total_cost', 'total_profit'].forEach(c => {
+    prodSales.getColumn(c).numFmt = CURRENCY_FORMAT;
+  });
+
+  return prodSales;
 };
 
 // ============================================================
@@ -192,9 +482,9 @@ const exportSalesReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const [orders, payments, productSalesRes, outstandingRes] = await Promise.all([
-      fetchOrders(startISO, endISO),
-      fetchPayments(startISO, endISO),
+    const [allOrders, allPayments, productSalesRes, outstandingRes] = await Promise.all([
+      fetchOrders(startISO, endISO, true),
+      fetchPayments(startISO, endISO, true),
       supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
       supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO })
     ]);
@@ -204,22 +494,28 @@ const exportSalesReport = async (req, res) => {
     const productSales = productSalesRes.data || [];
     const outstandingCredit = Number(outstandingRes.data?.[0]?.outstanding_total) || 0;
 
-    const totalSales = orders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
-    const totalVAT = orders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
-    const totalWithVAT = orders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
-    const totalItems = orders.reduce((s, o) => s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
-    const totalOrders = orders.length;
+    const realOrders = filterRealOrders(allOrders);
+    const realPayments = filterRealPayments(allPayments);
+
+    const totalSales = realOrders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
+    const totalVAT = realOrders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
+    const totalWithVAT = realOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+    const totalItems = realOrders.reduce((s, o) =>
+      s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
+    const totalOrders = realOrders.length;
     const avgOrder = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-    const vatMap = await fetchVATRatioMapForPayments(orders, payments);
-    const payTotals = computePaymentTotals(payments, vatMap);
-    const vatCollected = computeVATCollectedFromOrders(orders);
+    const vatMap = await fetchVATRatioMapForPayments(allOrders, allPayments);
+    const payTotals = computePaymentTotals(realPayments, vatMap);
+    const vatCollected = computeVATCollectedFromOrders(realOrders);
+
+    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'OSWAGO Electrical Equipment';
     wb.created = new Date();
 
-    // Summary sheet
+    // Summary
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
@@ -236,10 +532,7 @@ const exportSalesReport = async (req, res) => {
     sum.addRow(['Generated:', formatDateTimeForExcel(new Date())]);
     applyLabelStyle(sum.getCell(`A${sum.lastRow.number}`));
     sum.addRow([]);
-
-    const salesHdr = sum.addRow(['SALES', '', '']);
-    sum.mergeCells(`A${salesHdr.number}:C${salesHdr.number}`);
-    applyHeaderStyle(salesHdr);
+    addSectionHeader(sum, 'SALES (excl. cancelled)');
     sum.addRow(['Total Sales (excl. VAT)', '', totalSales]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT on Sales (full, from orders)', '', totalVAT]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected (scaled by % paid)', '', vatCollected]).getCell('C').numFmt = CURRENCY_FORMAT;
@@ -248,156 +541,22 @@ const exportSalesReport = async (req, res) => {
     sum.addRow(['Total Items Sold', '', totalItems]);
     sum.addRow(['Average Order Value (excl. VAT)', '', avgOrder]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow([]);
-    const payHdr = sum.addRow(['PAYMENTS', '', '']);
-    sum.mergeCells(`A${payHdr.number}:C${payHdr.number}`);
-    applyHeaderStyle(payHdr);
+    addSectionHeader(sum, 'PAYMENTS (excl. voided)');
     sum.addRow(['Business Money Received', '', payTotals.business]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected (from payments)', '', payTotals.vat]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Total Money Received (incl. VAT)', '', payTotals.total]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Outstanding Credit', '', outstandingCredit]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow([]);
-    const mHdr = sum.addRow(['PAYMENT METHODS (business value)', '', '']);
-    sum.mergeCells(`A${mHdr.number}:C${mHdr.number}`);
-    applyHeaderStyle(mHdr);
+    addSectionHeader(sum, 'PAYMENT METHODS (business value)');
     sum.addRow(['Cash', '', payTotals.methods.cash]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['M-Pesa', '', payTotals.methods.mpesa]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Tigo Pesa', '', payTotals.methods.tigo_pesa]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    // Orders sheet
-    const ord = wb.addWorksheet('Orders');
-    ord.columns = [
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Customer', key: 'customer', width: 30 },
-      { header: 'Phone', key: 'phone', width: 20 },
-      { header: 'Status', key: 'order_status', width: 14 },
-      { header: 'Payment Status', key: 'payment_status', width: 16 },
-      { header: 'Subtotal', key: 'subtotal', width: 15 },
-      { header: 'VAT', key: 'tax_amount', width: 15 },
-      { header: 'Total', key: 'total_amount', width: 15 },
-      { header: 'Paid', key: 'paid_amount', width: 15 },
-      { header: 'Balance', key: 'balance', width: 15 },
-      { header: 'Date', key: 'created_at', width: 20 }
-    ];
-    applyHeaderStyle(ord.getRow(1));
-    ord.views = [{ state: 'frozen', ySplit: 1 }];
-    orders.forEach(o => {
-      const tt = parseFloat(o.total_amount) || 0;
-      const pp = parseFloat(o.paid_amount) || 0;
-      ord.addRow({
-        order_number: o.order_number,
-        customer: o.customers?.name || 'Walk-in',
-        phone: o.customers?.phone || '',
-        order_status: o.order_status,
-        payment_status: o.payment_status,
-        subtotal: parseFloat(o.subtotal) || 0,
-        tax_amount: parseFloat(o.tax_amount) || 0,
-        total_amount: tt,
-        paid_amount: pp,
-        balance: tt - pp,
-        created_at: formatDateTimeForExcel(o.created_at)
-      });
-    });
-    ['subtotal', 'tax_amount', 'total_amount', 'paid_amount', 'balance'].forEach(c => {
-      ord.getColumn(c).numFmt = CURRENCY_FORMAT;
-    });
-    if (orders.length > 0) {
-      const tr = ord.addRow({
-        order_number: 'TOTALS',
-        subtotal: totalSales,
-        tax_amount: totalVAT,
-        total_amount: totalWithVAT,
-        paid_amount: orders.reduce((s, o) => s + (parseFloat(o.paid_amount) || 0), 0)
-      });
-      ['subtotal', 'tax_amount', 'total_amount', 'paid_amount'].forEach(c => {
-        tr.getCell(c).numFmt = CURRENCY_FORMAT;
-      });
-      applyTotalRowStyle(tr);
-    }
-
-    // Order Items sheet
-    const itm = wb.addWorksheet('Order Items');
-    itm.columns = [
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Product', key: 'product_name', width: 35 },
-      { header: 'Quantity', key: 'quantity', width: 12 },
-      { header: 'Unit Price', key: 'unit_price', width: 15 },
-      { header: 'Subtotal', key: 'subtotal', width: 15 }
-    ];
-    applyHeaderStyle(itm.getRow(1));
-    itm.views = [{ state: 'frozen', ySplit: 1 }];
-    orders.forEach(o => {
-      (o.order_items || []).forEach(i => {
-        itm.addRow({
-          order_number: o.order_number,
-          product_name: i.product_name || 'Unknown',
-          quantity: i.quantity,
-          unit_price: parseFloat(i.unit_price) || 0,
-          subtotal: parseFloat(i.subtotal) || 0
-        });
-      });
-    });
-    itm.getColumn('unit_price').numFmt = CURRENCY_FORMAT;
-    itm.getColumn('subtotal').numFmt = CURRENCY_FORMAT;
-
-    // Payments sheet
-    const psheet = wb.addWorksheet('Payments');
-    psheet.columns = [
-      { header: 'Payment Date', key: 'payment_date', width: 20 },
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Amount', key: 'amount', width: 15 },
-      { header: 'Method', key: 'method', width: 15 },
-      { header: 'Reference', key: 'reference_number', width: 20 },
-      { header: 'Recorded By', key: 'recorded_by_name', width: 25 }
-    ];
-    applyHeaderStyle(psheet.getRow(1));
-    psheet.views = [{ state: 'frozen', ySplit: 1 }];
-    const ordNumMap = {};
-    orders.forEach(o => ordNumMap[o.id] = o.order_number);
-    payments.forEach(p => {
-      psheet.addRow({
-        payment_date: formatDateTimeForExcel(p.payment_date),
-        order_number: ordNumMap[p.order_id] || '(external)',
-        amount: parseFloat(p.amount) || 0,
-        method: (p.method || '').toUpperCase(),
-        reference_number: p.reference_number || '',
-        recorded_by_name: p.recorded_by_name || ''
-      });
-    });
-    psheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
-    if (payments.length > 0) {
-      const tr = psheet.addRow({
-        payment_date: 'TOTALS',
-        amount: payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
-      });
-      tr.getCell('amount').numFmt = CURRENCY_FORMAT;
-      applyTotalRowStyle(tr);
-    }
-
-    // Products sheet
-    const prod = wb.addWorksheet('Products');
-    prod.columns = [
-      { header: 'Product', key: 'product_name', width: 40 },
-      { header: 'Quantity Sold', key: 'total_quantity', width: 15 },
-      { header: 'Revenue (excl. VAT)', key: 'total_revenue', width: 20 },
-      { header: 'Cost', key: 'total_cost', width: 15 },
-      { header: 'Profit', key: 'total_profit', width: 15 }
-    ];
-    applyHeaderStyle(prod.getRow(1));
-    prod.views = [{ state: 'frozen', ySplit: 1 }];
-    productSales.forEach(p => {
-      const r = Number(p.total_revenue) || 0;
-      const c = Number(p.total_cost) || 0;
-      prod.addRow({
-        product_name: p.product_name || 'Unknown',
-        total_quantity: Number(p.total_quantity) || 0,
-        total_revenue: r,
-        total_cost: c,
-        total_profit: r - c
-      });
-    });
-    ['total_revenue', 'total_cost', 'total_profit'].forEach(c => {
-      prod.getColumn(c).numFmt = CURRENCY_FORMAT;
-    });
+    // Detail sheets
+    writeOrdersSheet(wb, allOrders);
+    writeOrderItemsSheet(wb, realOrders);
+    writePaymentsSheet(wb, allPayments, orderNumberMap, true);
+    writeProductSalesSheet(wb, productSales);
 
     const fileName = `oswago-sales-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -419,13 +578,15 @@ const exportPaymentsReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const [orders, payments] = await Promise.all([
-      fetchOrders(startISO, endISO),
-      fetchPayments(startISO, endISO)
+    const [allOrders, allPayments] = await Promise.all([
+      fetchOrders(startISO, endISO, true),
+      fetchPayments(startISO, endISO, true)
     ]);
 
-    const vatMap = await fetchVATRatioMapForPayments(orders, payments);
-    const totals = computePaymentTotals(payments, vatMap);
+    const realPayments = filterRealPayments(allPayments);
+    const vatMap = await fetchVATRatioMapForPayments(allOrders, realPayments);
+    const totals = computePaymentTotals(realPayments, vatMap);
+    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'OSWAGO Electrical Equipment';
@@ -440,52 +601,23 @@ const exportPaymentsReport = async (req, res) => {
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
 
+    const completedCount = realPayments.length;
+    const voidedCount = allPayments.length - completedCount;
+
     addSectionHeader(sum, 'TOTALS');
     sum.addRow(['Business Money Received', '', totals.business]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected', '', totals.vat]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Total Money Received', '', totals.total]).getCell('C').numFmt = CURRENCY_FORMAT;
-    sum.addRow(['Number of Payments', '', payments.length]);
+    sum.addRow(['Number of Completed Payments', '', completedCount]);
+    sum.addRow(['Number of Voided Payments', '', voidedCount]);
     sum.addRow([]);
 
-    addSectionHeader(sum, 'PAYMENT METHODS (business value)');
+    addSectionHeader(sum, 'PAYMENT METHODS (business value, completed only)');
     sum.addRow(['Cash', '', totals.methods.cash]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['M-Pesa', '', totals.methods.mpesa]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Tigo Pesa', '', totals.methods.tigo_pesa]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    const psheet = wb.addWorksheet('Payments');
-    psheet.columns = [
-      { header: 'Payment Date', key: 'payment_date', width: 20 },
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Amount', key: 'amount', width: 15 },
-      { header: 'Method', key: 'method', width: 15 },
-      { header: 'Reference', key: 'reference_number', width: 20 },
-      { header: 'Recorded By', key: 'recorded_by_name', width: 25 }
-    ];
-    applyHeaderStyle(psheet.getRow(1));
-    psheet.views = [{ state: 'frozen', ySplit: 1 }];
-
-    const ordNumMap = {};
-    orders.forEach(o => ordNumMap[o.id] = o.order_number);
-
-    payments.forEach(p => {
-      psheet.addRow({
-        payment_date: formatDateTimeForExcel(p.payment_date),
-        order_number: ordNumMap[p.order_id] || '(external)',
-        amount: parseFloat(p.amount) || 0,
-        method: (p.method || '').toUpperCase(),
-        reference_number: p.reference_number || '',
-        recorded_by_name: p.recorded_by_name || ''
-      });
-    });
-    psheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
-    if (payments.length > 0) {
-      const tr = psheet.addRow({
-        payment_date: 'TOTALS',
-        amount: payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0)
-      });
-      tr.getCell('amount').numFmt = CURRENCY_FORMAT;
-      applyTotalRowStyle(tr);
-    }
+    writePaymentsSheet(wb, allPayments, orderNumberMap, true);
 
     const fileName = `oswago-payments-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -627,38 +759,7 @@ const exportProductsReport = async (req, res) => {
     sum.addRow(['Total Selling Value', '', totalSellingValue]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Potential Profit', '', totalSellingValue - totalCostValue]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    const detail = wb.addWorksheet('Products');
-    detail.columns = [
-      { header: 'Product', key: 'name', width: 35 },
-      { header: 'Category', key: 'category', width: 20 },
-      { header: 'Supplier', key: 'supplier', width: 20 },
-      { header: 'SKU', key: 'sku', width: 15 },
-      { header: 'Cost Price', key: 'cost_price', width: 15 },
-      { header: 'Selling Price', key: 'selling_price', width: 15 },
-      { header: 'Stock', key: 'stock_quantity', width: 10 },
-      { header: 'Low Stock Threshold', key: 'low_stock_threshold', width: 18 },
-      { header: 'Total Value', key: 'total_value', width: 15 }
-    ];
-    applyHeaderStyle(detail.getRow(1));
-    detail.views = [{ state: 'frozen', ySplit: 1 }];
-
-    list.forEach(p => {
-      const totalValue = (parseFloat(p.selling_price) || 0) * (parseInt(p.stock_quantity) || 0);
-      detail.addRow({
-        name: p.name,
-        category: p.categories?.name || 'Uncategorized',
-        supplier: p.suppliers?.name || '',
-        sku: p.sku || '',
-        cost_price: parseFloat(p.cost_price) || 0,
-        selling_price: parseFloat(p.selling_price) || 0,
-        stock_quantity: parseInt(p.stock_quantity) || 0,
-        low_stock_threshold: parseInt(p.low_stock_threshold) || 0,
-        total_value: totalValue
-      });
-    });
-    ['cost_price', 'selling_price', 'total_value'].forEach(c => {
-      detail.getColumn(c).numFmt = CURRENCY_FORMAT;
-    });
+    const detail = writeProductsSheet(wb, list, true);
 
     if (list.length > 0) {
       const tr = detail.addRow({ name: 'TOTALS', total_value: totalSellingValue });
@@ -704,11 +805,6 @@ const exportStockMovementsReport = async (req, res) => {
       (products || []).forEach(p => productMap[p.id] = p.name);
     }
 
-    const list = (movements || []).map(m => ({
-      ...m,
-      product_name: productMap[m.product_id] || '(unknown product)'
-    }));
-
     const wb = new ExcelJS.Workbook();
     wb.creator = 'OSWAGO Electrical Equipment';
     wb.created = new Date();
@@ -725,10 +821,10 @@ const exportStockMovementsReport = async (req, res) => {
     applyHeaderStyle(detail.getRow(1));
     detail.views = [{ state: 'frozen', ySplit: 1 }];
 
-    list.forEach(m => {
+    (movements || []).forEach(m => {
       detail.addRow({
         created_at: m.created_at ? formatDateTimeForExcel(m.created_at) : '',
-        product_name: m.product_name,
+        product_name: productMap[m.product_id] || '(unknown product)',
         movement_type: m.movement_type || '',
         quantity: parseInt(m.quantity) || 0,
         reference_number: m.reference_number || '',
@@ -977,7 +1073,7 @@ const exportPurchaseOrdersReport = async (req, res) => {
 };
 
 // ============================================================
-// PROFIT & LOSS REPORT EXPORT
+// PROFIT & LOSS REPORT EXPORT (excludes cancelled + voided)
 // ============================================================
 const exportProfitReport = async (req, res) => {
   try {
@@ -985,7 +1081,7 @@ const exportProfitReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const orders = await fetchOrders(startISO, endISO);
+    const orders = await fetchOrders(startISO, endISO, false);
 
     let totalRevenue = 0, totalVAT = 0, totalCost = 0;
     const productProfit = {};
@@ -1076,7 +1172,7 @@ const exportProfitReport = async (req, res) => {
 };
 
 // ============================================================
-// VAT REPORT EXPORT
+// VAT REPORT EXPORT (excludes cancelled + voided)
 // ============================================================
 const exportVATReport = async (req, res) => {
   try {
@@ -1085,8 +1181,8 @@ const exportVATReport = async (req, res) => {
     const endISO = end.toISOString();
 
     const [orders, payments] = await Promise.all([
-      fetchOrders(startISO, endISO),
-      fetchPayments(startISO, endISO)
+      fetchOrders(startISO, endISO, false),
+      fetchPayments(startISO, endISO, false)
     ]);
 
     const totalVATFromOrders = orders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
@@ -1119,9 +1215,7 @@ const exportVATReport = async (req, res) => {
     sum.addRow(['VAT on Sales (full, from orders)', '', totalVATFromOrders]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected (scaled by % paid)', '', vatCollected]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected (from payments)', '', totalVATFromPayments]).getCell('C').numFmt = CURRENCY_FORMAT;
-    sum.addRow([]);
 
-    addSectionHeader(sum, 'ORDER DETAIL');
     const detail = wb.addWorksheet('Orders with VAT');
     detail.columns = [
       { header: 'Order #', key: 'order_number', width: 20 },
@@ -1181,9 +1275,9 @@ const exportFullReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const [orders, payments, productSalesRes, outstandingRes] = await Promise.all([
-      fetchOrders(startISO, endISO),
-      fetchPayments(startISO, endISO),
+    const [allOrders, allPayments, productSalesRes, outstandingRes] = await Promise.all([
+      fetchOrders(startISO, endISO, true),
+      fetchPayments(startISO, endISO, true),
       supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
       supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO })
     ]);
@@ -1209,27 +1303,32 @@ const exportFullReport = async (req, res) => {
       supabase.from('stock_movements').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false })
     ]);
 
+    const realOrders = filterRealOrders(allOrders);
+    const realPayments = filterRealPayments(allPayments);
+
     const productSales = productSalesRes.data || [];
     const outstandingCredit = Number(outstandingRes.data?.[0]?.outstanding_total) || 0;
 
-    const totalSales = orders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
-    const totalVAT = orders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
-    const totalWithVAT = orders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
-    const totalItems = orders.reduce((s, o) => s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
+    const totalSales = realOrders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
+    const totalVAT = realOrders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
+    const totalWithVAT = realOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+    const totalItems = realOrders.reduce((s, o) =>
+      s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
     const totalExpenses = (expenses || []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
     let totalCost = 0;
-    orders.forEach(o => {
+    realOrders.forEach(o => {
       (o.order_items || []).forEach(i => {
         totalCost += (parseFloat(i.cost_price) || 0) * (parseInt(i.quantity) || 0);
       });
     });
     const grossProfit = totalSales - totalCost;
     const netProfit = grossProfit - totalExpenses;
-    const vatCollected = computeVATCollectedFromOrders(orders);
+    const vatCollected = computeVATCollectedFromOrders(realOrders);
 
-    const vatMap = await fetchVATRatioMapForPayments(orders, payments);
-    const payTotals = computePaymentTotals(payments, vatMap);
+    const vatMap = await fetchVATRatioMapForPayments(allOrders, realPayments);
+    const payTotals = computePaymentTotals(realPayments, vatMap);
+    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
 
     const productIds = [...new Set((movements || []).map(m => m.product_id).filter(Boolean))];
     let productNameMap = {};
@@ -1267,15 +1366,15 @@ const exportFullReport = async (req, res) => {
       ['Period:', `${startDay} to ${endDay}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
-    addSectionHeader(sum, 'SALES');
+    addSectionHeader(sum, 'SALES (excl. cancelled)');
     sum.addRow(['Total Sales (excl. VAT)', '', totalSales]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT on Sales (full, from orders)', '', totalVAT]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT Collected (scaled by % paid)', '', vatCollected]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Total Sales (incl. VAT)', '', totalWithVAT]).getCell('C').numFmt = CURRENCY_FORMAT;
-    sum.addRow(['Total Orders', '', orders.length]);
+    sum.addRow(['Total Orders', '', realOrders.length]);
     sum.addRow(['Total Items Sold', '', totalItems]);
     sum.addRow([]);
-    addSectionHeader(sum, 'PAYMENTS');
+    addSectionHeader(sum, 'PAYMENTS (excl. voided)');
     sum.addRow(['Business Money Received', '', payTotals.business]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['VAT from Payments', '', payTotals.vat]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Total Money Received', '', payTotals.total]).getCell('C').numFmt = CURRENCY_FORMAT;
@@ -1295,143 +1394,12 @@ const exportFullReport = async (req, res) => {
     sum.addRow(['Active Products', '', (products || []).length]);
     sum.addRow(['Purchase Orders', '', (pos || []).length]);
 
-    // Orders
-    const ord = wb.addWorksheet('Orders');
-    ord.columns = [
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Customer', key: 'customer', width: 30 },
-      { header: 'Status', key: 'order_status', width: 14 },
-      { header: 'Payment Status', key: 'payment_status', width: 16 },
-      { header: 'Subtotal', key: 'subtotal', width: 15 },
-      { header: 'VAT', key: 'tax_amount', width: 15 },
-      { header: 'Total', key: 'total_amount', width: 15 },
-      { header: 'Paid', key: 'paid_amount', width: 15 },
-      { header: 'Balance', key: 'balance', width: 15 },
-      { header: 'Date', key: 'created_at', width: 20 }
-    ];
-    applyHeaderStyle(ord.getRow(1));
-    ord.views = [{ state: 'frozen', ySplit: 1 }];
-    orders.forEach(o => {
-      const tt = parseFloat(o.total_amount) || 0;
-      const pp = parseFloat(o.paid_amount) || 0;
-      ord.addRow({
-        order_number: o.order_number,
-        customer: o.customers?.name || 'Walk-in',
-        order_status: o.order_status,
-        payment_status: o.payment_status,
-        subtotal: parseFloat(o.subtotal) || 0,
-        tax_amount: parseFloat(o.tax_amount) || 0,
-        total_amount: tt,
-        paid_amount: pp,
-        balance: tt - pp,
-        created_at: formatDateTimeForExcel(o.created_at)
-      });
-    });
-    ['subtotal', 'tax_amount', 'total_amount', 'paid_amount', 'balance'].forEach(c => {
-      ord.getColumn(c).numFmt = CURRENCY_FORMAT;
-    });
-
-    // Order items
-    const itm = wb.addWorksheet('Order Items');
-    itm.columns = [
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Product', key: 'product_name', width: 35 },
-      { header: 'Quantity', key: 'quantity', width: 12 },
-      { header: 'Unit Price', key: 'unit_price', width: 15 },
-      { header: 'Subtotal', key: 'subtotal', width: 15 }
-    ];
-    applyHeaderStyle(itm.getRow(1));
-    itm.views = [{ state: 'frozen', ySplit: 1 }];
-    orders.forEach(o => {
-      (o.order_items || []).forEach(i => {
-        itm.addRow({
-          order_number: o.order_number,
-          product_name: i.product_name || '',
-          quantity: i.quantity,
-          unit_price: parseFloat(i.unit_price) || 0,
-          subtotal: parseFloat(i.subtotal) || 0
-        });
-      });
-    });
-    itm.getColumn('unit_price').numFmt = CURRENCY_FORMAT;
-    itm.getColumn('subtotal').numFmt = CURRENCY_FORMAT;
-
-    // Payments
-    const psheet = wb.addWorksheet('Payments');
-    psheet.columns = [
-      { header: 'Payment Date', key: 'payment_date', width: 20 },
-      { header: 'Order #', key: 'order_number', width: 20 },
-      { header: 'Amount', key: 'amount', width: 15 },
-      { header: 'Method', key: 'method', width: 15 },
-      { header: 'Reference', key: 'reference_number', width: 20 },
-      { header: 'Recorded By', key: 'recorded_by_name', width: 25 }
-    ];
-    applyHeaderStyle(psheet.getRow(1));
-    psheet.views = [{ state: 'frozen', ySplit: 1 }];
-    const ordNumMap = {};
-    orders.forEach(o => ordNumMap[o.id] = o.order_number);
-    payments.forEach(p => {
-      psheet.addRow({
-        payment_date: formatDateTimeForExcel(p.payment_date),
-        order_number: ordNumMap[p.order_id] || '(external)',
-        amount: parseFloat(p.amount) || 0,
-        method: (p.method || '').toUpperCase(),
-        reference_number: p.reference_number || '',
-        recorded_by_name: p.recorded_by_name || ''
-      });
-    });
-    psheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
-
-    // Products
-    const prodSheet = wb.addWorksheet('Products');
-    prodSheet.columns = [
-      { header: 'Product', key: 'name', width: 35 },
-      { header: 'Category', key: 'category', width: 20 },
-      { header: 'SKU', key: 'sku', width: 15 },
-      { header: 'Cost Price', key: 'cost_price', width: 15 },
-      { header: 'Selling Price', key: 'selling_price', width: 15 },
-      { header: 'Stock', key: 'stock_quantity', width: 10 }
-    ];
-    applyHeaderStyle(prodSheet.getRow(1));
-    prodSheet.views = [{ state: 'frozen', ySplit: 1 }];
-    (products || []).forEach(p => {
-      prodSheet.addRow({
-        name: p.name,
-        category: p.categories?.name || 'Uncategorized',
-        sku: p.sku || '',
-        cost_price: parseFloat(p.cost_price) || 0,
-        selling_price: parseFloat(p.selling_price) || 0,
-        stock_quantity: parseInt(p.stock_quantity) || 0
-      });
-    });
-    prodSheet.getColumn('cost_price').numFmt = CURRENCY_FORMAT;
-    prodSheet.getColumn('selling_price').numFmt = CURRENCY_FORMAT;
-
-    // Product sales
-    const prodSales = wb.addWorksheet('Product Sales');
-    prodSales.columns = [
-      { header: 'Product', key: 'product_name', width: 40 },
-      { header: 'Quantity Sold', key: 'total_quantity', width: 15 },
-      { header: 'Revenue', key: 'total_revenue', width: 15 },
-      { header: 'Cost', key: 'total_cost', width: 15 },
-      { header: 'Profit', key: 'total_profit', width: 15 }
-    ];
-    applyHeaderStyle(prodSales.getRow(1));
-    prodSales.views = [{ state: 'frozen', ySplit: 1 }];
-    productSales.forEach(p => {
-      const r = Number(p.total_revenue) || 0;
-      const c = Number(p.total_cost) || 0;
-      prodSales.addRow({
-        product_name: p.product_name || '',
-        total_quantity: Number(p.total_quantity) || 0,
-        total_revenue: r,
-        total_cost: c,
-        total_profit: r - c
-      });
-    });
-    ['total_revenue', 'total_cost', 'total_profit'].forEach(c => {
-      prodSales.getColumn(c).numFmt = CURRENCY_FORMAT;
-    });
+    // Detail sheets
+    writeOrdersSheet(wb, allOrders);
+    writeOrderItemsSheet(wb, realOrders);
+    writePaymentsSheet(wb, allPayments, orderNumberMap, true);
+    writeProductsSheet(wb, products || [], true);
+    writeProductSalesSheet(wb, productSales);
 
     // Stock movements
     const sm = wb.addWorksheet('Stock Movements');
