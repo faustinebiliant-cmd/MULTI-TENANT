@@ -4,28 +4,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import {
-  FiHome,
-  FiPackage,
-  FiGrid,
-  FiUsers,
-  FiShoppingCart,
-  FiCreditCard,
-  FiDollarSign,
-  FiTruck,
-  FiFileText,
-  FiBarChart2,
-  FiSettings,
-  FiUserPlus,
-  FiLogOut,
-  FiClipboard,
-  FiZap,
-  FiDownload,
-  FiMenu,
-  FiX
-} from 'react-icons/fi';
+import { FiLogOut, FiZap, FiMenu, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getInitials } from '../../utils/helpers';
+import { getMenuGroups } from '../../utils/navConfig';
 
 const Sidebar = () => {
   const { logout } = useAuth();
@@ -35,11 +17,7 @@ const Sidebar = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const role = user.role || '';
-
-  const isBoss = role === 'boss';
-  const isManager = role === 'manager' || role === 'boss';
-  const isCashier = role === 'cashier';
-  const isStoreKeeper = role === 'store_keeper';
+  const menuGroups = getMenuGroups(role);
 
   // Close the drawer automatically whenever the route changes (mobile)
   useEffect(() => {
@@ -51,43 +29,6 @@ const Sidebar = () => {
     document.body.classList.toggle('no-scroll', isOpen);
     return () => document.body.classList.remove('no-scroll');
   }, [isOpen]);
-
-  const menuGroups = [
-    {
-      label: 'Overview',
-      items: [
-        { path: '/dashboard', icon: FiHome, label: 'Dashboard', show: true }
-      ]
-    },
-    {
-      label: 'Sales',
-      items: [
-        { path: '/orders', icon: FiShoppingCart, label: 'Orders', show: true },
-        { path: '/customers', icon: FiUsers, label: 'Customers', show: !isCashier && !isStoreKeeper },
-        { path: '/payments', icon: FiCreditCard, label: 'Payments', show: isCashier || isManager || isBoss }
-      ]
-    },
-    {
-      label: 'Inventory',
-      items: [
-        { path: '/products', icon: FiPackage, label: 'Products', show: true },
-        { path: '/categories', icon: FiGrid, label: 'Categories', show: isManager },
-        { path: '/suppliers', icon: FiTruck, label: 'Suppliers', show: isManager },
-        { path: '/purchase-orders', icon: FiFileText, label: 'Purchase Orders', show: isManager }
-      ]
-    },
-    {
-      label: 'Management',
-      items: [
-        { path: '/expenses', icon: FiDollarSign, label: 'Expenses', show: isManager },
-        { path: '/reports/sales', icon: FiBarChart2, label: 'Reports', show: isManager },
-        { path: '/reports/extract', icon: FiDownload, label: 'Extract Reports', show: isBoss },
-        { path: '/audit-log', icon: FiClipboard, label: 'Audit Log', show: isBoss },
-        { path: '/staff', icon: FiUserPlus, label: 'Staff', show: isBoss },
-        { path: '/settings', icon: FiSettings, label: 'Settings', show: isBoss }
-      ]
-    }
-  ];
 
   const handleLogout = () => {
     logout();
@@ -179,3 +120,4 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
+

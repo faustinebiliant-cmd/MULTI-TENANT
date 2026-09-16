@@ -3,7 +3,7 @@
 // ============================================================
 
 import React from 'react';
-import { FiUser, FiBell } from 'react-icons/fi';
+import { FiUser, FiBell, FiSearch } from 'react-icons/fi';
 import { useShop } from '../../contexts/ShopContext';
 import { ROLE_META } from '../../utils/constants';
 
@@ -24,6 +24,17 @@ const Header = () => {
       </div>
 
       <div className="header-right">
+        <button
+          type="button"
+          className="header-search-trigger"
+          onClick={() => window.dispatchEvent(new Event('oswago:open-palette'))}
+          aria-label="Open search"
+        >
+          <FiSearch size={15} />
+          <span>Search...</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+
         <button className="header-notification" aria-label="Notifications">
           <FiBell size={20} />
           <span className="notification-dot"></span>
