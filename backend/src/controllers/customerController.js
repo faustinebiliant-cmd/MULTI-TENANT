@@ -124,21 +124,21 @@ const createCustomer = async (req, res) => {
     try {
         const { name, phone, email, address, notes } = req.body;
 
-        if (!isValidName(name)) {
+        if (!isValidName(name) || !isSafeText(name)) {
             return res.status(400).json({
                 success: false,
-                error: 'Customer name must be at least 2 characters'
+                error: 'Customer name must be up to 20 characters and contain no HTML or scripts'
             });
         }
 
-        if (!isValidPhone(phone)) {
+         if (email && (!isValidPhone(phone) || !isSafeText(phone))) {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid phone number format'
             });
         }
 
-        if (email && !isValidEmail(email)) {
+        if (email && (!isValidEmail(email) || !isSafeText(email))) {
             return res.status(400).json({
                 success: false,
                 error: 'Invalid email format'
@@ -242,10 +242,10 @@ const updateCustomer = async (req, res) => {
         }
 
         if (updates.name) {
-            if (!isValidName(updates.name)) {
+            if (!isValidName(updates.name) || !isSafeText(updates.name)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Customer name must be at least 2 characters'
+                    error: 'Customer name must be 2-100 characters and contain no HTML or scripts'
                 });
             }
             updates.name = sanitize(updates.name);
@@ -262,7 +262,7 @@ const updateCustomer = async (req, res) => {
         }
 
         if (updates.email) {
-            if (!isValidEmail(updates.email)) {
+            if (!isValidEmail(updates.email) || !isSafeText(updates.email)) {
                 return res.status(400).json({
                     success: false,
                     error: 'Invalid email format'

@@ -6,6 +6,7 @@ const supabase = require('../config/supabase');
 const {
     isValidName,
     isValidLength,
+    isValidUUID,
     isSafeText,
     sanitize
 } = require('../utils/validators');
@@ -52,10 +53,10 @@ const createCategory = async (req, res) => {
     try {
         const { name, description } = req.body;
 
-        if (!name || !isValidName(name)) {
+        if (!name || !isValidName(name) || !isSafeText(name)) {
             return res.status(400).json({
                 success: false,
-                error: 'Category name must be at least 2 characters'
+                error: 'invalid'
             });
         }
 
@@ -117,6 +118,13 @@ const updateCategory = async (req, res) => {
         const { id } = req.params;
         const { name, description } = req.body;
 
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid category ID'
+            });
+        }
+
         const { data: existing, error: checkError } = await supabase
             .from('categories')
             .select('id')
@@ -133,10 +141,10 @@ const updateCategory = async (req, res) => {
         const updateData = {};
 
         if (name !== undefined) {
-            if (!isValidName(name)) {
+            if (!isValidName(name) || !isSafeText(name)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Category name must be at least 2 characters'
+                    error: 'Category name must be 2-100 characters and contain no HTML or scripts'
                 });
             }
             updateData.name = sanitize(name.trim());
@@ -156,6 +164,13 @@ const updateCategory = async (req, res) => {
                 });
             }
             updateData.description = description ? sanitize(description) : '';
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Nothing to update'
+            });
         }
 
         const { data, error } = await supabase

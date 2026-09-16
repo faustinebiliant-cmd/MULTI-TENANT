@@ -22,28 +22,9 @@ code {
 
 a {
   text-decoration: none;
-  color: #1a56db;
+  color: var(--primary, #1a56db);
 }
 
 a:hover {
-  color: #0a3b8a;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1a56db;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #0a3b8a;
+  color: var(--primary-dark, #0a3b8a);
 }

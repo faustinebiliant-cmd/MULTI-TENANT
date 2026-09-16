@@ -3,6 +3,7 @@
 // ============================================================
 
 import React, { Component } from 'react';
+import { FiAlertTriangle, FiRefreshCw, FiLogOut, FiCode } from 'react-icons/fi';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -44,91 +45,132 @@ class ErrorBoundary extends Component {
       const isProduction = process.env.NODE_ENV === 'production';
 
       return (
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#f8fafc',
-          fontFamily: 'Inter, sans-serif'
-        }}>
-          <h2 style={{
-            fontSize: '24px',
-            fontWeight: '700',
-            color: '#0a1e3d',
-            marginBottom: '8px'
-          }}>
+        <div
+          style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            background: 'var(--light, #f4f6f9)',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: 'var(--radius-lg, 18px)',
+              background: 'var(--danger-soft, #fef2f2)',
+              color: 'var(--danger, #ef4444)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px'
+            }}
+          >
+            <FiAlertTriangle size={30} />
+          </div>
+
+          <h2
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: 'var(--dark, #0f172a)',
+              letterSpacing: '-0.4px',
+              marginBottom: '8px'
+            }}
+          >
             Something went wrong
           </h2>
 
-          <p style={{
-            color: '#6b7280',
-            marginBottom: '20px',
-            maxWidth: '400px'
-          }}>
+          <p
+            style={{
+              color: 'var(--gray, #64748b)',
+              fontSize: '13.5px',
+              marginBottom: '24px',
+              maxWidth: '420px',
+              lineHeight: 1.6
+            }}
+          >
             {isProduction
               ? 'An unexpected error occurred. Please refresh the page or try again.'
-              : `Error: ${this.state.error?.message || 'Unknown error'}`
-            }
+              : `Error: ${this.state.error?.message || 'Unknown error'}`}
           </p>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button onClick={this.handleRetry} className="btn btn-primary">
+              <FiRefreshCw size={15} style={{ marginRight: '6px' }} />
               Refresh Page
             </button>
             <button onClick={this.handleLogout} className="btn btn-secondary">
+              <FiLogOut size={15} style={{ marginRight: '6px' }} />
               Go to Login
             </button>
             {!isProduction && (
               <button onClick={this.toggleDetails} className="btn btn-secondary">
+                <FiCode size={15} style={{ marginRight: '6px' }} />
                 {this.state.showDetails ? 'Hide Details' : 'Show Details'}
               </button>
             )}
           </div>
 
           {!isProduction && this.state.showDetails && this.state.error && (
-            <div style={{
-              marginTop: '20px',
-              padding: '16px',
-              backgroundColor: '#fef2f2',
-              borderRadius: '8px',
-              border: '1px solid #fecaca',
-              maxWidth: '100%',
-              width: '600px',
-              textAlign: 'left',
-              overflow: 'auto'
-            }}>
-              <p style={{ color: '#991b1b', fontWeight: '600', marginBottom: '8px' }}>
+            <div
+              style={{
+                marginTop: '22px',
+                padding: '16px 18px',
+                background: 'var(--danger-soft, #fef2f2)',
+                borderRadius: 'var(--radius, 10px)',
+                border: '1px solid #fecaca',
+                maxWidth: '100%',
+                width: '600px',
+                textAlign: 'left',
+                overflow: 'auto'
+              }}
+            >
+              <p style={{ color: '#991b1b', fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>
                 Error Details:
               </p>
-              <pre style={{
-                color: '#4b5563',
-                fontSize: '12px',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                margin: 0,
-                maxHeight: '200px',
-                overflow: 'auto'
-              }}>
+              <pre
+                style={{
+                  color: '#4b5563',
+                  fontSize: '12px',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  margin: 0,
+                  maxHeight: '200px',
+                  overflow: 'auto'
+                }}
+              >
                 {this.state.error.toString()}
               </pre>
               {this.state.errorInfo && (
                 <>
-                  <p style={{ color: '#991b1b', fontWeight: '600', marginTop: '12px', marginBottom: '8px' }}>
+                  <p
+                    style={{
+                      color: '#991b1b',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      marginTop: '12px',
+                      marginBottom: '8px'
+                    }}
+                  >
                     Component Stack:
                   </p>
-                  <pre style={{
-                    color: '#4b5563',
-                    fontSize: '12px',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    margin: 0,
-                    maxHeight: '200px',
-                    overflow: 'auto'
-                  }}>
+                  <pre
+                    style={{
+                      color: '#4b5563',
+                      fontSize: '12px',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      margin: 0,
+                      maxHeight: '200px',
+                      overflow: 'auto'
+                    }}
+                  >
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </>

@@ -121,19 +121,19 @@ const createSupplier = async (req, res) => {
             });
         }
 
-        if (!isValidName(name)) {
+        if (!isValidName(name) || !isSafeText(name)) {
             return res.status(400).json({
                 success: false,
-                error: 'Supplier name must be at least 2 characters'
+                error: 'Supplier name must be up to 20 characters and contain no HTML or scripts'
             });
         }
 
         let cleanContactPerson = '';
         if (contact_person) {
-            if (!isValidName(contact_person)) {
+            if (!isValidName(contact_person) || !isSafeText(contact_person)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Contact person name must be at least 2 characters'
+                    error: 'Contact person must be up to 20 characters and contain no HTML or scripts'
                 });
             }
             cleanContactPerson = sanitize(contact_person.trim());
@@ -155,10 +155,10 @@ const createSupplier = async (req, res) => {
 
         let cleanAddress = '';
         if (address) {
-            if (!isValidLength(address, 0, 500)) {
+            if (!isValidLength(address, 0,50)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Address must be less than 500 characters'
+                    error: 'Address must be less than 50 characters'
                 });
             }
             if (!isSafeText(address)) {
@@ -251,23 +251,27 @@ const updateSupplier = async (req, res) => {
         const updateData = {};
 
         if (name !== undefined) {
-            if (!isValidName(name)) {
+            if (!isValidName(name) || !isSafeText(name)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Supplier name must be at least 2 characters'
+                    error: 'Supplier name must be up to 20 characters and contain no HTML or scripts'
                 });
             }
             updateData.name = sanitize(name);
         }
 
         if (contact_person !== undefined) {
-            if (contact_person && !isValidName(contact_person)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Contact person name must be at least 2 characters'
-                });
+            if (contact_person) {
+                if (!isValidName(contact_person) || !isSafeText(contact_person)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Contact person must be up to 20 characters and contain no HTML or scripts'
+                    });
+                }
+                updateData.contact_person = sanitize(contact_person);
+            } else {
+                updateData.contact_person = '';
             }
-            updateData.contact_person = contact_person ? sanitize(contact_person) : '';
         }
 
         if (phone !== undefined) {
@@ -292,10 +296,10 @@ const updateSupplier = async (req, res) => {
 
         if (address !== undefined) {
             if (address) {
-                if (!isValidLength(address, 0, 500)) {
+                if (!isValidLength(address, 0, 50)) {
                     return res.status(400).json({
                         success: false,
-                        error: 'Address must be less than 500 characters'
+                        error: 'Address must be less than 50 characters'
                     });
                 }
                 if (!isSafeText(address)) {
@@ -366,7 +370,6 @@ const deleteSupplier = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Confirm the supplier exists
         const { data: supplier, error: checkError } = await supabase
             .from('suppliers')
             .select('id, name')
@@ -380,7 +383,6 @@ const deleteSupplier = async (req, res) => {
             });
         }
 
-        // Block deletion if any active products use this supplier
         const { count: activeCount, error: activeErr } = await supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
@@ -396,7 +398,6 @@ const deleteSupplier = async (req, res) => {
             });
         }
 
-        // Detach soft-deleted products from this supplier so the FK does not block deletion
         const { error: detachError } = await supabase
             .from('products')
             .update({ supplier_id: null })
@@ -405,16 +406,12 @@ const deleteSupplier = async (req, res) => {
 
         if (detachError) throw detachError;
 
-        // Also detach purchase orders, which reference supplier_id
-        // and are not soft-deleted. Purchase orders stay for audit.
         const { error: poDetachError } = await supabase
             .from('purchase_orders')
             .update({ supplier_id: null })
             .eq('supplier_id', id);
 
         if (poDetachError) {
-            // If this fails, purchase_orders.supplier_id may be NOT NULL.
-            // In that case the supplier cannot be deleted while POs exist.
             if (poDetachError.code === '23502') {
                 return res.status(400).json({
                     success: false,
@@ -424,7 +421,6 @@ const deleteSupplier = async (req, res) => {
             throw poDetachError;
         }
 
-        // Delete the supplier
         const { error } = await supabase
             .from('suppliers')
             .delete()

@@ -267,6 +267,8 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
+        // Validate each item and detect duplicates
+        const seenProductIds = new Set();
         for (const item of items) {
             if (!item.product_id || !isValidUUID(item.product_id)) {
                 return res.status(400).json({
@@ -274,6 +276,14 @@ const createPurchaseOrder = async (req, res) => {
                     error: 'Invalid product ID in items'
                 });
             }
+            if (seenProductIds.has(item.product_id)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Duplicate product in items. Each product can appear only once.'
+                });
+            }
+            seenProductIds.add(item.product_id);
+
             if (!isValidQuantity(item.quantity)) {
                 return res.status(400).json({
                     success: false,
@@ -288,6 +298,7 @@ const createPurchaseOrder = async (req, res) => {
             }
         }
 
+        // Validate notes
         let cleanNotes = '';
         if (notes) {
             if (!isValidLength(notes, 0, 500)) {
@@ -305,6 +316,7 @@ const createPurchaseOrder = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
+        // Supplier must exist
         const { data: supplier, error: supplierError } = await supabase
             .from('suppliers')
             .select('id')
@@ -318,13 +330,48 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
+        // Resolve all products in one query. Reject any missing or inactive product.
+        const productIds = items.map(i => i.product_id);
+        const { data: products, error: productsError } = await supabase
+            .from('products')
+            .select('id, name, is_active')
+            .in('id', productIds);
+
+        if (productsError) {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to look up products: ' + productsError.message
+            });
+        }
+
+        const productMap = {};
+        (products || []).forEach(p => { productMap[p.id] = p; });
+
+        for (const item of items) {
+            const product = productMap[item.product_id];
+            if (!product) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Product not found for ID ${item.product_id}`
+                });
+            }
+            if (product.is_active === false) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Product "${product.name}" is inactive and cannot be added to a purchase order`
+                });
+            }
+        }
+
+        // Build line items using the real product name from the DB
         let total = 0;
         const poItems = items.map(item => {
+            const product = productMap[item.product_id];
             const subtotal = item.cost_price * item.quantity;
             total += subtotal;
             return {
                 product_id: item.product_id,
-                product_name: item.name || 'Product',
+                product_name: product.name,
                 quantity: item.quantity,
                 cost_price: item.cost_price,
                 subtotal
@@ -333,6 +380,7 @@ const createPurchaseOrder = async (req, res) => {
 
         const poNumber = `PO-${Date.now().toString().slice(-8)}`;
 
+        // Insert header
         const { data: po, error } = await supabase
             .from('purchase_orders')
             .insert({
@@ -355,6 +403,7 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
+        // Insert items
         const poItemsWithId = poItems.map(item => ({
             ...item,
             purchase_order_id: po.id
@@ -366,6 +415,7 @@ const createPurchaseOrder = async (req, res) => {
 
         if (itemsError) {
             console.error('Create PO items error:', itemsError);
+            // Roll back the header so we do not leave an orphan PO
             await supabase.from('purchase_orders').delete().eq('id', po.id);
             return res.status(500).json({
                 success: false,
@@ -373,6 +423,7 @@ const createPurchaseOrder = async (req, res) => {
             });
         }
 
+        // Activity log
         await supabase
             .from('activity_logs')
             .insert({
@@ -509,6 +560,12 @@ const receivePurchaseOrder = async (req, res) => {
     }
 };
 
+// ============================================================
+// UPDATE PURCHASE ORDER
+// Editable at any status except cancelled.
+// If the PO is received, item changes adjust product stock by the
+// difference and write ADJUSTMENT stock movements.
+// ============================================================
 const updatePurchaseOrder = async (req, res) => {
     try {
         const { id } = req.params;
@@ -521,9 +578,13 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
+        // Load existing PO with items
         const { data: existing, error: checkError } = await supabase
             .from('purchase_orders')
-            .select('id, status')
+            .select(`
+                *,
+                purchase_order_items (*)
+            `)
             .eq('id', id)
             .single();
 
@@ -534,13 +595,16 @@ const updatePurchaseOrder = async (req, res) => {
             });
         }
 
-        if (existing.status === 'received') {
+        if (existing.status === 'cancelled') {
             return res.status(400).json({
                 success: false,
-                error: 'Cannot update a received purchase order'
+                error: 'Cannot update a cancelled purchase order'
             });
         }
 
+        const wasReceived = existing.status === 'received';
+
+        // Validate header fields
         const updateData = {};
 
         if (supplier_id !== undefined) {
@@ -575,20 +639,7 @@ const updatePurchaseOrder = async (req, res) => {
 
         updateData.updated_at = new Date();
 
-        const { data: updatedPO, error: poError } = await supabase
-            .from('purchase_orders')
-            .update(updateData)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (poError) {
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update purchase order: ' + poError.message
-            });
-        }
-
+        // Validate new items if provided
         if (items && items.length > 0) {
             if (!isValidArrayLength(items, 100)) {
                 return res.status(400).json({
@@ -617,7 +668,96 @@ const updatePurchaseOrder = async (req, res) => {
                     });
                 }
             }
+        }
 
+        // Update header
+        const { error: poError } = await supabase
+            .from('purchase_orders')
+            .update(updateData)
+            .eq('id', id);
+
+        if (poError) {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update purchase order: ' + poError.message
+            });
+        }
+
+        // Update items if provided
+        if (items && items.length > 0) {
+            // If the PO was received, adjust product stock by the delta
+            // between the old items and the new items.
+            if (wasReceived) {
+                // Build a quantity map of old items by product_id
+                const oldQty = {};
+                (existing.purchase_order_items || []).forEach(i => {
+                    oldQty[i.product_id] = (oldQty[i.product_id] || 0) + i.quantity;
+                });
+
+                // Build a quantity map of new items by product_id
+                const newQty = {};
+                items.forEach(i => {
+                    newQty[i.product_id] = (newQty[i.product_id] || 0) + i.quantity;
+                });
+
+                // All product IDs touched
+                const allProductIds = new Set([
+                    ...Object.keys(oldQty),
+                    ...Object.keys(newQty)
+                ]);
+
+                // Apply stock deltas and write ADJUSTMENT movements
+                for (const productId of allProductIds) {
+                    const before = oldQty[productId] || 0;
+                    const after = newQty[productId] || 0;
+                    const delta = after - before;
+
+                    if (delta === 0) continue;
+
+                    const { data: product, error: productErr } = await supabase
+                        .from('products')
+                        .select('id, stock_quantity, name')
+                        .eq('id', productId)
+                        .single();
+
+                    if (productErr || !product) continue;
+
+                    const newStock = (product.stock_quantity || 0) + delta;
+
+                    if (newStock < 0) {
+                        return res.status(400).json({
+                            success: false,
+                            error: `Cannot reduce stock below zero for ${product.name}`
+                        });
+                    }
+
+                    await supabase
+                        .from('products')
+                        .update({
+                            stock_quantity: newStock,
+                            updated_at: new Date()
+                        })
+                        .eq('id', productId);
+
+                    const reasonText = delta > 0
+                        ? `Purchase order edit: added ${delta}`
+                        : `Purchase order edit: removed ${Math.abs(delta)}`;
+
+                    await supabase
+                        .from('stock_movements')
+                        .insert({
+                            product_id: productId,
+                            quantity: delta,
+                            movement_type: 'ADJUSTMENT',
+                            reference_id: existing.id,
+                            reference_number: existing.po_number,
+                            created_by: req.user.id,
+                            reason: reasonText
+                        });
+                }
+            }
+
+            // Replace items: delete old, insert new
             await supabase
                 .from('purchase_order_items')
                 .delete()
@@ -643,6 +783,7 @@ const updatePurchaseOrder = async (req, res) => {
                 });
             }
 
+            // Recompute total
             const total = newItems.reduce((sum, item) => sum + item.subtotal, 0);
             await supabase
                 .from('purchase_orders')
@@ -650,6 +791,22 @@ const updatePurchaseOrder = async (req, res) => {
                 .eq('id', id);
         }
 
+        // Log the update
+        await supabase
+            .from('activity_logs')
+            .insert({
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: 'Purchase Order Updated',
+                order_number: existing.po_number,
+                details: {
+                    status: existing.status,
+                    stock_adjusted: wasReceived && items && items.length > 0,
+                    supplier_id: updateData.supplier_id || existing.supplier_id
+                }
+            });
+
+        // Return the fresh PO with items
         const { data: finalPO } = await supabase
             .from('purchase_orders')
             .select(`
@@ -661,8 +818,10 @@ const updatePurchaseOrder = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Purchase order updated successfully',
-            data: finalPO || updatedPO
+            message: wasReceived
+                ? 'Purchase order updated. Stock adjusted by the difference.'
+                : 'Purchase order updated successfully',
+            data: finalPO
         });
 
     } catch (error) {

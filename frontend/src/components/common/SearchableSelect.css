@@ -66,6 +66,17 @@
   background: var(--danger-soft);
 }
 
+.searchable-select-chevron {
+  color: var(--gray-light);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.searchable-select-chevron.open {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
 .searchable-select-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -80,6 +91,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: searchable-select-open 0.15s ease;
+  transform-origin: top;
+}
+
+@keyframes searchable-select-open {
+  from { opacity: 0; transform: translateY(-4px) scaleY(0.97); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 
 .searchable-select-search {

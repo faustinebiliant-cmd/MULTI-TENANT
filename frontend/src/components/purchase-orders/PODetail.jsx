@@ -4,9 +4,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import api from '../../api/client';
-import { formatCurrency, formatDate } from '../../utils/helpers';
+import { formatCurrency, formatDate, formatDateOnly } from '../../utils/helpers';
 import Loader from '../common/Loader';
 import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
@@ -97,6 +97,26 @@ const PODetail = () => {
         </div>
       </div>
 
+      {isReceived && (
+        <div style={{
+          padding: '12px 16px',
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'flex-start'
+        }}>
+          <FiAlertTriangle size={18} color="#b45309" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ fontSize: '13px', color: '#78350f', lineHeight: 1.5 }}>
+            <strong>This purchase order has been received.</strong>
+            <br />
+            Editing the items will adjust product stock by the difference between what was originally received and the new quantities.
+          </div>
+        </div>
+      )}
+
       <div className="grid-2">
         <div className="card">
           <h3>Purchase Order Information</h3>
@@ -124,12 +144,14 @@ const PODetail = () => {
           </div>
           <div className="detail-row">
             <span className="detail-label">Order Date</span>
-            <span className="detail-value">{formatDate(po.order_date)}</span>
+            <span className="detail-value">
+              {po.order_date ? formatDateOnly(po.order_date) : formatDate(po.created_at)}
+            </span>
           </div>
           {po.delivery_date && (
             <div className="detail-row">
               <span className="detail-label">Delivery Date</span>
-              <span className="detail-value">{formatDate(po.delivery_date)}</span>
+              <span className="detail-value">{formatDateOnly(po.delivery_date)}</span>
             </div>
           )}
           {po.notes && (

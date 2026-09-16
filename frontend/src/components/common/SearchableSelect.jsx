@@ -1,23 +1,8 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Searchable Select
 // ============================================================
-// A searchable dropdown. Type to filter. Backend search as you type.
-// Replaces native <select> when the option list is large.
-//
-// Props:
-//   value           - current selected value
-//   onChange        - callback (value, option) fired on select or clear
-//   fetchOptions    - async (search) => array of options
-//   getOptionLabel  - (option) => string shown to user
-//   getOptionValue  - (option) => unique key
-//   getOptionMeta   - (option) => string shown below the label (optional)
-//   placeholder, searchPlaceholder
-//   initialOption   - optional option object to show before any fetch
-//   minChars        - min search length before querying (default 0)
-//   disabled, required
-
 import React, { useState, useEffect, useRef } from 'react';
-import { FiSearch, FiX } from 'react-icons/fi';
+import { FiSearch, FiX, FiChevronDown } from 'react-icons/fi';
 import './SearchableSelect.css';
 
 const SearchableSelect = ({
@@ -154,6 +139,12 @@ const SearchableSelect = ({
             <FiX size={14} />
           </button>
         )}
+
+        <FiChevronDown
+          size={16}
+          className={`searchable-select-chevron ${open ? 'open' : ''}`}
+          aria-hidden="true"
+        />
       </div>
 
       {required && (

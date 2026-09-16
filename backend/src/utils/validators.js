@@ -17,7 +17,7 @@ const isValidPassword = (password) => {
 };
 
 const isValidName = (name) => {
-    return name && name.trim().length >= 2 && name.trim().length <= 100;
+    return name && name.trim().length >= 2 && name.trim().length <= 20;
 };
 
 const isValidAmount = (amount) => {

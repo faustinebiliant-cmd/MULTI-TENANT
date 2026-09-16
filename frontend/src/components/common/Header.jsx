@@ -24,7 +24,7 @@ const Header = () => {
       </div>
 
       <div className="header-right">
-        <button className="header-notification">
+        <button className="header-notification" aria-label="Notifications">
           <FiBell size={20} />
           <span className="notification-dot"></span>
         </button>
