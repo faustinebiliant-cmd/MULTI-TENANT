@@ -1,0 +1,35 @@
+/* ============================================================
+   OSWAGO ELECTRICAL EQUIPMENT — BASE.CSS
+   Global reset, body defaults, scrollbar, selection color.
+   ============================================================ */
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--light);
+  color: var(--dark);
+  line-height: 1.55;
+  font-size: 14.5px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.no-scroll { overflow: hidden; }
+
+h1, h2, h3, h4 { color: var(--dark); letter-spacing: -0.02em; }
+::selection { background: var(--primary-light); color: var(--white); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--light-dark); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-light); }
+
+img, svg { max-width: 100%; }
+

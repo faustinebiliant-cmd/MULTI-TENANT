@@ -1,0 +1,164 @@
+/* ============================================================
+   OSWAGO ELECTRICAL EQUIPMENT — RESPONSIVE.CSS
+   Breakpoint overrides. Load this LAST so media queries win
+   over the base component styles they adjust.
+   ============================================================ */
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+
+@media (max-width: 1200px) {
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 992px) {
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .stats-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .report-summary-cards,
+  .report-summary-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- Tablet / phone: drawer sidebar + hamburger ---- */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px;
+  }
+
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex; }
+
+  .hamburger-btn { display: flex; }
+
+  .app-header {
+    left: 0;
+    padding: 10px 14px 10px 62px;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: calc(var(--header-h) + 16px) 16px 16px 16px;
+  }
+
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+  .stats-grid-4 { grid-template-columns: 1fr 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+
+  .header-title { font-size: 15px; }
+  .header-location { display: none; }
+  .user-info { display: none; }
+  .payment-methods { grid-template-columns: 1fr; }
+
+  .stat-card { padding: 12px 14px; }
+  .stat-info h3, .stat-number { font-size: 17px; }
+  .stat-label, .stat-info p { font-size: 11px; }
+
+  /* Simplify heavy widgets on phone */
+  .calendar-months-grid, .months-grid { grid-template-columns: repeat(3, 1fr); }
+  .calendar-grid { gap: 2px; }
+  .calendar-day { min-height: 46px; padding: 2px; }
+  .calendar-day-number { font-size: 12.5px; }
+  .calendar-day-orders { width: 16px; height: 16px; font-size: 8px; }
+  .calendar-day-revenue { font-size: 7px; }
+  .calendar-header-controls h2, .calendar-header h2 { font-size: 16px; }
+  .years-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+
+  .report-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .report-grid-dates { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .breadcrumb { padding: 10px 14px; font-size: 12px; }
+
+  /* Order progress: keep only the active step's label visible */
+  .order-progress-label:not(.active) { display: none; }
+  .order-progress-step { min-width: 60px; }
+
+  .audit-filters { flex-direction: column; align-items: stretch; }
+  .audit-filters .form-control,
+  .date-range { width: 100%; }
+  .date-range .form-control { flex: 1; }
+
+  .staff-toolbar { flex-direction: column; align-items: stretch; }
+  .staff-count { text-align: left; }
+}
+
+@media (max-width: 480px) {
+  .grid-2, .grid-3, .grid-4,
+  .stats-grid,
+  .stats-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .stat-card { padding: 11px 13px; flex-direction: column; text-align: center; min-height: 60px; }
+  .stat-icon { width: 34px; height: 34px; min-width: 34px; font-size: 15px; }
+  .stat-info h3, .stat-number { font-size: 16px; }
+  .stat-info p, .stat-label { font-size: 10.5px; }
+
+  .report-summary-cards,
+  .report-summary-grid { grid-template-columns: 1fr; }
+  .report-card { padding: 14px 16px; }
+  .report-grid { grid-template-columns: 1fr 1fr; }
+  .report-grid-dates { grid-template-columns: repeat(3, 1fr); }
+  .report-type-grid { grid-template-columns: 1fr; }
+
+  .calendar-months-grid, .months-grid { grid-template-columns: repeat(2, 1fr); }
+  .calendar-day { min-height: 38px; }
+  .calendar-day-number { font-size: 11px; }
+  .calendar-day-orders { width: 14px; height: 14px; font-size: 7px; }
+  .calendar-day-revenue { display: none; }
+
+  .categories-grid { grid-template-columns: 1fr; }
+  .category-card { padding: 14px 16px; }
+  .category-edit-form { flex-wrap: wrap; }
+  .category-edit-form input { width: 100%; }
+
+  .customer-profile-header { flex-direction: column; align-items: center; text-align: center; }
+  .customer-profile-contacts { justify-content: center; }
+  .customer-profile-actions { width: 100%; justify-content: center; }
+
+  .report-tabs { width: 100%; }
+  .report-tab { flex: 1; text-align: center; }
+}
+
+/* ---- Data tables on mobile: same table, just compact ---- */
+@media (max-width: 640px) {
+  .grid-3 { grid-template-columns: 1fr; }
+
+  .table-container { overflow-x: auto; }
+
+  .table-container table { min-width: 560px; }
+
+  .table-container tbody td {
+    padding: 9px 12px;
+    font-size: 12.5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .table-container table { min-width: 480px; }
+
+  .table-container tbody td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ---- Cards on mobile: smaller, tighter, simpler ---- */
+@media (max-width: 640px) {
+  .card {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-header { margin-bottom: 10px; }
+  .card-header h3 { font-size: 14px; }
+
+  .card h3 { font-size: 14.5px; }
+  .card p { font-size: 13px; }
+
+  .detail-row { padding: 8px 0; }
+  .detail-label,
+  .detail-value { font-size: 13px; }
+}
+
