@@ -5,8 +5,38 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
-const { isValidEmail, isValidPassword, isValidPhone, isValidName, sanitize } = require('../utils/validators');
+const {
+    isValidEmail,
+    isValidPassword,
+    isValidPhone,
+    isValidName,
+    isSafeText,
+    sanitize
+} = require('../utils/validators');
 
+// ============================================================
+// Helper: load businesses + branches for a Boss
+// ============================================================
+const loadBusinessesForBoss = async (bossId) => {
+    const { data: businesses, error } = await supabase
+        .from('businesses')
+        .select(`
+            id, name, shop_name, location, phone, email,
+            currency, tin, vrn, vat_enabled, vat_rate,
+            expense_categories, is_active,
+            branches (id, name, location, phone, email, is_active)
+        `)
+        .eq('owner_id', bossId)
+        .eq('is_active', true)
+        .order('name');
+
+    if (error) throw error;
+    return businesses || [];
+};
+
+// ============================================================
+// LOGIN
+// ============================================================
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -71,21 +101,49 @@ const login = async (req, res) => {
             });
         }
 
+        const is_boss = user.role === 'boss';
+
+        if (!is_boss) {
+            if (!user.business_id || !user.branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Your account is not assigned to a branch. Contact the administrator.'
+                });
+            }
+        }
+
+        const tokenPayload = {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+            is_boss,
+            is_first_login: user.is_first_login
+        };
+
+        // Staff tokens carry their branch scope inside the JWT
+        if (!is_boss) {
+            tokenPayload.business_id = user.business_id;
+            tokenPayload.branch_id = user.branch_id;
+        }
+
         const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                full_name: user.full_name,
-                role: user.role,
-                is_first_login: user.is_first_login
-            },
+            tokenPayload,
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
         );
 
+        // Load businesses list for Boss (empty array for staff)
+        let businesses = [];
+        if (is_boss) {
+            businesses = await loadBusinessesForBoss(user.id);
+        }
+
+        // Record login activity with branch if present
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: is_boss ? null : user.branch_id,
                 user_id: user.id,
                 user_name: user.full_name,
                 action: 'Login',
@@ -100,8 +158,10 @@ const login = async (req, res) => {
             token,
             user: {
                 ...userData,
-                is_first_login: user.is_first_login
-            }
+                is_first_login: user.is_first_login,
+                is_boss
+            },
+            businesses
         });
 
     } catch (error) {
@@ -113,13 +173,16 @@ const login = async (req, res) => {
     }
 };
 
+// ============================================================
+// GET CURRENT USER
+// ============================================================
 const getCurrentUser = async (req, res) => {
     try {
         const userId = req.user.id;
 
         const { data: user, error } = await supabase
             .from('users')
-            .select('id, full_name, email, phone, role, is_active, is_first_login, created_at')
+            .select('id, full_name, email, phone, role, business_id, branch_id, is_active, is_first_login, created_at')
             .eq('id', userId)
             .single();
 
@@ -130,9 +193,20 @@ const getCurrentUser = async (req, res) => {
             });
         }
 
+        const is_boss = user.role === 'boss';
+
+        let businesses = [];
+        if (is_boss) {
+            businesses = await loadBusinessesForBoss(user.id);
+        }
+
         return res.status(200).json({
             success: true,
-            user
+            user: {
+                ...user,
+                is_boss
+            },
+            businesses
         });
 
     } catch (error) {
@@ -144,6 +218,9 @@ const getCurrentUser = async (req, res) => {
     }
 };
 
+// ============================================================
+// UPDATE PROFILE
+// ============================================================
 const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -152,17 +229,17 @@ const updateProfile = async (req, res) => {
         const updates = {};
 
         if (full_name !== undefined) {
-            if (!isValidName(full_name)) {
+            if (!isValidName(full_name) || !isSafeText(full_name)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Full name must be between 2 and 100 characters'
+                    error: 'Full name must be between 2 and 20 characters and contain no HTML or scripts'
                 });
             }
             updates.full_name = sanitize(full_name.trim());
         }
 
         if (phone !== undefined && phone !== '') {
-            if (!isValidPhone(phone)) {
+            if (!isValidPhone(phone) || !isSafeText(phone)) {
                 return res.status(400).json({
                     success: false,
                     error: 'Invalid phone number format'
@@ -184,7 +261,7 @@ const updateProfile = async (req, res) => {
             .from('users')
             .update(updates)
             .eq('id', userId)
-            .select('id, full_name, email, phone, role, is_active, is_first_login, created_at')
+            .select('id, full_name, email, phone, role, business_id, branch_id, is_active, is_first_login, created_at')
             .single();
 
         if (error) throw error;
@@ -192,6 +269,7 @@ const updateProfile = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: req.scope?.branch_id || null,
                 user_id: userId,
                 user_name: user.full_name,
                 action: 'Profile Updated',
@@ -213,6 +291,9 @@ const updateProfile = async (req, res) => {
     }
 };
 
+// ============================================================
+// CHANGE PASSWORD
+// ============================================================
 const changePassword = async (req, res) => {
     try {
         const { current_password, new_password } = req.body;
@@ -276,6 +357,7 @@ const changePassword = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: req.scope?.branch_id || null,
                 user_id: userId,
                 user_name: user.full_name,
                 action: 'Password Changed',
@@ -296,12 +378,16 @@ const changePassword = async (req, res) => {
     }
 };
 
+// ============================================================
+// LOGOUT
+// ============================================================
 const logout = async (req, res) => {
     try {
         if (req.user) {
             await supabase
                 .from('activity_logs')
                 .insert({
+                    branch_id: req.scope?.branch_id || null,
                     user_id: req.user.id,
                     user_name: req.user.full_name,
                     action: 'Logout',

@@ -84,13 +84,15 @@ export const AuthProvider = ({ children }) => {
         const { token, user: userData } = response;
 
         const minimalUser = {
-          id: userData.id,
-          full_name: userData.full_name,
-          email: userData.email,
-          role: userData.role,
-          is_first_login: userData.is_first_login
-        };
-
+  id: userData.id,
+  full_name: userData.full_name,
+  email: userData.email,
+  role: userData.role,
+  is_first_login: userData.is_first_login,
+  is_boss: userData.is_boss === true,
+  business_id: userData.business_id || null,
+  branch_id: userData.branch_id || null
+};
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(minimalUser));
 

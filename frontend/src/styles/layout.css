@@ -279,6 +279,46 @@
 
 .header-right { display: flex; align-items: center; gap: 16px; }
 
+/* Business + branch switchers (Boss only) */
+.header-switchers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-switcher {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dark);
+  cursor: pointer;
+  max-width: 180px;
+  transition: border-color var(--transition-fast);
+}
+
+.header-switcher:hover {
+  border-color: var(--primary);
+}
+
+.header-switcher:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.12);
+}
+
+.header-branch-label {
+  font-size: 12px;
+  color: var(--gray);
+  background: var(--light);
+  padding: 4px 12px;
+  border-radius: 50px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
 .header-notification {
   position: relative;
   background: none;
@@ -356,4 +396,3 @@
   min-height: 100vh;
   background: var(--light);
 }
-

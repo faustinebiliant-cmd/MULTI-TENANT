@@ -1,10 +1,12 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Staff Form
+// Includes branch assignment for new and existing staff.
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
+import { useBranch } from '../../contexts/BranchContext';
 import toast from 'react-hot-toast';
 
 const StaffForm = () => {
@@ -12,15 +14,28 @@ const StaffForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
+  const [currentBranchName, setCurrentBranchName] = useState('');
+
+  const { activeBusiness } = useBranch();
+  const branches = activeBusiness?.branches || [];
 
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
     phone: '',
     role: 'cashier',
-    password: 'TempPass123!'
+    password: 'TempPass123!',
+    branch_id: ''
   });
 
+  // Auto-select first branch when creating
+  useEffect(() => {
+    if (!isEdit && !formData.branch_id && branches.length > 0) {
+      setFormData(prev => ({ ...prev, branch_id: branches[0].id }));
+    }
+  }, [branches, isEdit, formData.branch_id]);
+
+  // Load existing staff when editing
   useEffect(() => {
     if (!isEdit || !id) return;
 
@@ -33,7 +48,8 @@ const StaffForm = () => {
           email: data.email || '',
           phone: data.phone || '',
           role: data.role || 'cashier',
-          password: ''
+          password: '',
+          branch_id: data.branch_id || ''
         });
       } catch (error) {
         console.error('Error fetching staff:', error);
@@ -46,6 +62,13 @@ const StaffForm = () => {
     fetchStaff();
   }, [isEdit, id, navigate]);
 
+  // Resolve the current branch name for display in edit mode
+  useEffect(() => {
+    if (!isEdit || !formData.branch_id) return;
+    const match = branches.find(b => b.id === formData.branch_id);
+    setCurrentBranchName(match?.name || '');
+  }, [isEdit, formData.branch_id, branches]);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -57,13 +80,14 @@ const StaffForm = () => {
     try {
       const staffData = {
         full_name: formData.full_name.trim(),
-        email: formData.email.trim(),
         phone: formData.phone.trim() || '',
         role: formData.role
       };
 
       if (!isEdit) {
+        staffData.email = formData.email.trim();
         staffData.password = formData.password || 'TempPass123!';
+        staffData.branch_id = formData.branch_id;
       }
 
       if (isEdit) {
@@ -103,7 +127,7 @@ const StaffForm = () => {
     <div>
       <div className="page-header">
         <h1>{isEdit ? 'Edit Staff' : 'Add Staff'}</h1>
-        <p>{isEdit ? 'Update staff details' : 'Add a new team member'}</p>
+        <p>{isEdit ? 'Update staff details' : 'Add a new team member to a branch'}</p>
       </div>
 
       <div className="card" style={{ maxWidth: '600px' }}>
@@ -163,6 +187,44 @@ const StaffForm = () => {
               ))}
             </select>
           </div>
+
+          {/* Branch selector — shown on create, locked on edit */}
+          {!isEdit && (
+            <div className="form-group">
+              <label>Branch *</label>
+              <select
+                name="branch_id"
+                value={formData.branch_id}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select a branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+              <small style={{ color: '#6b7280' }}>
+                Staff will see only this branch's data after login
+              </small>
+            </div>
+          )}
+
+          {isEdit && (
+            <div className="form-group">
+              <label>Branch</label>
+              <input
+                type="text"
+                value={currentBranchName || 'Unknown branch'}
+                disabled
+                style={{ backgroundColor: '#f3f4f6' }}
+              />
+              <small style={{ color: '#6b7280' }}>
+                Branch cannot be changed after creation. Contact support if this needs to move.
+              </small>
+            </div>
+          )}
 
           {!isEdit && (
             <div className="form-group">

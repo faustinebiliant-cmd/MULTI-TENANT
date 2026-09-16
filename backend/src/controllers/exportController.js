@@ -1,10 +1,12 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Export Controller
+// Branch-scoped. Every query filters by branch_id.
 // ============================================================
 
 const ExcelJS = require('exceljs');
 const supabase = require('../config/supabase');
 const { parsePeriodEAT, formatDateEAT, formatDateTimeForExcel } = require('../utils/tz');
+const { requireBranchId } = require('../utils/branchScope');
 
 // Brand colours
 const BRAND_BLUE = 'FF1A56DB';
@@ -82,11 +84,10 @@ const formatPeriodLabel = (start, end) => {
 };
 
 // ============================================================
-// Data fetchers
+// Data fetchers (all branch-scoped)
 // ============================================================
 
-// includeCancelled default false so tax-oriented exports stay clean
-const fetchOrders = async (startISO, endISO, includeCancelled = false) => {
+const fetchOrders = async (branchId, startISO, endISO, includeCancelled = false) => {
   let query = supabase
     .from('orders')
     .select(`
@@ -96,6 +97,7 @@ const fetchOrders = async (startISO, endISO, includeCancelled = false) => {
       customers:customer_id (name, phone),
       order_items (id, product_id, product_name, quantity, unit_price, subtotal, cost_price)
     `)
+    .eq('branch_id', branchId)
     .gte('created_at', startISO)
     .lte('created_at', endISO);
 
@@ -108,11 +110,11 @@ const fetchOrders = async (startISO, endISO, includeCancelled = false) => {
   return data || [];
 };
 
-// includeVoided default false so totals exclude refunds
-const fetchPayments = async (startISO, endISO, includeVoided = false) => {
+const fetchPayments = async (branchId, startISO, endISO, includeVoided = false) => {
   let query = supabase
     .from('payments')
     .select('*')
+    .eq('branch_id', branchId)
     .gte('payment_date', startISO)
     .lte('payment_date', endISO);
 
@@ -125,25 +127,14 @@ const fetchPayments = async (startISO, endISO, includeVoided = false) => {
   return data || [];
 };
 
-// Real business only. Used for every total on the summary sheets.
-const filterRealOrders = (orders) =>
-  orders.filter(o => o.order_status !== 'cancelled');
+const filterRealOrders = (orders) => orders.filter(o => o.order_status !== 'cancelled');
+const filterRealPayments = (payments) => payments.filter(p => (p.status || '').toLowerCase() !== 'voided');
 
-const filterRealPayments = (payments) =>
-  payments.filter(p => (p.status || '').toLowerCase() !== 'voided');
-
-// Resolve order numbers by ID. Combines orders already in memory with a
-// chunked lookup for any orders created outside the export date range.
-const resolveOrderNumberMap = async (orders, payments) => {
+const resolveOrderNumberMap = async (branchId, orders, payments) => {
   const map = {};
   orders.forEach(o => { map[o.id] = o.order_number; });
 
-  const missingIds = [...new Set(
-    payments
-      .map(p => p.order_id)
-      .filter(id => id && !map[id])
-  )];
-
+  const missingIds = [...new Set(payments.map(p => p.order_id).filter(id => id && !map[id]))];
   if (missingIds.length === 0) return map;
 
   const CHUNK = 200;
@@ -152,6 +143,7 @@ const resolveOrderNumberMap = async (orders, payments) => {
     const { data, error } = await supabase
       .from('orders')
       .select('id, order_number')
+      .eq('branch_id', branchId)
       .in('id', chunk);
     if (error) throw error;
     (data || []).forEach(o => { map[o.id] = o.order_number; });
@@ -160,11 +152,7 @@ const resolveOrderNumberMap = async (orders, payments) => {
   return map;
 };
 
-// ============================================================
-// Payment VAT math
-// ============================================================
-
-const fetchVATRatioMapForPayments = async (orders, payments) => {
+const fetchVATRatioMapForPayments = async (branchId, orders, payments) => {
   const map = {};
   orders.forEach(o => {
     const t = parseFloat(o.total_amount) || 0;
@@ -178,6 +166,7 @@ const fetchVATRatioMapForPayments = async (orders, payments) => {
   const { data } = await supabase
     .from('orders')
     .select('id, total_amount, tax_amount')
+    .eq('branch_id', branchId)
     .in('id', ids);
 
   (data || []).forEach(o => {
@@ -222,11 +211,9 @@ const computeVATCollectedFromOrders = (orders) => {
 };
 
 // ============================================================
-// Sheet writers (shared, no duplication)
+// Sheet writers
 // ============================================================
 
-// Orders sheet. `hideCancelledFinancials` zeroes Paid/Balance on cancelled rows
-// so the columns do not suggest money is still owed on a cancelled order.
 const writeOrdersSheet = (wb, orders) => {
   const ord = wb.addWorksheet('Orders');
   ord.columns = [
@@ -273,7 +260,6 @@ const writeOrdersSheet = (wb, orders) => {
   return ord;
 };
 
-// Order Items sheet. Pass only real (non-cancelled) orders.
 const writeOrderItemsSheet = (wb, realOrders) => {
   const itm = wb.addWorksheet('Order Items');
   itm.columns = [
@@ -304,8 +290,6 @@ const writeOrderItemsSheet = (wb, realOrders) => {
   return itm;
 };
 
-// Payments sheet. `showStatusColumn` adds Completed/Voided column.
-// Always writes two total rows: completed only, and including voided.
 const writePaymentsSheet = (wb, allPayments, orderNumberMap, showStatusColumn = true) => {
   const psheet = wb.addWorksheet('Payments');
 
@@ -315,9 +299,7 @@ const writePaymentsSheet = (wb, allPayments, orderNumberMap, showStatusColumn = 
     { header: 'Amount', key: 'amount', width: 15 },
     { header: 'Method', key: 'method', width: 15 }
   ];
-  if (showStatusColumn) {
-    columns.push({ header: 'Status', key: 'status', width: 14 });
-  }
+  if (showStatusColumn) columns.push({ header: 'Status', key: 'status', width: 14 });
   columns.push(
     { header: 'Reference', key: 'reference_number', width: 20 },
     { header: 'Recorded By', key: 'recorded_by_name', width: 25 }
@@ -343,26 +325,18 @@ const writePaymentsSheet = (wb, allPayments, orderNumberMap, showStatusColumn = 
       reference_number: p.reference_number || '',
       recorded_by_name: p.recorded_by_name || ''
     };
-    if (showStatusColumn) {
-      row.status = isVoided ? 'Voided' : 'Completed';
-    }
+    if (showStatusColumn) row.status = isVoided ? 'Voided' : 'Completed';
     psheet.addRow(row);
   });
 
   psheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
 
   if (allPayments.length > 0) {
-    const tr1 = psheet.addRow({
-      payment_date: 'TOTALS (completed only)',
-      amount: totalCompleted
-    });
+    const tr1 = psheet.addRow({ payment_date: 'TOTALS (completed only)', amount: totalCompleted });
     tr1.getCell('amount').numFmt = CURRENCY_FORMAT;
     applyTotalRowStyle(tr1);
 
-    const tr2 = psheet.addRow({
-      payment_date: 'TOTALS (including voided)',
-      amount: totalAll
-    });
+    const tr2 = psheet.addRow({ payment_date: 'TOTALS (including voided)', amount: totalAll });
     tr2.getCell('amount').numFmt = CURRENCY_FORMAT;
     applyTotalRowStyle(tr2);
   }
@@ -370,7 +344,6 @@ const writePaymentsSheet = (wb, allPayments, orderNumberMap, showStatusColumn = 
   return psheet;
 };
 
-// Products sheet. `includeFinancials` controls Cost/Selling columns.
 const writeProductsSheet = (wb, products, includeFinancials = true) => {
   const prod = wb.addWorksheet('Products');
 
@@ -413,7 +386,6 @@ const writeProductsSheet = (wb, products, includeFinancials = true) => {
   return prod;
 };
 
-// Product Sales sheet (from sum_product_sales RPC).
 const writeProductSalesSheet = (wb, productSales) => {
   const prodSales = wb.addWorksheet('Product Sales');
   prodSales.columns = [
@@ -446,8 +418,9 @@ const writeProductSalesSheet = (wb, productSales) => {
 };
 
 // ============================================================
-// TEST EXPORT
+// EXPORTS
 // ============================================================
+
 const testExport = async (req, res) => {
   try {
     const wb = new ExcelJS.Workbook();
@@ -473,20 +446,20 @@ const testExport = async (req, res) => {
   }
 };
 
-// ============================================================
-// SALES REPORT EXPORT
-// ============================================================
 const exportSalesReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
     const [allOrders, allPayments, productSalesRes, outstandingRes] = await Promise.all([
-      fetchOrders(startISO, endISO, true),
-      fetchPayments(startISO, endISO, true),
-      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
-      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO })
+      fetchOrders(branchId, startISO, endISO, true),
+      fetchPayments(branchId, startISO, endISO, true),
+      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId })
     ]);
     if (productSalesRes.error) throw productSalesRes.error;
     if (outstandingRes.error) throw outstandingRes.error;
@@ -500,22 +473,20 @@ const exportSalesReport = async (req, res) => {
     const totalSales = realOrders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
     const totalVAT = realOrders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
     const totalWithVAT = realOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
-    const totalItems = realOrders.reduce((s, o) =>
-      s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
+    const totalItems = realOrders.reduce((s, o) => s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
     const totalOrders = realOrders.length;
     const avgOrder = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-    const vatMap = await fetchVATRatioMapForPayments(allOrders, allPayments);
+    const vatMap = await fetchVATRatioMapForPayments(branchId, allOrders, allPayments);
     const payTotals = computePaymentTotals(realPayments, vatMap);
     const vatCollected = computeVATCollectedFromOrders(realOrders);
 
-    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
+    const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'OSWAGO Electrical Equipment';
     wb.created = new Date();
 
-    // Summary
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
@@ -552,7 +523,6 @@ const exportSalesReport = async (req, res) => {
     sum.addRow(['M-Pesa', '', payTotals.methods.mpesa]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Tigo Pesa', '', payTotals.methods.tigo_pesa]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    // Detail sheets
     writeOrdersSheet(wb, allOrders);
     writeOrderItemsSheet(wb, realOrders);
     writePaymentsSheet(wb, allPayments, orderNumberMap, true);
@@ -569,24 +539,24 @@ const exportSalesReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// PAYMENTS REPORT EXPORT
-// ============================================================
 const exportPaymentsReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
     const [allOrders, allPayments] = await Promise.all([
-      fetchOrders(startISO, endISO, true),
-      fetchPayments(startISO, endISO, true)
+      fetchOrders(branchId, startISO, endISO, true),
+      fetchPayments(branchId, startISO, endISO, true)
     ]);
 
     const realPayments = filterRealPayments(allPayments);
-    const vatMap = await fetchVATRatioMapForPayments(allOrders, realPayments);
+    const vatMap = await fetchVATRatioMapForPayments(branchId, allOrders, realPayments);
     const totals = computePaymentTotals(realPayments, vatMap);
-    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
+    const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'OSWAGO Electrical Equipment';
@@ -630,11 +600,11 @@ const exportPaymentsReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// EXPENSES REPORT EXPORT
-// ============================================================
 const exportExpensesReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startDay = formatDateEAT(start);
     const endDay = formatDateEAT(end);
@@ -642,6 +612,7 @@ const exportExpensesReport = async (req, res) => {
     const { data: expenses, error } = await supabase
       .from('expenses')
       .select('*')
+      .eq('branch_id', branchId)
       .gte('expense_date', startDay)
       .lte('expense_date', endDay)
       .order('expense_date', { ascending: false });
@@ -722,14 +693,15 @@ const exportExpensesReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// PRODUCTS REPORT EXPORT
-// ============================================================
 const exportProductsReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { data: products, error } = await supabase
       .from('products')
       .select(`*, categories:category_id (name), suppliers:supplier_id (name)`)
+      .eq('branch_id', branchId)
       .eq('is_active', true)
       .order('name');
     if (error) throw error;
@@ -759,13 +731,7 @@ const exportProductsReport = async (req, res) => {
     sum.addRow(['Total Selling Value', '', totalSellingValue]).getCell('C').numFmt = CURRENCY_FORMAT;
     sum.addRow(['Potential Profit', '', totalSellingValue - totalCostValue]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    const detail = writeProductsSheet(wb, list, true);
-
-    if (list.length > 0) {
-      const tr = detail.addRow({ name: 'TOTALS', total_value: totalSellingValue });
-      tr.getCell('total_value').numFmt = CURRENCY_FORMAT;
-      applyTotalRowStyle(tr);
-    }
+    writeProductsSheet(wb, list, true);
 
     const fileName = `oswago-products-${formatDateEAT(new Date())}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -778,11 +744,11 @@ const exportProductsReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// STOCK MOVEMENTS REPORT EXPORT
-// ============================================================
 const exportStockMovementsReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
@@ -790,6 +756,7 @@ const exportStockMovementsReport = async (req, res) => {
     const { data: movements, error } = await supabase
       .from('stock_movements')
       .select('*')
+      .eq('branch_id', branchId)
       .gte('created_at', startISO)
       .lte('created_at', endISO)
       .order('created_at', { ascending: false });
@@ -801,6 +768,7 @@ const exportStockMovementsReport = async (req, res) => {
       const { data: products } = await supabase
         .from('products')
         .select('id, name')
+        .eq('branch_id', branchId)
         .in('id', productIds);
       (products || []).forEach(p => productMap[p.id] = p.name);
     }
@@ -843,14 +811,15 @@ const exportStockMovementsReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// CUSTOMERS REPORT EXPORT
-// ============================================================
 const exportCustomersReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { data: customers, error } = await supabase
       .from('customers')
       .select('*')
+      .eq('branch_id', branchId)
       .order('name');
     if (error) throw error;
 
@@ -907,14 +876,15 @@ const exportCustomersReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// SUPPLIERS REPORT EXPORT
-// ============================================================
 const exportSuppliersReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { data: suppliers, error } = await supabase
       .from('suppliers')
       .select('*')
+      .eq('branch_id', branchId)
       .order('name');
     if (error) throw error;
 
@@ -960,11 +930,11 @@ const exportSuppliersReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// PURCHASE ORDERS REPORT EXPORT
-// ============================================================
 const exportPurchaseOrdersReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
@@ -972,6 +942,7 @@ const exportPurchaseOrdersReport = async (req, res) => {
     const { data: pos, error } = await supabase
       .from('purchase_orders')
       .select('*')
+      .eq('branch_id', branchId)
       .gte('created_at', startISO)
       .lte('created_at', endISO)
       .order('created_at', { ascending: false });
@@ -985,6 +956,7 @@ const exportPurchaseOrdersReport = async (req, res) => {
       const { data: suppliers } = await supabase
         .from('suppliers')
         .select('id, name')
+        .eq('branch_id', branchId)
         .in('id', supplierIds);
       (suppliers || []).forEach(s => supplierMap[s.id] = s.name);
     }
@@ -1072,16 +1044,16 @@ const exportPurchaseOrdersReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// PROFIT & LOSS REPORT EXPORT (excludes cancelled + voided)
-// ============================================================
 const exportProfitReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const orders = await fetchOrders(startISO, endISO, false);
+    const orders = await fetchOrders(branchId, startISO, endISO, false);
 
     let totalRevenue = 0, totalVAT = 0, totalCost = 0;
     const productProfit = {};
@@ -1103,6 +1075,7 @@ const exportProfitReport = async (req, res) => {
     const { data: expenses } = await supabase
       .from('expenses')
       .select('*')
+      .eq('branch_id', branchId)
       .gte('created_at', startISO)
       .lte('created_at', endISO);
 
@@ -1149,12 +1122,7 @@ const exportProfitReport = async (req, res) => {
     detail.views = [{ state: 'frozen', ySplit: 1 }];
 
     Object.entries(productProfit).forEach(([name, d]) => {
-      detail.addRow({
-        name,
-        revenue: d.revenue,
-        cost: d.cost,
-        profit: d.revenue - d.cost
-      });
+      detail.addRow({ name, revenue: d.revenue, cost: d.cost, profit: d.revenue - d.cost });
     });
     ['revenue', 'cost', 'profit'].forEach(c => {
       detail.getColumn(c).numFmt = CURRENCY_FORMAT;
@@ -1171,24 +1139,24 @@ const exportProfitReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// VAT REPORT EXPORT (excludes cancelled + voided)
-// ============================================================
 const exportVATReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
     const [orders, payments] = await Promise.all([
-      fetchOrders(startISO, endISO, false),
-      fetchPayments(startISO, endISO, false)
+      fetchOrders(branchId, startISO, endISO, false),
+      fetchPayments(branchId, startISO, endISO, false)
     ]);
 
     const totalVATFromOrders = orders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
     const totalSalesExVAT = orders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
 
-    const vatMap = await fetchVATRatioMapForPayments(orders, payments);
+    const vatMap = await fetchVATRatioMapForPayments(branchId, orders, payments);
     const totalVATFromPayments = payments.reduce((s, p) => {
       const amt = parseFloat(p.amount) || 0;
       const ratio = vatMap[p.order_id] || 0;
@@ -1266,20 +1234,20 @@ const exportVATReport = async (req, res) => {
   }
 };
 
-// ============================================================
-// FULL REPORT EXPORT
-// ============================================================
 const exportFullReport = async (req, res) => {
   try {
+    const branchId = await requireBranchId(req, res);
+    if (!branchId) return;
+
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
     const [allOrders, allPayments, productSalesRes, outstandingRes] = await Promise.all([
-      fetchOrders(startISO, endISO, true),
-      fetchPayments(startISO, endISO, true),
-      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
-      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO })
+      fetchOrders(branchId, startISO, endISO, true),
+      fetchPayments(branchId, startISO, endISO, true),
+      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId })
     ]);
     if (productSalesRes.error) throw productSalesRes.error;
     if (outstandingRes.error) throw outstandingRes.error;
@@ -1295,12 +1263,12 @@ const exportFullReport = async (req, res) => {
       { data: pos },
       { data: movements }
     ] = await Promise.all([
-      supabase.from('products').select(`*, categories:category_id (name), suppliers:supplier_id (name)`).eq('is_active', true).order('name'),
-      supabase.from('expenses').select('*').gte('expense_date', startDay).lte('expense_date', endDay).order('expense_date', { ascending: false }),
-      supabase.from('customers').select('*').order('name'),
-      supabase.from('suppliers').select('*').order('name'),
-      supabase.from('purchase_orders').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
-      supabase.from('stock_movements').select('*').gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false })
+      supabase.from('products').select(`*, categories:category_id (name), suppliers:supplier_id (name)`).eq('branch_id', branchId).eq('is_active', true).order('name'),
+      supabase.from('expenses').select('*').eq('branch_id', branchId).gte('expense_date', startDay).lte('expense_date', endDay).order('expense_date', { ascending: false }),
+      supabase.from('customers').select('*').eq('branch_id', branchId).order('name'),
+      supabase.from('suppliers').select('*').eq('branch_id', branchId).order('name'),
+      supabase.from('purchase_orders').select('*').eq('branch_id', branchId).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
+      supabase.from('stock_movements').select('*').eq('branch_id', branchId).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false })
     ]);
 
     const realOrders = filterRealOrders(allOrders);
@@ -1312,8 +1280,7 @@ const exportFullReport = async (req, res) => {
     const totalSales = realOrders.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
     const totalVAT = realOrders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
     const totalWithVAT = realOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
-    const totalItems = realOrders.reduce((s, o) =>
-      s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
+    const totalItems = realOrders.reduce((s, o) => s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
     const totalExpenses = (expenses || []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
     let totalCost = 0;
@@ -1326,21 +1293,21 @@ const exportFullReport = async (req, res) => {
     const netProfit = grossProfit - totalExpenses;
     const vatCollected = computeVATCollectedFromOrders(realOrders);
 
-    const vatMap = await fetchVATRatioMapForPayments(allOrders, realPayments);
+    const vatMap = await fetchVATRatioMapForPayments(branchId, allOrders, realPayments);
     const payTotals = computePaymentTotals(realPayments, vatMap);
-    const orderNumberMap = await resolveOrderNumberMap(allOrders, allPayments);
+    const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
     const productIds = [...new Set((movements || []).map(m => m.product_id).filter(Boolean))];
     let productNameMap = {};
     if (productIds.length > 0) {
-      const { data: prods } = await supabase.from('products').select('id, name').in('id', productIds);
+      const { data: prods } = await supabase.from('products').select('id, name').eq('branch_id', branchId).in('id', productIds);
       (prods || []).forEach(p => productNameMap[p.id] = p.name);
     }
 
     const supplierIds = [...new Set((pos || []).map(p => p.supplier_id).filter(Boolean))];
     let supplierMap = {};
     if (supplierIds.length > 0) {
-      const { data: sups } = await supabase.from('suppliers').select('id, name').in('id', supplierIds);
+      const { data: sups } = await supabase.from('suppliers').select('id, name').eq('branch_id', branchId).in('id', supplierIds);
       (sups || []).forEach(s => supplierMap[s.id] = s.name);
     }
 
@@ -1357,7 +1324,6 @@ const exportFullReport = async (req, res) => {
     wb.creator = 'OSWAGO Electrical Equipment';
     wb.created = new Date();
 
-    // Summary
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 42;
     sum.getColumn(2).width = 25;
@@ -1394,14 +1360,12 @@ const exportFullReport = async (req, res) => {
     sum.addRow(['Active Products', '', (products || []).length]);
     sum.addRow(['Purchase Orders', '', (pos || []).length]);
 
-    // Detail sheets
     writeOrdersSheet(wb, allOrders);
     writeOrderItemsSheet(wb, realOrders);
     writePaymentsSheet(wb, allPayments, orderNumberMap, true);
     writeProductsSheet(wb, products || [], true);
     writeProductSalesSheet(wb, productSales);
 
-    // Stock movements
     const sm = wb.addWorksheet('Stock Movements');
     sm.columns = [
       { header: 'Date', key: 'created_at', width: 20 },
@@ -1424,7 +1388,6 @@ const exportFullReport = async (req, res) => {
       });
     });
 
-    // Customers
     const custSheet = wb.addWorksheet('Customers');
     custSheet.columns = [
       { header: 'Name', key: 'name', width: 30 },
@@ -1446,7 +1409,6 @@ const exportFullReport = async (req, res) => {
     });
     custSheet.getColumn('total_spent').numFmt = CURRENCY_FORMAT;
 
-    // Suppliers
     const supSheet = wb.addWorksheet('Suppliers');
     supSheet.columns = [
       { header: 'Name', key: 'name', width: 30 },
@@ -1457,15 +1419,9 @@ const exportFullReport = async (req, res) => {
     applyHeaderStyle(supSheet.getRow(1));
     supSheet.views = [{ state: 'frozen', ySplit: 1 }];
     (suppliers || []).forEach(s => {
-      supSheet.addRow({
-        name: s.name,
-        contact_person: s.contact_person || '',
-        phone: s.phone || '',
-        email: s.email || ''
-      });
+      supSheet.addRow({ name: s.name, contact_person: s.contact_person || '', phone: s.phone || '', email: s.email || '' });
     });
 
-    // Purchase orders
     const poSheet = wb.addWorksheet('Purchase Orders');
     poSheet.columns = [
       { header: 'PO #', key: 'po_number', width: 18 },
@@ -1487,7 +1443,6 @@ const exportFullReport = async (req, res) => {
     });
     poSheet.getColumn('total_amount').numFmt = CURRENCY_FORMAT;
 
-    // PO items
     const poItemsSheet = wb.addWorksheet('PO Items');
     poItemsSheet.columns = [
       { header: 'PO #', key: 'po_number', width: 18 },
@@ -1510,7 +1465,6 @@ const exportFullReport = async (req, res) => {
     poItemsSheet.getColumn('cost_price').numFmt = CURRENCY_FORMAT;
     poItemsSheet.getColumn('subtotal').numFmt = CURRENCY_FORMAT;
 
-    // Expenses
     const expSheet = wb.addWorksheet('Expenses');
     expSheet.columns = [
       { header: 'Date', key: 'expense_date', width: 15 },
@@ -1534,7 +1488,6 @@ const exportFullReport = async (req, res) => {
     });
     expSheet.getColumn('amount').numFmt = CURRENCY_FORMAT;
 
-    // P&L
     const plSheet = wb.addWorksheet('Profit & Loss');
     plSheet.getColumn(1).width = 40;
     plSheet.getColumn(2).width = 25;
@@ -1554,7 +1507,6 @@ const exportFullReport = async (req, res) => {
     npRow.getCell('C').numFmt = CURRENCY_FORMAT;
     npRow.font = { bold: true };
 
-    // VAT
     const vatSheet = wb.addWorksheet('VAT Report');
     vatSheet.getColumn(1).width = 40;
     vatSheet.getColumn(2).width = 25;

@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Suppliers Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidName,
     isValidPhone,
@@ -14,6 +16,9 @@ const {
 
 const getAllSuppliers = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search } = req.query;
 
         const pageNum = parseInt(page);
@@ -30,7 +35,10 @@ const getAllSuppliers = async (req, res) => {
             ? search.trim().replace(/[%_,()'"]/g, '')
             : null;
 
-        let dataQuery = supabase.from('suppliers').select('*');
+        let dataQuery = supabase
+            .from('suppliers')
+            .select('*')
+            .eq('branch_id', branchId);
 
         if (cleanSearch) {
             dataQuery = dataQuery.or(
@@ -47,7 +55,8 @@ const getAllSuppliers = async (req, res) => {
 
         let countQuery = supabase
             .from('suppliers')
-            .select('id', { count: 'exact', head: true });
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
 
         if (cleanSearch) {
             countQuery = countQuery.or(
@@ -78,126 +87,88 @@ const getAllSuppliers = async (req, res) => {
 
 const getSupplierById = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         const { data, error } = await supabase
             .from('suppliers')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Supplier not found'
-                });
+                return res.status(404).json({ success: false, error: 'Supplier not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            data
-        });
+        return res.status(200).json({ success: true, data });
 
     } catch (error) {
         console.error('Get supplier error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch supplier'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch supplier' });
     }
 };
 
 const createSupplier = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { name, contact_person, phone, email, address, notes } = req.body;
 
         if (!name || !phone) {
-            return res.status(400).json({
-                success: false,
-                error: 'Name and phone are required'
-            });
+            return res.status(400).json({ success: false, error: 'Name and phone are required' });
         }
 
         if (!isValidName(name) || !isSafeText(name)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Supplier name must be up to 20 characters and contain no HTML or scripts'
-            });
+            return res.status(400).json({ success: false, error: 'Supplier name must be 2-20 characters and contain no HTML or scripts' });
         }
 
         let cleanContactPerson = '';
         if (contact_person) {
             if (!isValidName(contact_person) || !isSafeText(contact_person)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Contact person must be up to 20 characters and contain no HTML or scripts'
-                });
+                return res.status(400).json({ success: false, error: 'Contact person must be 2-20 characters and contain no HTML or scripts' });
             }
             cleanContactPerson = sanitize(contact_person.trim());
         }
 
-        if (!isValidPhone(phone)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid phone number format'
-            });
+        if (!isValidPhone(phone) || !isSafeText(phone)) {
+            return res.status(400).json({ success: false, error: 'Invalid phone number format' });
         }
 
-        if (email && !isValidEmail(email)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid email format'
-            });
+        if (email && (!isValidEmail(email) || !isSafeText(email))) {
+            return res.status(400).json({ success: false, error: 'Invalid email format' });
         }
 
         let cleanAddress = '';
         if (address) {
-            if (!isValidLength(address, 0,50)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address must be less than 50 characters'
-                });
-            }
-            if (!isSafeText(address)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address contains invalid content'
-                });
+            if (!isValidLength(address, 0, 200) || !isSafeText(address)) {
+                return res.status(400).json({ success: false, error: 'Address must be less than 200 characters and contain no HTML or scripts' });
             }
             cleanAddress = sanitize(address);
         }
 
         let cleanNotes = '';
         if (notes) {
-            if (!isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be less than 500 characters and contain no HTML or scripts' });
             }
             cleanNotes = sanitize(notes);
         }
 
-        const cleanName = sanitize(name.trim());
-        const cleanPhone = sanitize(phone.trim());
-        const cleanEmail = email ? sanitize(email.trim()) : '';
-
         const { data, error } = await supabase
             .from('suppliers')
             .insert({
-                name: cleanName,
+                branch_id: branchId,
+                name: sanitize(name.trim()),
                 contact_person: cleanContactPerson,
-                phone: cleanPhone,
-                email: cleanEmail,
+                phone: sanitize(phone.trim()),
+                email: email ? sanitize(email.toLowerCase().trim()) : '',
                 address: cleanAddress,
                 notes: cleanNotes
             })
@@ -209,6 +180,7 @@ const createSupplier = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Supplier Created',
@@ -223,15 +195,15 @@ const createSupplier = async (req, res) => {
 
     } catch (error) {
         console.error('Create supplier error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create supplier'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create supplier' });
     }
 };
 
 const updateSupplier = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { name, contact_person, phone, email, address, notes } = req.body;
 
@@ -239,23 +211,18 @@ const updateSupplier = async (req, res) => {
             .from('suppliers')
             .select('id')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (checkError || !existing) {
-            return res.status(404).json({
-                success: false,
-                error: 'Supplier not found'
-            });
+            return res.status(404).json({ success: false, error: 'Supplier not found' });
         }
 
         const updateData = {};
 
         if (name !== undefined) {
             if (!isValidName(name) || !isSafeText(name)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Supplier name must be up to 20 characters and contain no HTML or scripts'
-                });
+                return res.status(400).json({ success: false, error: 'Supplier name must be 2-20 characters and contain no HTML or scripts' });
             }
             updateData.name = sanitize(name);
         }
@@ -263,10 +230,7 @@ const updateSupplier = async (req, res) => {
         if (contact_person !== undefined) {
             if (contact_person) {
                 if (!isValidName(contact_person) || !isSafeText(contact_person)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Contact person must be up to 20 characters and contain no HTML or scripts'
-                    });
+                    return res.status(400).json({ success: false, error: 'Contact person must be 2-20 characters and contain no HTML or scripts' });
                 }
                 updateData.contact_person = sanitize(contact_person);
             } else {
@@ -275,38 +239,23 @@ const updateSupplier = async (req, res) => {
         }
 
         if (phone !== undefined) {
-            if (!isValidPhone(phone)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid phone number format'
-                });
+            if (!isValidPhone(phone) || !isSafeText(phone)) {
+                return res.status(400).json({ success: false, error: 'Invalid phone number format' });
             }
             updateData.phone = sanitize(phone);
         }
 
         if (email !== undefined) {
-            if (email && !isValidEmail(email)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid email format'
-                });
+            if (email && (!isValidEmail(email) || !isSafeText(email))) {
+                return res.status(400).json({ success: false, error: 'Invalid email format' });
             }
-            updateData.email = email ? sanitize(email) : '';
+            updateData.email = email ? sanitize(email.toLowerCase()) : '';
         }
 
         if (address !== undefined) {
             if (address) {
-                if (!isValidLength(address, 0, 50)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Address must be less than 50 characters'
-                    });
-                }
-                if (!isSafeText(address)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Address contains invalid content'
-                    });
+                if (!isValidLength(address, 0, 200) || !isSafeText(address)) {
+                    return res.status(400).json({ success: false, error: 'Address must be less than 200 characters and contain no HTML or scripts' });
                 }
                 updateData.address = sanitize(address);
             } else {
@@ -316,17 +265,8 @@ const updateSupplier = async (req, res) => {
 
         if (notes !== undefined) {
             if (notes) {
-                if (!isValidLength(notes, 0, 500)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Notes must be less than 500 characters'
-                    });
-                }
-                if (!isSafeText(notes)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Notes contain invalid content'
-                    });
+                if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                    return res.status(400).json({ success: false, error: 'Notes must be less than 500 characters and contain no HTML or scripts' });
                 }
                 updateData.notes = sanitize(notes);
             } else {
@@ -340,16 +280,11 @@ const updateSupplier = async (req, res) => {
             .from('suppliers')
             .update(updateData)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
-        if (error) {
-            console.error('Update supplier error:', error);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update supplier: ' + error.message
-            });
-        }
+        if (error) throw error;
 
         return res.status(200).json({
             success: true,
@@ -359,100 +294,71 @@ const updateSupplier = async (req, res) => {
 
     } catch (error) {
         console.error('Update supplier error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to update supplier: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to update supplier: ' + error.message });
     }
 };
 
 const deleteSupplier = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         const { data: supplier, error: checkError } = await supabase
             .from('suppliers')
             .select('id, name')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (checkError || !supplier) {
-            return res.status(404).json({
-                success: false,
-                error: 'Supplier not found'
-            });
+            return res.status(404).json({ success: false, error: 'Supplier not found' });
         }
 
         const { count: activeCount, error: activeErr } = await supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
             .eq('supplier_id', id)
+            .eq('branch_id', branchId)
             .eq('is_active', true);
 
         if (activeErr) throw activeErr;
 
         if ((activeCount || 0) > 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'Supplier is in use by products'
-            });
+            return res.status(400).json({ success: false, error: 'Supplier is in use by products' });
         }
 
-        const { error: detachError } = await supabase
+        await supabase
             .from('products')
             .update({ supplier_id: null })
             .eq('supplier_id', id)
+            .eq('branch_id', branchId)
             .eq('is_active', false);
-
-        if (detachError) throw detachError;
 
         const { error: poDetachError } = await supabase
             .from('purchase_orders')
             .update({ supplier_id: null })
-            .eq('supplier_id', id);
+            .eq('supplier_id', id)
+            .eq('branch_id', branchId);
 
         if (poDetachError) {
-            if (poDetachError.code === '23502') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Supplier has purchase orders and cannot be deleted'
-                });
-            }
-            throw poDetachError;
+            return res.status(400).json({ success: false, error: 'Supplier has purchase orders and cannot be deleted' });
         }
 
         const { error } = await supabase
             .from('suppliers')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('branch_id', branchId);
 
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Supplier not found'
-                });
-            }
-            if (error.code === '23503') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Supplier is in use by other records'
-                });
-            }
-            throw error;
-        }
+        if (error) throw error;
 
-        return res.status(200).json({
-            success: true,
-            message: 'Supplier deleted successfully'
-        });
+        return res.status(200).json({ success: true, message: 'Supplier deleted successfully' });
 
     } catch (error) {
         console.error('Delete supplier error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to delete supplier'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to delete supplier' });
     }
 };
 

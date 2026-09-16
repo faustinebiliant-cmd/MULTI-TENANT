@@ -1,5 +1,6 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Categories Controller
+// Branch-scoped: every operation filters by req.scope.branch_id
 // ============================================================
 
 const supabase = require('../config/supabase');
@@ -11,11 +12,50 @@ const {
     sanitize
 } = require('../utils/validators');
 
+// ============================================================
+// Resolve the branch for this request.
+// Staff: comes from JWT via req.scope.
+// Boss: comes from X-Branch-Id header (validated in middleware).
+// Fallback: if Boss has no branch header but the business has
+// exactly one branch, auto-use it. Keeps single-branch shops
+// working without frontend changes.
+// ============================================================
+const resolveBranchId = async (req) => {
+    if (req.scope?.branch_id) return req.scope.branch_id;
+
+    if (req.user.is_boss && req.scope?.business_id) {
+        const { data: branches } = await supabase
+            .from('branches')
+            .select('id')
+            .eq('business_id', req.scope.business_id)
+            .eq('is_active', true)
+            .limit(2);
+
+        if (branches && branches.length === 1) {
+            return branches[0].id;
+        }
+    }
+
+    return null;
+};
+
+// ============================================================
+// GET all categories for the active branch
+// ============================================================
 const getAllCategories = async (req, res) => {
     try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+            return res.status(400).json({
+                success: false,
+                error: 'No active branch selected'
+            });
+        }
+
         const { data: categories, error } = await supabase
             .from('categories')
             .select('*')
+            .eq('branch_id', branchId)
             .order('name');
 
         if (error) throw error;
@@ -25,6 +65,7 @@ const getAllCategories = async (req, res) => {
                 .from('products')
                 .select('*', { count: 'exact', head: true })
                 .eq('category_id', category.id)
+                .eq('branch_id', branchId)
                 .eq('is_active', true);
 
             if (countError) {
@@ -49,14 +90,25 @@ const getAllCategories = async (req, res) => {
     }
 };
 
+// ============================================================
+// CREATE category
+// ============================================================
 const createCategory = async (req, res) => {
     try {
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+            return res.status(400).json({
+                success: false,
+                error: 'No active branch selected'
+            });
+        }
+
         const { name, description } = req.body;
 
         if (!name || !isValidName(name) || !isSafeText(name)) {
             return res.status(400).json({
                 success: false,
-                error: 'invalid'
+                error: 'Category name must be between 2 and 20 characters with no invalid content'
             });
         }
 
@@ -82,6 +134,7 @@ const createCategory = async (req, res) => {
         const { data, error } = await supabase
             .from('categories')
             .insert({
+                branch_id: branchId,
                 name: cleanName,
                 description: cleanDescription
             })
@@ -92,7 +145,7 @@ const createCategory = async (req, res) => {
             if (error.code === '23505') {
                 return res.status(400).json({
                     success: false,
-                    error: 'Category already exists'
+                    error: 'Category already exists in this branch'
                 });
             }
             throw error;
@@ -113,10 +166,12 @@ const createCategory = async (req, res) => {
     }
 };
 
+// ============================================================
+// UPDATE category
+// ============================================================
 const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description } = req.body;
 
         if (!isValidUUID(id)) {
             return res.status(400).json({
@@ -125,10 +180,19 @@ const updateCategory = async (req, res) => {
             });
         }
 
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+            return res.status(400).json({
+                success: false,
+                error: 'No active branch selected'
+            });
+        }
+
         const { data: existing, error: checkError } = await supabase
             .from('categories')
             .select('id')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (checkError || !existing) {
@@ -138,13 +202,14 @@ const updateCategory = async (req, res) => {
             });
         }
 
+        const { name, description } = req.body;
         const updateData = {};
 
         if (name !== undefined) {
             if (!isValidName(name) || !isSafeText(name)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Category name must be 2-100 characters and contain no HTML or scripts'
+                    error: 'Category name must be between 2 and 20 characters with no invalid content'
                 });
             }
             updateData.name = sanitize(name.trim());
@@ -175,11 +240,9 @@ const updateCategory = async (req, res) => {
 
         const { data, error } = await supabase
             .from('categories')
-            .update({
-                ...updateData,
-                updated_at: new Date()
-            })
+            .update(updateData)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
@@ -188,6 +251,12 @@ const updateCategory = async (req, res) => {
                 return res.status(404).json({
                     success: false,
                     error: 'Category not found'
+                });
+            }
+            if (error.code === '23505') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Another category with this name already exists in this branch'
                 });
             }
             throw error;
@@ -208,15 +277,33 @@ const updateCategory = async (req, res) => {
     }
 };
 
+// ============================================================
+// DELETE category
+// ============================================================
 const deleteCategory = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Confirm the category exists
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid category ID'
+            });
+        }
+
+        const branchId = await resolveBranchId(req);
+        if (!branchId) {
+            return res.status(400).json({
+                success: false,
+                error: 'No active branch selected'
+            });
+        }
+
         const { data: category, error: checkError } = await supabase
             .from('categories')
             .select('id, name')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (checkError || !category) {
@@ -226,11 +313,11 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Block deletion if any active products use this category
         const { count: activeCount, error: activeErr } = await supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
             .eq('category_id', id)
+            .eq('branch_id', branchId)
             .eq('is_active', true);
 
         if (activeErr) throw activeErr;
@@ -242,20 +329,20 @@ const deleteCategory = async (req, res) => {
             });
         }
 
-        // Detach soft-deleted products from this category so the FK does not block deletion
         const { error: detachError } = await supabase
             .from('products')
             .update({ category_id: null })
             .eq('category_id', id)
+            .eq('branch_id', branchId)
             .eq('is_active', false);
 
         if (detachError) throw detachError;
 
-        // Delete the category
         const { error } = await supabase
             .from('categories')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('branch_id', branchId);
 
         if (error) {
             if (error.code === 'PGRST116') {

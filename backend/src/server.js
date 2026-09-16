@@ -21,6 +21,7 @@ const userRoutes = require('./routes/users');
 const purchaseOrderRoutes = require('./routes/purchase-orders');
 const reportRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
+const businessRoutes = require('./routes/business');
 const settingsRoutes = require('./routes/settings');
 
 const { apiLimiter, loginLimiter } = require('./middleware/rateLimiter');
@@ -70,7 +71,7 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Business-Id', 'X-Branch-Id'],
     maxAge: 86400
 }));
 
@@ -114,6 +115,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/business', businessRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // ============================================================

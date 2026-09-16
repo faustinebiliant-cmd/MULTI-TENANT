@@ -1,12 +1,17 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Dashboard Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const { getTodayRangeEAT } = require('../utils/tz');
 
 const getDashboardStats = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { start, end } = getTodayRangeEAT();
         const startISO = start.toISOString();
         const endISO = end.toISOString();
@@ -19,42 +24,19 @@ const getDashboardStats = async (req, res) => {
             customersResult,
             recentOrdersResult
         ] = await Promise.all([
-            supabase.rpc('dashboard_summary', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-
-            supabase.rpc('sum_payments_by_method', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-
-            supabase.rpc('outstanding_today', {
-                start_date: startISO,
-                end_date: endISO
-            }),
-
-            supabase
-                .from('products')
-                .select('id, name, stock_quantity, low_stock_threshold')
-                .eq('is_active', true),
-
-            supabase
-                .from('customers')
-                .select('*', { count: 'exact', head: true }),
-
+            supabase.rpc('dashboard_summary', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.rpc('sum_payments_by_method', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.from('products').select('id, name, stock_quantity, low_stock_threshold').eq('branch_id', branchId).eq('is_active', true),
+            supabase.from('customers').select('*', { count: 'exact', head: true }).eq('branch_id', branchId),
             supabase
                 .from('orders')
                 .select(`
-                    id,
-                    order_number,
-                    total_amount,
-                    paid_amount,
-                    order_status,
-                    payment_status,
-                    created_at,
+                    id, order_number, total_amount, paid_amount,
+                    order_status, payment_status, created_at,
                     customers:customer_id (name)
                 `)
+                .eq('branch_id', branchId)
                 .neq('order_status', 'cancelled')
                 .order('created_at', { ascending: false })
                 .limit(5)
@@ -68,10 +50,7 @@ const getDashboardStats = async (req, res) => {
         if (recentOrdersResult.error) throw recentOrdersResult.error;
 
         const summaryRow = summaryResult.data?.[0] || {
-            today_sales: 0,
-            today_vat: 0,
-            today_total_with_vat: 0,
-            today_order_count: 0
+            today_sales: 0, today_vat: 0, today_total_with_vat: 0, today_order_count: 0
         };
 
         const todaySales = Number(summaryRow.today_sales) || 0;
@@ -79,7 +58,6 @@ const getDashboardStats = async (req, res) => {
         const todayTotalWithVAT = Number(summaryRow.today_total_with_vat) || 0;
         const totalOrders = Number(summaryRow.today_order_count) || 0;
 
-        // Split payments by VAT ratio of each order
         const paymentRows = paymentsByMethodResult.data || [];
         const paymentOrderIds = [...new Set(paymentRows.map(r => r.order_id).filter(Boolean))];
 
@@ -88,7 +66,8 @@ const getDashboardStats = async (req, res) => {
             const { data: paymentOrders, error: poError } = await supabase
                 .from('orders')
                 .select('id, total_amount, tax_amount')
-                .in('id', paymentOrderIds);
+                .in('id', paymentOrderIds)
+                .eq('branch_id', branchId);
 
             if (poError) throw poError;
 
@@ -109,15 +88,11 @@ const getDashboardStats = async (req, res) => {
             const vatRatio = orderVATRatioMap[row.order_id] || 0;
             const rowVAT = rowAmount * vatRatio;
             const rowBusiness = rowAmount - rowVAT;
-
             businessMoneyReceived += rowBusiness;
             vatCollectedFromPayments += rowVAT;
         });
 
-        const outstandingRow = outstandingResult.data?.[0] || {
-            outstanding_total: 0,
-            unpaid_order_count: 0
-        };
+        const outstandingRow = outstandingResult.data?.[0] || { outstanding_total: 0, unpaid_order_count: 0 };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
         const lowStock = lowStockResult.data || [];
@@ -138,21 +113,15 @@ const getDashboardStats = async (req, res) => {
         }));
 
         const lowStockDetails = lowStockItems.slice(0, 5).map(p => ({
-            name: p.name,
-            stock: p.stock_quantity,
-            threshold: p.low_stock_threshold
+            name: p.name, stock: p.stock_quantity, threshold: p.low_stock_threshold
         }));
 
         return res.status(200).json({
             success: true,
             data: {
-                todaySales,
-                todayVATBilled: todayVAT,
-                todayTotalWithVAT,
-                businessMoneyReceived,
-                vatCollectedFromPayments,
-                outstandingCredit,
-                totalOrders,
+                todaySales, todayVATBilled: todayVAT, todayTotalWithVAT,
+                businessMoneyReceived, vatCollectedFromPayments,
+                outstandingCredit, totalOrders,
                 lowStockItems: lowStockItems.length,
                 totalCustomers,
                 recentOrders: formattedRecent,
@@ -162,13 +131,8 @@ const getDashboardStats = async (req, res) => {
 
     } catch (error) {
         console.error('Dashboard stats error:', error.message);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch dashboard stats: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats: ' + error.message });
     }
 };
 
-module.exports = {
-    getDashboardStats
-};
+module.exports = { getDashboardStats };

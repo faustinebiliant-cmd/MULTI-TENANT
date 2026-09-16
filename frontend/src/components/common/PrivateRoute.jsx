@@ -5,6 +5,8 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import Loader from './Loader';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBranch } from '../../contexts/BranchContext';
 
 // Check if token is expired (5s clock buffer)
 const isTokenExpired = (token) => {
@@ -35,21 +37,23 @@ const isValidToken = (token) => {
 };
 
 const PrivateRoute = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+  const { loaded: branchLoaded } = useBranch();
   const [isValidating, setIsValidating] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthValid, setIsAuthValid] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    const storedUser = localStorage.getItem('user');
 
-    if (token && user && isValidToken(token)) {
-      setIsAuthenticated(true);
+    if (token && storedUser && isValidToken(token)) {
+      setIsAuthValid(true);
     } else {
       if (token) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       }
-      setIsAuthenticated(false);
+      setIsAuthValid(false);
     }
     setIsValidating(false);
   }, []);
@@ -58,18 +62,18 @@ const PrivateRoute = ({ children }) => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'token' && !e.newValue) {
-        setIsAuthenticated(false);
+        setIsAuthValid(false);
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  if (isValidating) {
+  if (isValidating || (isAuthenticated && !branchLoaded)) {
     return <Loader fullPage message="" />;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthValid || !isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 

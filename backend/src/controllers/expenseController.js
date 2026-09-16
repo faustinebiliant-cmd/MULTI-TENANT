@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Expenses Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidAmount,
     isValidLength,
@@ -12,6 +14,9 @@ const {
 
 const getAllExpenses = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search, category, startDate, endDate } = req.query;
 
         const pageNum = parseInt(page);
@@ -24,7 +29,10 @@ const getAllExpenses = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        let dataQuery = supabase.from('expenses').select('*');
+        let dataQuery = supabase
+            .from('expenses')
+            .select('*')
+            .eq('branch_id', branchId);
 
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
@@ -36,16 +44,15 @@ const getAllExpenses = async (req, res) => {
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
-        dataQuery = dataQuery
-            .order('expense_date', { ascending: false })
-            .range(from, to);
+        dataQuery = dataQuery.order('expense_date', { ascending: false }).range(from, to);
 
         const { data, error } = await dataQuery;
         if (error) throw error;
 
         let countQuery = supabase
             .from('expenses')
-            .select('id', { count: 'exact', head: true });
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
 
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
@@ -69,102 +76,71 @@ const getAllExpenses = async (req, res) => {
 
     } catch (error) {
         console.error('Get expenses error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch expenses'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch expenses' });
     }
 };
 
 const getExpenseById = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         const { data, error } = await supabase
             .from('expenses')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Expense not found'
-                });
+                return res.status(404).json({ success: false, error: 'Expense not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            data
-        });
+        return res.status(200).json({ success: true, data });
 
     } catch (error) {
         console.error('Get expense error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch expense'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch expense' });
     }
 };
 
 const createExpense = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { description, amount, category, expense_date, payment_method, notes } = req.body;
 
         if (!description || !amount) {
-            return res.status(400).json({
-                success: false,
-                error: 'Description and amount are required'
-            });
+            return res.status(400).json({ success: false, error: 'Description and amount are required' });
         }
 
-        if (!isValidLength(description, 3, 500)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Description must be between 3 and 500 characters'
-            });
-        }
-
-        if (!isSafeText(description)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Description contains invalid content'
-            });
+        if (!isValidLength(description, 3, 500) || !isSafeText(description)) {
+            return res.status(400).json({ success: false, error: 'Description must be 3-500 characters and contain no HTML or scripts' });
         }
 
         if (!isValidAmount(amount)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid amount'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid amount' });
         }
 
         let cleanNotes = '';
         if (notes) {
-            if (!isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             cleanNotes = sanitize(notes);
         }
 
-        const cleanDescription = sanitize(description.trim());
-
         const { data, error } = await supabase
             .from('expenses')
             .insert({
-                description: cleanDescription,
+                branch_id: branchId,
+                description: sanitize(description.trim()),
                 amount: parseFloat(amount),
                 category: category || 'Other',
                 expense_date: expense_date || new Date().toISOString().split('T')[0],
@@ -178,15 +154,13 @@ const createExpense = async (req, res) => {
 
         if (error) {
             console.error('Create expense error:', error);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create expense: ' + error.message
-            });
+            return res.status(500).json({ success: false, error: 'Failed to create expense: ' + error.message });
         }
 
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Expense Created',
@@ -201,55 +175,41 @@ const createExpense = async (req, res) => {
 
     } catch (error) {
         console.error('Create expense error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create expense: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create expense: ' + error.message });
     }
 };
 
 const updateExpense = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { description, amount, category, expense_date, payment_method, notes } = req.body;
 
-        const { data: existing, error: checkError } = await supabase
+        const { data: existing } = await supabase
             .from('expenses')
             .select('id')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
-        if (checkError || !existing) {
-            return res.status(404).json({
-                success: false,
-                error: 'Expense not found'
-            });
+        if (!existing) {
+            return res.status(404).json({ success: false, error: 'Expense not found' });
         }
 
         const updateData = {};
 
         if (description !== undefined) {
-            if (description && !isValidLength(description, 3, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description must be between 3 and 500 characters'
-                });
-            }
-            if (description && !isSafeText(description)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description contains invalid content'
-                });
+            if (description && (!isValidLength(description, 3, 500) || !isSafeText(description))) {
+                return res.status(400).json({ success: false, error: 'Description must be 3-500 characters and contain no HTML or scripts' });
             }
             updateData.description = description ? sanitize(description) : '';
         }
 
         if (amount !== undefined) {
             if (!isValidAmount(amount)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid amount'
-                });
+                return res.status(400).json({ success: false, error: 'Invalid amount' });
             }
             updateData.amount = parseFloat(amount);
         }
@@ -257,17 +217,8 @@ const updateExpense = async (req, res) => {
         if (category !== undefined) updateData.category = category || 'Other';
 
         if (notes !== undefined) {
-            if (notes && !isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (notes && !isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (notes && (!isValidLength(notes, 0, 500) || !isSafeText(notes))) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             updateData.notes = notes ? sanitize(notes) : '';
         }
@@ -280,16 +231,11 @@ const updateExpense = async (req, res) => {
             .from('expenses')
             .update(updateData)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
-        if (error) {
-            console.error('Update expense error:', error);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update expense: ' + error.message
-            });
-        }
+        if (error) throw error;
 
         return res.status(200).json({
             success: true,
@@ -299,43 +245,35 @@ const updateExpense = async (req, res) => {
 
     } catch (error) {
         console.error('Update expense error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to update expense: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to update expense: ' + error.message });
     }
 };
 
 const deleteExpense = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         const { error } = await supabase
             .from('expenses')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('branch_id', branchId);
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Expense not found'
-                });
+                return res.status(404).json({ success: false, error: 'Expense not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            message: 'Expense deleted successfully'
-        });
+        return res.status(200).json({ success: true, message: 'Expense deleted successfully' });
 
     } catch (error) {
         console.error('Delete expense error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to delete expense'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to delete expense' });
     }
 };
 

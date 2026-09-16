@@ -1,15 +1,20 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Shop Context
+// Reads the active business (name, location, VAT, TIN/VRN).
+// Refreshes when the Boss switches business.
 // ============================================================
-// Loads shop identity and config from the settings table once.
-// Components read from here instead of hardcoded constants.
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import api from '../api/client';
+import { useAuth } from './AuthContext';
+import { useBranch } from './BranchContext';
 
 const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  const { activeBusinessId } = useBranch();
+
   const [shop, setShop] = useState({
     appName: 'OSWAGO',
     location: '',
@@ -33,19 +38,25 @@ export const ShopProvider = ({ children }) => {
     } catch {
       // not JSON
     }
-    return String(value).split(',').map(s => s.trim()).filter(Boolean);
+    return [];
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
-      const data = await api.getSettings();
+      const data = await api.getBusiness();
+      if (!data || !data.id) {
+        setShop((prev) => ({ ...prev, loaded: true }));
+        return;
+      }
+
       setShop({
-        appName: data.shopName || 'OSWAGO',
+        appName: data.shopName || data.shop_name || data.name || 'OSWAGO',
         location: data.location || '',
         phone: data.phone || '',
         email: data.email || '',
         currency: data.currency || 'TZS',
-        vatEnabled: data.vat_enabled === 'true' || data.vat_enabled === true,
+        vatEnabled: data.vat_enabled === true,
         vatRate: parseFloat(data.vat_rate) || 18,
         tin: data.tin || '',
         vrn: data.vrn || '',
@@ -56,11 +67,11 @@ export const ShopProvider = ({ children }) => {
       console.error('ShopContext load error:', error);
       setShop((prev) => ({ ...prev, loaded: true }));
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load, activeBusinessId]);
 
   const refresh = () => load();
 

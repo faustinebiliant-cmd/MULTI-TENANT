@@ -146,7 +146,7 @@ const ExtractReports = () => {
     return params.toString();
   };
 
-  const handleDownload = async () => {
+const handleDownload = async () => {
     if (period === 'custom' && (!startDate || !endDate)) {
       toast.error('Please select both start and end dates');
       return;
@@ -155,11 +155,19 @@ const ExtractReports = () => {
     setDownloading(true);
     try {
       const token = localStorage.getItem('token');
+      const businessId = localStorage.getItem('activeBusinessId');
+      const branchId = localStorage.getItem('activeBranchId');
       const queryString = buildQueryString();
 
       const response = await fetch(
         `${API_URL}/reports/export/${selectedReport}?${queryString}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Business-Id': businessId || '',
+            'X-Branch-Id': branchId || ''
+          }
+        }
       );
 
       if (!response.ok) {

@@ -1,70 +1,44 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Reports Controller
+// Branch-scoped. Boss can pass branch_id=all for cross-branch.
 // ============================================================
 
 const supabase = require('../config/supabase');
 const { parsePeriodEAT, getYearRangeEAT } = require('../utils/tz');
+const { requireBranchId } = require('../utils/branchScope');
 
 const getSalesReport = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { start, end } = parsePeriodEAT(req.query);
         const startISO = start.toISOString();
         const endISO = end.toISOString();
 
         const [
-            ordersRes,
-            stockMovementsRes,
-            monthlyRes,
-            productSalesRes,
-            paymentsByMethodRes,
-            outstandingRes,
-            ordersFullRes,
-            paymentsRes,
-            productsRes
+            ordersRes, stockMovementsRes, monthlyRes, productSalesRes,
+            paymentsByMethodRes, outstandingRes, ordersFullRes, paymentsRes, productsRes
         ] = await Promise.all([
-            supabase.rpc('sum_orders', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
-            supabase.rpc('sum_stock_movements', { start_date: startISO, end_date: endISO }),
-            supabase.rpc('sum_monthly', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
-            supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true }),
-            supabase.rpc('sum_payments_by_method', { start_date: startISO, end_date: endISO }),
-            supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO }),
-            supabase
-                .from('orders')
-                .select(`
-                    id,
-                    order_number,
-                    order_status,
-                    payment_status,
-                    subtotal,
-                    tax_amount,
-                    total_amount,
-                    paid_amount,
-                    created_at,
+            supabase.rpc('sum_orders', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+            supabase.rpc('sum_stock_movements', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.rpc('sum_monthly', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+            supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+            supabase.rpc('sum_payments_by_method', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+            supabase.from('orders')
+                .select(`id, order_number, order_status, payment_status, subtotal, tax_amount, total_amount, paid_amount, created_at,
                     customers:customer_id (name, phone),
-                    order_items (id, product_id, product_name, quantity, subtotal, cost_price)
-                `)
-                .gte('created_at', startISO)
-                .lte('created_at', endISO)
+                    order_items (id, product_id, product_name, quantity, subtotal, cost_price)`)
+                .eq('branch_id', branchId)
+                .gte('created_at', startISO).lte('created_at', endISO)
                 .neq('order_status', 'cancelled'),
-            supabase
-                .from('payments')
-                .select('*')
-                .gte('payment_date', startISO)
-                .lte('payment_date', endISO),
-            supabase
-                .from('products')
-                .select('id, name, stock_quantity')
-                .eq('is_active', true)
+            supabase.from('payments').select('*').eq('branch_id', branchId)
+                .gte('payment_date', startISO).lte('payment_date', endISO),
+            supabase.from('products').select('id, name, stock_quantity').eq('branch_id', branchId).eq('is_active', true)
         ]);
 
-        const summaryRow = ordersRes.data?.[0] || {
-            sum_subtotal: 0,
-            sum_tax: 0,
-            sum_total: 0,
-            order_count: 0,
-            item_count: 0
-        };
-
+        const summaryRow = ordersRes.data?.[0] || { sum_subtotal: 0, sum_tax: 0, sum_total: 0, order_count: 0, item_count: 0 };
         const totalSales = Number(summaryRow.sum_subtotal) || 0;
         const totalVAT = Number(summaryRow.sum_tax) || 0;
         const totalWithVAT = Number(summaryRow.sum_total) || 0;
@@ -80,45 +54,21 @@ const getSalesReport = async (req, res) => {
         const stockMovementRows = stockMovementsRes.data || [];
         const paymentMethodRows = paymentsByMethodRes.data || [];
 
-        const outstandingRow = outstandingRes.data?.[0] || {
-            outstanding_total: 0,
-            unpaid_order_count: 0
-        };
+        const outstandingRow = outstandingRes.data?.[0] || { outstanding_total: 0, unpaid_order_count: 0 };
         const outstandingCredit = Number(outstandingRow.outstanding_total) || 0;
 
         const monthlyBreakdown = monthlyRows.map(row => {
             const d = new Date(row.month_start);
-            const label = d.toLocaleString('default', {
-                month: 'short',
-                year: 'numeric',
-                timeZone: 'Africa/Dar_es_Salaam'
-            });
-            return {
-                month: label,
-                revenue: Number(row.sum_subtotal) || 0,
-                orders: Number(row.order_count) || 0,
-                _sortKey: d
-            };
-        })
-        .sort((a, b) => a._sortKey - b._sortKey)
-        .map(({ _sortKey, ...rest }) => rest);
+            const label = d.toLocaleString('default', { month: 'short', year: 'numeric', timeZone: 'Africa/Dar_es_Salaam' });
+            return { month: label, revenue: Number(row.sum_subtotal) || 0, orders: Number(row.order_count) || 0, _sortKey: d };
+        }).sort((a, b) => a._sortKey - b._sortKey).map(({ _sortKey, ...rest }) => rest);
 
         const topProducts = productSalesRows
-            .map(row => ({
-                name: row.product_name,
-                quantity: Number(row.total_quantity) || 0,
-                revenue: Number(row.total_revenue) || 0
-            }))
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
+            .map(row => ({ name: row.product_name, quantity: Number(row.total_quantity) || 0, revenue: Number(row.total_revenue) || 0 }))
+            .sort((a, b) => b.revenue - a.revenue).slice(0, 10);
 
         const currentStockMap = {};
-        allProducts.forEach(product => {
-            currentStockMap[product.id] = {
-                name: product.name,
-                currentStock: product.stock_quantity || 0
-            };
-        });
+        allProducts.forEach(p => { currentStockMap[p.id] = { name: p.name, currentStock: p.stock_quantity || 0 }; });
 
         const nameToIdMap = {};
         orders.forEach(order => {
@@ -131,10 +81,7 @@ const getSalesReport = async (req, res) => {
             }
         });
 
-        let stockAdded = 0;
-        let stockSold = 0;
-        let stockAdjusted = 0;
-        let stockReturned = 0;
+        let stockAdded = 0, stockSold = 0, stockAdjusted = 0, stockReturned = 0;
         const productStockMovements = {};
 
         stockMovementRows.forEach(row => {
@@ -145,11 +92,7 @@ const getSalesReport = async (req, res) => {
             if (!productStockMovements[productName]) {
                 productStockMovements[productName] = {
                     product_id: nameToIdMap[productName] || null,
-                    added: 0,
-                    sold: 0,
-                    adjusted: 0,
-                    returned: 0,
-                    netChange: 0
+                    added: 0, sold: 0, adjusted: 0, returned: 0, netChange: 0
                 };
             }
 
@@ -179,26 +122,16 @@ const getSalesReport = async (req, res) => {
             }
         });
 
-        const productStockList = Object.entries(productStockMovements)
-            .map(([name, data]) => {
-                const currentStock = data.product_id
-                    ? (currentStockMap[data.product_id]?.currentStock || 0)
-                    : 0;
-                const openingStock = currentStock - data.netChange;
-
-                return {
-                    name,
-                    product_id: data.product_id,
-                    openingStock,
-                    added: data.added,
-                    sold: data.sold,
-                    adjusted: data.adjusted,
-                    returned: data.returned,
-                    netChange: data.netChange,
-                    closingStock: currentStock
-                };
-            })
-            .sort((a, b) => (b.added + b.sold + b.adjusted + b.returned) - (a.added + a.sold + a.adjusted + a.returned));
+        const productStockList = Object.entries(productStockMovements).map(([name, data]) => {
+            const currentStock = data.product_id ? (currentStockMap[data.product_id]?.currentStock || 0) : 0;
+            const openingStock = currentStock - data.netChange;
+            return {
+                name, product_id: data.product_id,
+                openingStock, added: data.added, sold: data.sold,
+                adjusted: data.adjusted, returned: data.returned,
+                netChange: data.netChange, closingStock: currentStock
+            };
+        }).sort((a, b) => (b.added + b.sold + b.adjusted + b.returned) - (a.added + a.sold + a.adjusted + a.returned));
 
         const paymentMethods = { cash: 0, mpesa: 0, tigo_pesa: 0 };
         let totalPaymentsReceived = 0;
@@ -208,19 +141,14 @@ const getSalesReport = async (req, res) => {
 
         const orderVATMap = {};
         if (paymentOrderIds.length > 0) {
-            const { data: paymentOrders, error: poError } = await supabase
-                .from('orders')
-                .select('id, total_amount, tax_amount')
-                .in('id', paymentOrderIds);
-
-            if (poError) throw poError;
+            const { data: paymentOrders } = await supabase
+                .from('orders').select('id, total_amount, tax_amount')
+                .eq('branch_id', branchId).in('id', paymentOrderIds);
 
             (paymentOrders || []).forEach(order => {
-                const orderTotal = parseFloat(order.total_amount) || 0;
-                const orderVAT = parseFloat(order.tax_amount) || 0;
-                if (orderTotal > 0 && orderVAT > 0) {
-                    orderVATMap[order.id] = orderVAT / orderTotal;
-                }
+                const t = parseFloat(order.total_amount) || 0;
+                const v = parseFloat(order.tax_amount) || 0;
+                if (t > 0 && v > 0) orderVATMap[order.id] = v / t;
             });
         }
 
@@ -230,55 +158,34 @@ const getSalesReport = async (req, res) => {
             const vatRatio = orderVATMap[row.order_id] || 0;
             const rowVAT = rowAmount * vatRatio;
             const rowBusiness = rowAmount - rowVAT;
-
             totalPaymentsReceived += rowBusiness;
             totalVATFromPayments += rowVAT;
-
-            if (paymentMethods[method] !== undefined) {
-                paymentMethods[method] += rowBusiness;
-            }
+            if (paymentMethods[method] !== undefined) paymentMethods[method] += rowBusiness;
         });
 
         const productFinancials = {};
         orders.forEach(order => {
             if (!order.order_items) return;
-
             const orderSubtotal = parseFloat(order.subtotal) || 0;
             const orderVAT = parseFloat(order.tax_amount) || 0;
             const orderPaid = parseFloat(order.paid_amount) || 0;
             const orderTotal = parseFloat(order.total_amount) || 0;
-
-            const paidRatio = orderTotal > 0
-                ? Math.min(1, Math.max(0, orderPaid / orderTotal))
-                : 0;
-
+            const paidRatio = orderTotal > 0 ? Math.min(1, Math.max(0, orderPaid / orderTotal)) : 0;
             const orderVATCollected = orderVAT * paidRatio;
-
             const orderBusinessPaid = orderPaid > 0 && orderTotal > 0 && orderVAT > 0
-                ? orderPaid * (1 - (orderVAT / orderTotal))
-                : orderPaid;
+                ? orderPaid * (1 - (orderVAT / orderTotal)) : orderPaid;
 
             order.order_items.forEach(item => {
                 const productName = item.product_name || 'Unknown';
                 if (!productFinancials[productName]) {
-                    productFinancials[productName] = {
-                        product_id: item.product_id,
-                        sales: 0,
-                        payments: 0,
-                        vat: 0,
-                        outstanding: 0
-                    };
+                    productFinancials[productName] = { product_id: item.product_id, sales: 0, payments: 0, vat: 0, outstanding: 0 };
                 }
-
                 const itemSubtotal = parseFloat(item.subtotal) || 0;
                 productFinancials[productName].sales += itemSubtotal;
-
                 if (orderSubtotal > 0) {
                     const itemShare = itemSubtotal / orderSubtotal;
                     productFinancials[productName].vat += orderVATCollected * itemShare;
-                    if (orderBusinessPaid > 0) {
-                        productFinancials[productName].payments += orderBusinessPaid * itemShare;
-                    }
+                    if (orderBusinessPaid > 0) productFinancials[productName].payments += orderBusinessPaid * itemShare;
                 }
             });
         });
@@ -290,77 +197,49 @@ const getSalesReport = async (req, res) => {
 
         const productFinancialList = Object.entries(productFinancials)
             .map(([name, data]) => ({ name, ...data }))
-            .sort((a, b) => b.sales - a.sales)
-            .slice(0, 20);
+            .sort((a, b) => b.sales - a.sales).slice(0, 20);
 
         return res.status(200).json({
             success: true,
             data: {
                 period: { start, end },
-                summary: {
-                    totalSales,
-                    totalVAT,
-                    totalWithVAT,
-                    totalPaymentsReceived,
-                    totalVATFromPayments,
-                    outstandingCredit,
-                    totalOrders,
-                    totalItems,
-                    averageOrderValue
-                },
-                stockSummary: {
-                    stockAdded,
-                    stockSold,
-                    stockAdjusted,
-                    stockReturned,
-                    netStockChange: stockAdded + stockReturned - stockSold - stockAdjusted
-                },
+                summary: { totalSales, totalVAT, totalWithVAT, totalPaymentsReceived, totalVATFromPayments, outstandingCredit, totalOrders, totalItems, averageOrderValue },
+                stockSummary: { stockAdded, stockSold, stockAdjusted, stockReturned, netStockChange: stockAdded + stockReturned - stockSold - stockAdjusted },
                 productStockMovements: productStockList,
                 productFinancials: productFinancialList,
-                paymentMethods,
-                topProducts,
-                monthlyBreakdown,
-                orders: orders.slice(0, 20),
-                payments: payments.slice(0, 20)
+                paymentMethods, topProducts, monthlyBreakdown,
+                orders: orders.slice(0, 20), payments: payments.slice(0, 20)
             }
         });
 
     } catch (error) {
         console.error('Sales report error:', error.message);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to generate sales report: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to generate sales report: ' + error.message });
     }
 };
 
 const getYearOverYear = async (req, res) => {
     try {
-        const currentYearEAT = new Date().toLocaleString('en-GB', {
-            timeZone: 'Africa/Dar_es_Salaam',
-            year: 'numeric'
-        });
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
+        const currentYearEAT = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Dar_es_Salaam', year: 'numeric' });
         const currentYear = parseInt(currentYearEAT, 10);
 
         const years = [];
-        for (let i = 0; i < 5; i++) {
-            years.push(currentYear - i);
-        }
+        for (let i = 0; i < 5; i++) years.push(currentYear - i);
 
         const results = await Promise.all(years.map(async (year) => {
             const { start, end } = getYearRangeEAT(year);
 
-            const { data: orders, error } = await supabase
+            const { data: orders } = await supabase
                 .from('orders')
                 .select('subtotal, tax_amount, total_amount, paid_amount')
-                .gte('created_at', start.toISOString())
-                .lte('created_at', end.toISOString())
+                .eq('branch_id', branchId)
+                .gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
                 .neq('order_status', 'cancelled');
 
-            if (error) throw error;
-
             const list = orders || [];
-
             const revenue = list.reduce((s, o) => s + (parseFloat(o.subtotal) || 0), 0);
             const vatFull = list.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
 
@@ -368,19 +247,11 @@ const getYearOverYear = async (req, res) => {
                 const total = parseFloat(o.total_amount) || 0;
                 const tax = parseFloat(o.tax_amount) || 0;
                 const paid = parseFloat(o.paid_amount) || 0;
-                if (total > 0 && tax > 0 && paid > 0) {
-                    return s + (paid * (tax / total));
-                }
+                if (total > 0 && tax > 0 && paid > 0) return s + (paid * (tax / total));
                 return s;
             }, 0);
 
-            return {
-                year,
-                revenue,
-                vat: vatCollected,
-                vatFull,
-                orders: list.length
-            };
+            return { year, revenue, vat: vatCollected, vatFull, orders: list.length };
         }));
 
         const formatted = results.map((item, index) => ({
@@ -390,39 +261,31 @@ const getYearOverYear = async (req, res) => {
                 : null
         }));
 
-        return res.status(200).json({
-            success: true,
-            data: formatted
-        });
+        return res.status(200).json({ success: true, data: formatted });
 
     } catch (error) {
         console.error('Year-over-year error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch year-over-year comparison'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch year-over-year comparison' });
     }
 };
 
 const getProfitReport = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { start, end } = parsePeriodEAT(req.query);
 
         const { data: orders, error } = await supabase
             .from('orders')
-            .select(`
-                *,
-                order_items (*)
-            `)
-            .gte('created_at', start.toISOString())
-            .lte('created_at', end.toISOString())
+            .select(`*, order_items (*)`)
+            .eq('branch_id', branchId)
+            .gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
             .neq('order_status', 'cancelled');
 
         if (error) throw error;
 
-        let totalRevenue = 0;
-        let totalVAT = 0;
-        let totalCost = 0;
+        let totalRevenue = 0, totalVAT = 0, totalCost = 0;
         const productProfit = {};
 
         orders.forEach(order => {
@@ -433,9 +296,7 @@ const getProfitReport = async (req, res) => {
                 order.order_items.forEach(item => {
                     totalCost += (item.cost_price || 0) * (item.quantity || 0);
                     const key = item.product_name || 'Unknown';
-                    if (!productProfit[key]) {
-                        productProfit[key] = { revenue: 0, cost: 0, profit: 0 };
-                    }
+                    if (!productProfit[key]) productProfit[key] = { revenue: 0, cost: 0, profit: 0 };
                     productProfit[key].revenue += item.subtotal || 0;
                     productProfit[key].cost += (item.cost_price || 0) * (item.quantity || 0);
                     productProfit[key].profit = productProfit[key].revenue - productProfit[key].cost;
@@ -443,13 +304,11 @@ const getProfitReport = async (req, res) => {
             }
         });
 
-        const { data: expenses, error: expError } = await supabase
+        const { data: expenses } = await supabase
             .from('expenses')
             .select('*')
-            .gte('created_at', start.toISOString())
-            .lte('created_at', end.toISOString());
-
-        if (expError) throw expError;
+            .eq('branch_id', branchId)
+            .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
 
         const totalExpenses = (expenses || []).reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
         const grossProfit = totalRevenue - totalCost;
@@ -463,15 +322,7 @@ const getProfitReport = async (req, res) => {
             success: true,
             data: {
                 period: { start, end },
-                summary: {
-                    totalRevenue,
-                    totalVAT,
-                    totalCost,
-                    totalExpenses,
-                    grossProfit,
-                    netProfit,
-                    margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
-                },
+                summary: { totalRevenue, totalVAT, totalCost, totalExpenses, grossProfit, netProfit, margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0 },
                 productProfit: productProfitList.slice(0, 10),
                 expenses: expenses || []
             }
@@ -479,22 +330,19 @@ const getProfitReport = async (req, res) => {
 
     } catch (error) {
         console.error('Profit report error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to generate profit report'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to generate profit report' });
     }
 };
 
 const getInventoryReport = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { data: products, error } = await supabase
             .from('products')
-            .select(`
-                *,
-                categories:category_id (name),
-                suppliers:supplier_id (name)
-            `)
+            .select(`*, categories:category_id (name), suppliers:supplier_id (name)`)
+            .eq('branch_id', branchId)
             .eq('is_active', true)
             .order('name');
 
@@ -512,17 +360,11 @@ const getInventoryReport = async (req, res) => {
             totalSellingValue += sellingValue;
 
             if ((product.stock_quantity || 0) <= (product.low_stock_threshold || 5)) {
-                lowStockItems.push({
-                    name: product.name,
-                    stock: product.stock_quantity,
-                    threshold: product.low_stock_threshold
-                });
+                lowStockItems.push({ name: product.name, stock: product.stock_quantity, threshold: product.low_stock_threshold });
             }
 
             const category = product.categories?.name || 'Uncategorized';
-            if (!categoryBreakdown[category]) {
-                categoryBreakdown[category] = { items: 0, value: 0 };
-            }
+            if (!categoryBreakdown[category]) categoryBreakdown[category] = { items: 0, value: 0 };
             categoryBreakdown[category].items += 1;
             categoryBreakdown[category].value += costValue;
         });
@@ -534,14 +376,8 @@ const getInventoryReport = async (req, res) => {
         return res.status(200).json({
             success: true,
             data: {
-                summary: {
-                    totalProducts: products.length,
-                    totalCostValue,
-                    totalSellingValue,
-                    potentialProfit: totalSellingValue - totalCostValue
-                },
-                lowStockItems,
-                categoryBreakdown: categoryList,
+                summary: { totalProducts: products.length, totalCostValue, totalSellingValue, potentialProfit: totalSellingValue - totalCostValue },
+                lowStockItems, categoryBreakdown: categoryList,
                 products: products.map(p => ({
                     ...p,
                     category_name: p.categories?.name || 'Uncategorized',
@@ -552,42 +388,34 @@ const getInventoryReport = async (req, res) => {
 
     } catch (error) {
         console.error('Inventory report error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to generate inventory report'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to generate inventory report' });
     }
 };
 
 const getTopCustomers = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const limitNum = parseInt(req.query.limit) || 10;
         if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
-            return res.status(400).json({
-                success: false,
-                error: 'Limit must be between 1 and 100'
-            });
+            return res.status(400).json({ success: false, error: 'Limit must be between 1 and 100' });
         }
 
         const { data: customers, error } = await supabase
             .from('customers')
             .select('id, name, phone, email, total_orders, total_spent')
+            .eq('branch_id', branchId)
             .order('total_spent', { ascending: false })
             .limit(limitNum);
 
         if (error) throw error;
 
-        return res.status(200).json({
-            success: true,
-            data: customers
-        });
+        return res.status(200).json({ success: true, data: customers });
 
     } catch (error) {
         console.error('Top customers error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch top customers'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch top customers' });
     }
 };
 

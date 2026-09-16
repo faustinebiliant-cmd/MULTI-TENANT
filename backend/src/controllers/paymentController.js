@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Payments Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidUUID,
     isValidAmount,
@@ -14,6 +16,9 @@ const {
 
 const getAllPayments = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search, method, status, startDate, endDate } = req.query;
 
         const pageNum = parseInt(page);
@@ -28,18 +33,12 @@ const getAllPayments = async (req, res) => {
 
         const VALID_METHODS = ['cash', 'mpesa', 'tigo_pesa'];
         if (method && !VALID_METHODS.includes(method)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid method filter. Valid: ' + VALID_METHODS.join(', ')
-            });
+            return res.status(400).json({ success: false, error: 'Invalid method filter' });
         }
 
         const VALID_STATUSES = ['completed', 'voided'];
         if (status && !VALID_STATUSES.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid status filter. Valid: completed, voided'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid status filter' });
         }
 
         let matchingOrderIds = null;
@@ -49,6 +48,7 @@ const getAllPayments = async (req, res) => {
                 const { data: byNumber, error: errA } = await supabase
                     .from('orders')
                     .select('id')
+                    .eq('branch_id', branchId)
                     .ilike('order_number', `%${term}%`);
 
                 if (errA) throw errA;
@@ -56,6 +56,7 @@ const getAllPayments = async (req, res) => {
                 const { data: byCustomer, error: errB } = await supabase
                     .from('orders')
                     .select('id, customers:customer_id!inner (name)')
+                    .eq('branch_id', branchId)
                     .ilike('customers.name', `%${term}%`);
 
                 if (errB) throw errB;
@@ -80,14 +81,11 @@ const getAllPayments = async (req, res) => {
             .select(`
                 *,
                 orders:order_id (
-                    order_number,
-                    customer_id,
-                    payment_status,
-                    total_amount,
-                    paid_amount,
+                    order_number, customer_id, payment_status, total_amount, paid_amount,
                     customers:customer_id (name)
                 )
-            `);
+            `)
+            .eq('branch_id', branchId);
 
         if (method) dataQuery = dataQuery.eq('method', method);
         if (status === 'voided') dataQuery = dataQuery.eq('status', 'voided');
@@ -98,22 +96,19 @@ const getAllPayments = async (req, res) => {
             end.setHours(23, 59, 59, 999);
             dataQuery = dataQuery.lte('payment_date', end.toISOString());
         }
-        if (matchingOrderIds !== null) {
-            dataQuery = dataQuery.in('order_id', matchingOrderIds);
-        }
+        if (matchingOrderIds !== null) dataQuery = dataQuery.in('order_id', matchingOrderIds);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
-        dataQuery = dataQuery
-            .order('payment_date', { ascending: false })
-            .range(from, to);
+        dataQuery = dataQuery.order('payment_date', { ascending: false }).range(from, to);
 
         const { data, error } = await dataQuery;
         if (error) throw error;
 
         let countQuery = supabase
             .from('payments')
-            .select('id', { count: 'exact', head: true });
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
 
         if (method) countQuery = countQuery.eq('method', method);
         if (status === 'voided') countQuery = countQuery.eq('status', 'voided');
@@ -124,9 +119,7 @@ const getAllPayments = async (req, res) => {
             end.setHours(23, 59, 59, 999);
             countQuery = countQuery.lte('payment_date', end.toISOString());
         }
-        if (matchingOrderIds !== null) {
-            countQuery = countQuery.in('order_id', matchingOrderIds);
-        }
+        if (matchingOrderIds !== null) countQuery = countQuery.in('order_id', matchingOrderIds);
 
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
@@ -151,109 +144,72 @@ const getAllPayments = async (req, res) => {
 
     } catch (error) {
         console.error('Get payments error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch payments'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch payments' });
     }
 };
 
 const getPaymentById = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid payment ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid payment ID' });
         }
 
         const { data, error } = await supabase
             .from('payments')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Payment not found'
-                });
+                return res.status(404).json({ success: false, error: 'Payment not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            data
-        });
+        return res.status(200).json({ success: true, data });
 
     } catch (error) {
         console.error('Get payment error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch payment'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch payment' });
     }
 };
 
 const createPayment = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { order_id, amount, method, reference_number, notes } = req.body;
 
         if (!order_id || !isValidUUID(order_id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid order ID is required'
-            });
+            return res.status(400).json({ success: false, error: 'Valid order ID is required' });
         }
-
         if (!isValidAmount(amount)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid payment amount is required'
-            });
+            return res.status(400).json({ success: false, error: 'Valid payment amount is required' });
         }
-
         if (!method || !isValidPaymentMethod(method)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid payment method is required (cash, mpesa, tigo_pesa)'
-            });
+            return res.status(400).json({ success: false, error: 'Valid payment method is required' });
         }
 
         let cleanReference = null;
         if (reference_number) {
-            if (!isValidLength(reference_number, 3, 50)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Reference number must be between 3 and 50 characters'
-                });
-            }
-            if (!isSafeText(reference_number)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Reference number contains invalid content'
-                });
+            if (!isValidLength(reference_number, 3, 50) || !isSafeText(reference_number)) {
+                return res.status(400).json({ success: false, error: 'Reference number must be 3-50 characters and contain no HTML or scripts' });
             }
             cleanReference = sanitize(reference_number.trim());
         }
 
         let cleanNotes = '';
         if (notes) {
-            if (!isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             cleanNotes = sanitize(notes);
         }
@@ -262,26 +218,22 @@ const createPayment = async (req, res) => {
             .from('orders')
             .select('id, total_amount, paid_amount')
             .eq('id', order_id)
+            .eq('branch_id', branchId)
             .single();
 
         if (orderError || !order) {
-            return res.status(404).json({
-                success: false,
-                error: 'Order not found'
-            });
+            return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
         const remaining = (parseFloat(order.total_amount) || 0) - (parseFloat(order.paid_amount) || 0);
         if (parseFloat(amount) > remaining + 0.01) {
-            return res.status(400).json({
-                success: false,
-                error: 'Payment amount exceeds remaining balance'
-            });
+            return res.status(400).json({ success: false, error: 'Payment amount exceeds remaining balance' });
         }
 
         const { data, error } = await supabase
             .from('payments')
             .insert({
+                branch_id: branchId,
                 order_id,
                 amount: parseFloat(amount),
                 method,
@@ -303,26 +255,18 @@ const createPayment = async (req, res) => {
 
         await supabase
             .from('orders')
-            .update({
-                paid_amount: newPaidAmount,
-                payment_status: paymentStatus,
-                updated_at: new Date()
-            })
-            .eq('id', order_id);
+            .update({ paid_amount: newPaidAmount, payment_status: paymentStatus, updated_at: new Date() })
+            .eq('id', order_id)
+            .eq('branch_id', branchId);
 
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Payment Created',
-                details: {
-                    payment_id: data.id,
-                    order_id,
-                    amount: parseFloat(amount),
-                    method,
-                    payment_status: paymentStatus
-                }
+                details: { payment_id: data.id, order_id, amount: parseFloat(amount), method, payment_status: paymentStatus }
             });
 
         return res.status(201).json({
@@ -333,10 +277,7 @@ const createPayment = async (req, res) => {
 
     } catch (error) {
         console.error('Create payment error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create payment: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create payment: ' + error.message });
     }
 };
 

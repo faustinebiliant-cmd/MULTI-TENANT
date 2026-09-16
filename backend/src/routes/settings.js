@@ -1,5 +1,5 @@
 // ============================================================
-// OSWAGO ELECTRICAL EQUIPMENT - Settings Routes
+// OSWAGO ELECTRICAL EQUIPMENT - Settings Routes (alias)
 // ============================================================
 
 const express = require('express');
@@ -7,17 +7,13 @@ const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { isBoss } = require('../middleware/permissions');
 const {
-    getSettings,
-    updateSettings
-} = require('../controllers/settingsController');
+    getCurrent,
+    updateCurrent
+} = require('../controllers/businessController');
 
-// All routes require authentication
 router.use(authenticate);
 
-// Get settings - Any authenticated user
-router.get('/', getSettings);
-
-// Update settings - Boss only
-router.put('/', isBoss, updateSettings);
+router.get('/', getCurrent);
+router.put('/', isBoss, updateCurrent);
 
 module.exports = router;

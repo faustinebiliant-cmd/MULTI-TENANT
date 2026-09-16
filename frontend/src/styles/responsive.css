@@ -50,6 +50,7 @@
 
   .header-title { font-size: 15px; }
   .header-location { display: none; }
+  .header-switchers { display: none; }
   .user-info { display: none; }
   .payment-methods { grid-template-columns: 1fr; }
 
@@ -161,4 +162,3 @@
   .detail-label,
   .detail-value { font-size: 13px; }
 }
-

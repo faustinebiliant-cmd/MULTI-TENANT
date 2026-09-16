@@ -3,6 +3,7 @@
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidUUID,
     isValidAmount,
@@ -17,6 +18,9 @@ const {
 
 const getAllOrders = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search, status, startDate, endDate } = req.query;
 
         const pageNum = parseInt(page);
@@ -31,7 +35,7 @@ const getAllOrders = async (req, res) => {
 
         const VALID_STATUSES = ['pending', 'confirmed', 'delivered', 'cancelled'];
         if (status && !VALID_STATUSES.includes(status)) {
-            return res.status(400).json({ success: false, error: 'Invalid status filter. Valid: ' + VALID_STATUSES.join(', ') });
+            return res.status(400).json({ success: false, error: 'Invalid status filter' });
         }
 
         let matchingIdsFromSearch = null;
@@ -41,6 +45,7 @@ const getAllOrders = async (req, res) => {
                 const { data: byNumber, error: errA } = await supabase
                     .from('orders')
                     .select('id')
+                    .eq('branch_id', branchId)
                     .ilike('order_number', `%${term}%`);
 
                 if (errA) throw errA;
@@ -48,6 +53,7 @@ const getAllOrders = async (req, res) => {
                 const { data: byCustomer, error: errB } = await supabase
                     .from('orders')
                     .select('id, customers:customer_id!inner (name)')
+                    .eq('branch_id', branchId)
                     .ilike('customers.name', `%${term}%`);
 
                 if (errB) throw errB;
@@ -75,7 +81,8 @@ const getAllOrders = async (req, res) => {
                 created_by_user:created_by (full_name),
                 payment_recorded_by_user:payment_recorded_by (full_name),
                 confirmed_by_user:confirmed_by (full_name)
-            `);
+            `)
+            .eq('branch_id', branchId);
 
         if (status) dataQuery = dataQuery.eq('order_status', status);
         if (startDate) dataQuery = dataQuery.gte('created_at', new Date(startDate).toISOString());
@@ -90,16 +97,15 @@ const getAllOrders = async (req, res) => {
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
-        dataQuery = dataQuery
-            .order('created_at', { ascending: false })
-            .range(from, to);
+        dataQuery = dataQuery.order('created_at', { ascending: false }).range(from, to);
 
         const { data: orders, error } = await dataQuery;
         if (error) throw error;
 
         let countQuery = supabase
             .from('orders')
-            .select('id', { count: 'exact', head: true });
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
 
         if (status) countQuery = countQuery.eq('order_status', status);
         if (startDate) countQuery = countQuery.gte('created_at', new Date(startDate).toISOString());
@@ -134,22 +140,19 @@ const getAllOrders = async (req, res) => {
 
     } catch (error) {
         console.error('Get orders error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch orders'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch orders' });
     }
 };
 
 const getOrderById = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid order ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid order ID' });
         }
 
         const { data: order, error } = await supabase
@@ -163,124 +166,81 @@ const getOrderById = async (req, res) => {
                 order_items (*)
             `)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Order not found'
-                });
+                return res.status(404).json({ success: false, error: 'Order not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            data: order
-        });
+        return res.status(200).json({ success: true, data: order });
 
     } catch (error) {
         console.error('Get order error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch order'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch order' });
     }
 };
 
 const createOrder = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { customer_id, items, notes } = req.body;
 
         if (!customer_id || !isValidUUID(customer_id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid customer ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid customer ID' });
         }
-
         if (!items || items.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'At least one item is required'
-            });
+            return res.status(400).json({ success: false, error: 'At least one item is required' });
         }
-
         if (!isValidArrayLength(items, 100)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot have more than 100 items in an order'
-            });
+            return res.status(400).json({ success: false, error: 'Cannot have more than 100 items' });
         }
 
         for (const item of items) {
             if (!item.product_id || !isValidUUID(item.product_id)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid product ID'
-                });
+                return res.status(400).json({ success: false, error: 'Invalid product ID' });
             }
             if (!isValidQuantity(item.quantity)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid quantity'
-                });
+                return res.status(400).json({ success: false, error: 'Invalid quantity' });
             }
             if (!isValidAmount(item.unit_price)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid unit price'
-                });
+                return res.status(400).json({ success: false, error: 'Invalid unit price' });
             }
         }
 
         let cleanNotes = '';
         if (notes) {
-            if (!isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             cleanNotes = sanitize(notes);
         }
 
-        const { data: customer, error: customerError } = await supabase
+        const { data: customer } = await supabase
             .from('customers')
             .select('id')
             .eq('id', customer_id)
+            .eq('branch_id', branchId)
             .single();
 
-        if (customerError || !customer) {
-            return res.status(404).json({
-                success: false,
-                error: 'Customer not found'
-            });
+        if (!customer) {
+            return res.status(404).json({ success: false, error: 'Customer not found in this branch' });
         }
 
-        const { data: settingsData, error: settingsError } = await supabase
-            .from('settings')
-            .select('key, value')
-            .in('key', ['vat_enabled', 'vat_rate']);
+        // VAT settings come from the business, not from a global settings table
+        const { data: business } = await supabase
+            .from('businesses')
+            .select('vat_enabled, vat_rate')
+            .eq('id', req.scope.business_id)
+            .single();
 
-        if (settingsError) {
-            console.error('Settings fetch error, defaulting VAT OFF');
-        }
-
-        const settingsMap = {};
-        (settingsData || []).forEach(item => {
-            settingsMap[item.key] = item.value;
-        });
-
-        const vatEnabled = settingsMap['vat_enabled'] === 'true';
-        const vatRate = parseFloat(settingsMap['vat_rate'] || 18);
+        const vatEnabled = business?.vat_enabled === true;
+        const vatRate = parseFloat(business?.vat_rate) || 18;
 
         let subtotal = 0;
         const orderItems = [];
@@ -289,17 +249,15 @@ const createOrder = async (req, res) => {
             const itemTotal = item.unit_price * item.quantity;
             subtotal += itemTotal;
 
-            const { data: product, error: productError } = await supabase
+            const { data: product } = await supabase
                 .from('products')
                 .select('id, name')
                 .eq('id', item.product_id)
+                .eq('branch_id', branchId)
                 .single();
 
-            if (productError || !product) {
-                return res.status(404).json({
-                    success: false,
-                    error: `Product ${item.name || 'not found'} not found`
-                });
+            if (!product) {
+                return res.status(404).json({ success: false, error: `Product ${item.name || 'not found'} not found in this branch` });
             }
 
             orderItems.push({
@@ -314,10 +272,9 @@ const createOrder = async (req, res) => {
 
         const tax_amount = vatEnabled ? subtotal * (vatRate / 100) : 0;
         const total_amount = subtotal + tax_amount;
-        const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
 
         const payload = {
-            order_number: orderNumber,
+            branch_id: branchId,
             customer_id,
             subtotal,
             tax_amount,
@@ -333,10 +290,7 @@ const createOrder = async (req, res) => {
 
         if (rpcError) {
             console.error('Create order RPC error:', rpcError);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create order: ' + rpcError.message
-            });
+            return res.status(500).json({ success: false, error: 'Failed to create order: ' + rpcError.message });
         }
 
         return res.status(201).json({
@@ -347,48 +301,37 @@ const createOrder = async (req, res) => {
 
     } catch (error) {
         console.error('Create order error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create order: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create order: ' + error.message });
     }
 };
 
 const updateOrderStatus = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { status } = req.body;
 
         if (!isValidOrderStatus(status)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid status. Valid: pending, confirmed, delivered, cancelled'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid status' });
         }
 
         if (status === 'cancelled') {
-            return res.status(400).json({
-                success: false,
-                error: 'To cancel an order, use the Cancel Order button. This endpoint cannot cancel orders.'
-            });
+            return res.status(400).json({ success: false, error: 'Use the Cancel Order endpoint instead' });
         }
 
         const { data: order, error } = await supabase
             .from('orders')
-            .update({
-                order_status: status,
-                updated_at: new Date()
-            })
+            .update({ order_status: status, updated_at: new Date() })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Order not found'
-                });
+                return res.status(404).json({ success: false, error: 'Order not found' });
             }
             throw error;
         }
@@ -396,6 +339,7 @@ const updateOrderStatus = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Order Status Updated',
@@ -412,43 +356,34 @@ const updateOrderStatus = async (req, res) => {
 
     } catch (error) {
         console.error('Update order status error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to update order status'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to update order status' });
     }
 };
 
 const recordPayment = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { amount, method, reference_number } = req.body;
 
         if (!isValidAmount(amount)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid amount is required'
-            });
+            return res.status(400).json({ success: false, error: 'Valid amount is required' });
         }
-
         if (!isValidPaymentMethod(method)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid payment method. Valid: cash, mpesa, tigo_pesa'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid payment method' });
         }
 
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (orderError || !order) {
-            return res.status(404).json({
-                success: false,
-                error: 'Order not found'
-            });
+            return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
         const orderTotal = parseFloat(order.total_amount) || 0;
@@ -457,14 +392,8 @@ const recordPayment = async (req, res) => {
         const paymentAmount = parseFloat(amount);
 
         if (paymentAmount > remaining + 0.01) {
-            return res.status(400).json({
-                success: false,
-                error: `Payment exceeds remaining balance of ${remaining.toFixed(2)}`
-            });
+            return res.status(400).json({ success: false, error: `Payment exceeds remaining balance of ${remaining.toFixed(2)}` });
         }
-
-        const validUserId = req.user.id;
-        const validUserName = req.user.full_name;
 
         const paidAmount = previousPaid + paymentAmount;
         const paymentStatus = paidAmount >= orderTotal ? 'paid' : 'partial';
@@ -476,32 +405,29 @@ const recordPayment = async (req, res) => {
                 paid_amount: paidAmount,
                 payment_status: paymentStatus,
                 payment_method: firstPaymentMethod,
-                payment_recorded_by: validUserId,
-                payment_recorded_by_name: validUserName,
+                payment_recorded_by: req.user.id,
+                payment_recorded_by_name: req.user.full_name,
                 payment_recorded_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
-        if (updateError) {
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to update order: ' + updateError.message
-            });
-        }
+        if (updateError) throw updateError;
 
         const { error: paymentError } = await supabase
             .from('payments')
             .insert({
+                branch_id: branchId,
                 order_id: id,
                 amount: paymentAmount,
-                method: method,
+                method,
                 reference_number: reference_number || null,
                 status: 'completed',
-                recorded_by: validUserId,
-                recorded_by_name: validUserName,
+                recorded_by: req.user.id,
+                recorded_by_name: req.user.full_name,
                 payment_date: new Date().toISOString()
             });
 
@@ -512,16 +438,13 @@ const recordPayment = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
-                user_id: validUserId,
-                user_name: validUserName,
+                branch_id: branchId,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
                 action: 'Payment Recorded',
                 order_id: order.id,
                 order_number: order.order_number,
-                details: {
-                    amount: paymentAmount,
-                    method,
-                    payment_status: paymentStatus
-                }
+                details: { amount: paymentAmount, method, payment_status: paymentStatus }
             });
 
         return res.status(200).json({
@@ -532,35 +455,30 @@ const recordPayment = async (req, res) => {
 
     } catch (error) {
         console.error('Record payment error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to record payment: ' + error.message
-        });
+        return res.status(500).json({ success: false, error: 'Failed to record payment: ' + error.message });
     }
 };
 
 const confirmOrder = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (orderError || !order) {
-            return res.status(404).json({
-                success: false,
-                error: 'Order not found'
-            });
+            return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
         if (order.payment_status !== 'paid') {
-            return res.status(400).json({
-                success: false,
-                error: 'Cannot confirm order. Payment is not completed.'
-            });
+            return res.status(400).json({ success: false, error: 'Cannot confirm order. Payment is not completed.' });
         }
 
         const { data: updatedOrder, error: updateError } = await supabase
@@ -573,6 +491,7 @@ const confirmOrder = async (req, res) => {
                 updated_at: new Date()
             })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
@@ -581,6 +500,7 @@ const confirmOrder = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Order Confirmed',
@@ -597,87 +517,66 @@ const confirmOrder = async (req, res) => {
 
     } catch (error) {
         console.error('Confirm order error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to confirm order'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to confirm order' });
     }
 };
 
 const cancelOrder = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { reason } = req.body;
 
         let cleanReason = 'No reason provided';
         if (reason) {
-            if (!isValidLength(reason, 3, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Reason must be between 3 and 500 characters'
-                });
-            }
-            if (!isSafeText(reason)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Reason contains invalid content'
-                });
+            if (!isValidLength(reason, 3, 500) || !isSafeText(reason)) {
+                return res.status(400).json({ success: false, error: 'Reason must be 3-500 characters and contain no HTML or scripts' });
             }
             cleanReason = sanitize(reason);
         }
 
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select(`
-                *,
-                order_items (*)
-            `)
+            .select(`*, order_items (*)`)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (orderError || !order) {
-            return res.status(404).json({
-                success: false,
-                error: 'Order not found'
-            });
+            return res.status(404).json({ success: false, error: 'Order not found' });
         }
 
         if (order.order_status === 'cancelled') {
-            return res.status(400).json({
-                success: false,
-                error: 'Order is already cancelled'
-            });
+            return res.status(400).json({ success: false, error: 'Order is already cancelled' });
         }
 
         const paidAmount = parseFloat(order.paid_amount) || 0;
         if (paidAmount > 0 && req.user.role !== 'boss') {
-            return res.status(403).json({
-                success: false,
-                error: 'Only the Boss can cancel an order that has received payment'
-            });
+            return res.status(403).json({ success: false, error: 'Only the Boss can cancel an order that has received payment' });
         }
 
-        // Restore stock and record movement
         if (order.order_items && order.order_items.length > 0) {
             for (const item of order.order_items) {
-                const { data: product, error: productError } = await supabase
+                const { data: product } = await supabase
                     .from('products')
                     .select('id, stock_quantity')
                     .eq('id', item.product_id)
+                    .eq('branch_id', branchId)
                     .single();
 
-                if (productError || !product) continue;
+                if (!product) continue;
 
                 await supabase
                     .from('products')
-                    .update({
-                        stock_quantity: product.stock_quantity + item.quantity,
-                        updated_at: new Date()
-                    })
-                    .eq('id', item.product_id);
+                    .update({ stock_quantity: product.stock_quantity + item.quantity, updated_at: new Date() })
+                    .eq('id', item.product_id)
+                    .eq('branch_id', branchId);
             }
 
             const stockMovements = order.order_items.map(item => ({
+                branch_id: branchId,
                 product_id: item.product_id,
                 quantity: item.quantity,
                 movement_type: 'RETURN',
@@ -687,21 +586,15 @@ const cancelOrder = async (req, res) => {
                 reason: cleanReason
             }));
 
-            const { error: movementError } = await supabase
-                .from('stock_movements')
-                .insert(stockMovements);
-
-            if (movementError) {
-                console.error('Failed to record stock movements on cancel:', movementError);
-            }
+            await supabase.from('stock_movements').insert(stockMovements);
         }
 
-        // Reverse customer stats
         if (order.customer_id) {
             const { data: customer } = await supabase
                 .from('customers')
                 .select('total_orders, total_spent')
                 .eq('id', order.customer_id)
+                .eq('branch_id', branchId)
                 .single();
 
             if (customer) {
@@ -711,13 +604,13 @@ const cancelOrder = async (req, res) => {
                         total_orders: Math.max(0, (customer.total_orders || 0) - 1),
                         total_spent: Math.max(0, (customer.total_spent || 0) - (parseFloat(order.total_amount) || 0))
                     })
-                    .eq('id', order.customer_id);
+                    .eq('id', order.customer_id)
+                    .eq('branch_id', branchId);
             }
         }
 
-        // Void payments (do not delete). Preserves audit trail.
         if (paidAmount > 0) {
-            const { error: voidError } = await supabase
+            await supabase
                 .from('payments')
                 .update({
                     status: 'voided',
@@ -727,11 +620,8 @@ const cancelOrder = async (req, res) => {
                     void_reason: cleanReason
                 })
                 .eq('order_id', id)
+                .eq('branch_id', branchId)
                 .neq('status', 'voided');
-
-            if (voidError) {
-                console.error('Failed to void payments on cancel:', voidError);
-            }
         }
 
         const { data: updatedOrder, error: updateError } = await supabase
@@ -747,6 +637,7 @@ const cancelOrder = async (req, res) => {
                 updated_at: new Date()
             })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
@@ -755,6 +646,7 @@ const cancelOrder = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Order Cancelled',
@@ -777,10 +669,7 @@ const cancelOrder = async (req, res) => {
 
     } catch (error) {
         console.error('Cancel order error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to cancel order'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to cancel order' });
     }
 };
 

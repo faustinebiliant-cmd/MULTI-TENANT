@@ -22,6 +22,20 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Send the active business and branch scope on every request.
+    // Backend uses these to filter data. Boss validation happens
+    // server-side; staff scope is forced from JWT regardless.
+    const businessId = localStorage.getItem('activeBusinessId');
+    const branchId = localStorage.getItem('activeBranchId');
+
+    if (businessId) {
+      config.headers['X-Business-Id'] = businessId;
+    }
+    if (branchId) {
+      config.headers['X-Branch-Id'] = branchId;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -84,7 +98,51 @@ const api = {
     }
   },
 
-  // ---- Settings ----
+  // ---- Business (replaces the old settings concept) ----
+  getBusiness: async () => {
+    const response = await apiClient.get('/business/current');
+    return response.data.data || {};
+  },
+  updateBusiness: async (data) => {
+    const response = await apiClient.put('/business/current', data);
+    return response.data;
+  },
+  listBusinesses: async () => {
+    const response = await apiClient.get('/business/list');
+    return response.data.data || [];
+  },
+  createBusiness: async (data) => {
+    if (!data.name) throw new Error('Business name is required');
+    if (!data.branch_name) throw new Error('First branch name is required');
+    const response = await apiClient.post('/business', data);
+    return response.data;
+  },
+  listBranches: async () => {
+    const response = await apiClient.get('/business/branches');
+    return response.data.data || [];
+  },
+  createBranch: async (data) => {
+    if (!data.name) throw new Error('Branch name is required');
+    const response = await apiClient.post('/business/branches', data);
+    return response.data;
+  },
+  updateBranch: async (id, data) => {
+    if (!id) throw new Error('Branch ID is required');
+    const response = await apiClient.put(`/business/branches/${id}`, data);
+    return response.data;
+  },
+  deactivateBranch: async (id) => {
+    if (!id) throw new Error('Branch ID is required');
+    const response = await apiClient.patch(`/business/branches/${id}/deactivate`);
+    return response.data;
+  },
+  activateBranch: async (id) => {
+    if (!id) throw new Error('Branch ID is required');
+    const response = await apiClient.patch(`/business/branches/${id}/activate`);
+    return response.data;
+  },
+
+  // ---- Settings (legacy alias, kept for compatibility) ----
   getSettings: async () => {
     const response = await apiClient.get('/settings');
     return response.data.data || response.data;

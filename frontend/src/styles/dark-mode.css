@@ -46,6 +46,9 @@ body.dark-mode .page-header h1 { color: #f1f5f9 !important; }
 body.dark-mode .page-header p { color: #94a3b8 !important; }
 body.dark-mode .header-title { color: #f1f5f9 !important; }
 body.dark-mode .header-location { background: #1e293b !important; color: #94a3b8 !important; border: 1px solid #334155 !important; }
+body.dark-mode .header-switcher { background: #0f172a !important; color: #e2e8f0 !important; border: 1px solid #334155 !important; }
+body.dark-mode .header-switcher:hover { border-color: #1a56db !important; }
+body.dark-mode .header-branch-label { background: #1e293b !important; color: #94a3b8 !important; border: 1px solid #334155 !important; }
 body.dark-mode .user-name { color: #f1f5f9 !important; }
 body.dark-mode .user-role { color: #fff !important; }
 body.dark-mode .payment-method-btn { background: #0f172a !important; border: 1.5px solid #334155 !important; color: #94a3b8 !important; }
@@ -90,4 +93,3 @@ body.dark-mode .command-palette-item-label { color: #f1f5f9 !important; }
 body.dark-mode .command-palette-footer { background: #0f172a !important; border-top: 1px solid #334155 !important; }
 body.dark-mode .header-search-trigger { background: #0f172a !important; border: 1px solid #334155 !important; color: #94a3b8 !important; }
 body.dark-mode .header-search-trigger kbd { background: #1e293b !important; border-color: #334155 !important; }
-

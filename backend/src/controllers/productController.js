@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Products Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidName,
     isValidAmount,
@@ -13,35 +15,11 @@ const {
     sanitize
 } = require('../utils/validators');
 
-const updateCategoryProductCount = async (categoryId) => {
-    try {
-        if (!categoryId) return 0;
-
-        const { count, error } = await supabase
-            .from('products')
-            .select('*', { count: 'exact', head: true })
-            .eq('category_id', categoryId)
-            .eq('is_active', true);
-
-        if (error) throw error;
-
-        await supabase
-            .from('categories')
-            .update({
-                product_count: count || 0,
-                updated_at: new Date()
-            })
-            .eq('id', categoryId);
-
-        return count || 0;
-    } catch (error) {
-        console.error('Update category count error:', error);
-        return 0;
-    }
-};
-
 const getAllProducts = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search, category_id } = req.query;
 
         const pageNum = parseInt(page);
@@ -64,11 +42,8 @@ const getAllProducts = async (req, res) => {
 
         let dataQuery = supabase
             .from('products')
-            .select(`
-                *,
-                categories:category_id (name),
-                suppliers:supplier_id (name)
-            `)
+            .select(`*, categories:category_id (name), suppliers:supplier_id (name)`)
+            .eq('branch_id', branchId)
             .eq('is_active', true);
 
         if (cleanSearch) {
@@ -76,15 +51,14 @@ const getAllProducts = async (req, res) => {
                 `name.ilike.%${cleanSearch}%,sku.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`
             );
         }
-        if (category_id) {
-            dataQuery = dataQuery.eq('category_id', category_id);
-        }
+        if (category_id) dataQuery = dataQuery.eq('category_id', category_id);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
         dataQuery = dataQuery.order('name').range(from, to);
 
         const totalsPromise = supabase.rpc('sum_products_totals', {
+            p_branch_id: branchId,
             search_term: cleanSearch || null,
             category_filter: category_id || null
         });
@@ -92,6 +66,7 @@ const getAllProducts = async (req, res) => {
         let countQuery = supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId)
             .eq('is_active', true);
 
         if (cleanSearch) {
@@ -99,19 +74,13 @@ const getAllProducts = async (req, res) => {
                 `name.ilike.%${cleanSearch}%,sku.ilike.%${cleanSearch}%,description.ilike.%${cleanSearch}%`
             );
         }
-        if (category_id) {
-            countQuery = countQuery.eq('category_id', category_id);
-        }
+        if (category_id) countQuery = countQuery.eq('category_id', category_id);
 
         const [
             { data: products, error },
             { data: totalsData, error: totalsError },
             { count: totalCount, error: countError }
-        ] = await Promise.all([
-            dataQuery,
-            totalsPromise,
-            countQuery
-        ]);
+        ] = await Promise.all([dataQuery, totalsPromise, countQuery]);
 
         if (error) throw error;
         if (totalsError) throw totalsError;
@@ -151,40 +120,30 @@ const getAllProducts = async (req, res) => {
 
     } catch (error) {
         console.error('Get products error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch products'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch products' });
     }
 };
 
 const getProductById = async (req, res) => {
     try {
-        const { id } = req.params;
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
 
+        const { id } = req.params;
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid product ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
         const { data: product, error } = await supabase
             .from('products')
-            .select(`
-                *,
-                categories:category_id (id, name),
-                suppliers:supplier_id (id, name)
-            `)
+            .select(`*, categories:category_id (id, name), suppliers:supplier_id (id, name)`)
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Product not found'
-                });
+                return res.status(404).json({ success: false, error: 'Product not found' });
             }
             throw error;
         }
@@ -200,84 +159,51 @@ const getProductById = async (req, res) => {
 
     } catch (error) {
         console.error('Get product error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch product'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch product' });
     }
 };
 
 const createProduct = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const {
-            name,
-            description,
-            category_id,
-            sku,
-            cost_price,
-            selling_price,
-            stock_quantity,
-            low_stock_threshold,
-            supplier_id
+            name, description, category_id, sku,
+            cost_price, selling_price, stock_quantity,
+            low_stock_threshold, supplier_id
         } = req.body;
 
-        if (!isValidName(name)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Product name must be at least 2 characters'
-            });
+        if (!isValidName(name) || !isSafeText(name)) {
+            return res.status(400).json({ success: false, error: 'Product name must be 2-20 characters and contain no HTML or scripts' });
         }
 
         let cleanDescription = '';
         if (description) {
-            if (!isValidLength(description, 0, 1000)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description must be less than 1000 characters'
-                });
-            }
-            if (!isSafeText(description)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description contains invalid content'
-                });
+            if (!isValidLength(description, 0, 1000) || !isSafeText(description)) {
+                return res.status(400).json({ success: false, error: 'Description must be under 1000 characters and contain no HTML or scripts' });
             }
             cleanDescription = sanitize(description);
         }
 
         if (!isValidAmount(cost_price)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid cost price'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid cost price' });
         }
 
         if (!isValidAmount(selling_price)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid selling price'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid selling price' });
         }
 
         if (stock_quantity !== undefined && !isValidQuantity(stock_quantity)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid stock quantity'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid stock quantity' });
         }
 
         if (category_id && !isValidUUID(category_id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid category ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid category ID' });
         }
 
         if (supplier_id && !isValidUUID(supplier_id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid supplier ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid supplier ID' });
         }
 
         const cleanName = sanitize(name.trim());
@@ -288,19 +214,18 @@ const createProduct = async (req, res) => {
                 .from('products')
                 .select('id')
                 .eq('sku', cleanSku)
+                .eq('branch_id', branchId)
                 .single();
 
             if (existing) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Product with this SKU already exists'
-                });
+                return res.status(400).json({ success: false, error: 'Product with this SKU already exists in this branch' });
             }
         }
 
         const { data: product, error } = await supabase
             .from('products')
             .insert({
+                branch_id: branchId,
                 name: cleanName,
                 description: cleanDescription,
                 category_id: category_id || null,
@@ -317,14 +242,11 @@ const createProduct = async (req, res) => {
 
         if (error) throw error;
 
-        if (product.category_id) {
-            await updateCategoryProductCount(product.category_id);
-        }
-
         if (parseInt(stock_quantity) > 0) {
             await supabase
                 .from('stock_movements')
                 .insert({
+                    branch_id: branchId,
                     product_id: product.id,
                     quantity: parseInt(stock_quantity),
                     movement_type: 'ADJUSTMENT',
@@ -338,6 +260,7 @@ const createProduct = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Product Created',
@@ -352,70 +275,46 @@ const createProduct = async (req, res) => {
 
     } catch (error) {
         console.error('Create product error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create product'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create product' });
     }
 };
 
 const updateProduct = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const updates = req.body;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid product ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
         if (updates.name) {
-            if (!isValidName(updates.name)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Product name must be at least 2 characters'
-                });
+            if (!isValidName(updates.name) || !isSafeText(updates.name)) {
+                return res.status(400).json({ success: false, error: 'Product name must be 2-20 characters and contain no HTML or scripts' });
             }
             updates.name = sanitize(updates.name);
         }
 
         if (updates.description) {
-            if (!isValidLength(updates.description, 0, 1000)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description must be less than 1000 characters'
-                });
-            }
-            if (!isSafeText(updates.description)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Description contains invalid content'
-                });
+            if (!isValidLength(updates.description, 0, 1000) || !isSafeText(updates.description)) {
+                return res.status(400).json({ success: false, error: 'Description must be under 1000 characters and contain no HTML or scripts' });
             }
             updates.description = sanitize(updates.description);
         }
 
         if (updates.cost_price && !isValidAmount(updates.cost_price)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid cost price'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid cost price' });
         }
 
         if (updates.selling_price && !isValidAmount(updates.selling_price)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid selling price'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid selling price' });
         }
 
         if (updates.stock_quantity !== undefined && !isValidQuantity(updates.stock_quantity)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid stock quantity'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid stock quantity' });
         }
 
         if (updates.sku) updates.sku = sanitize(updates.sku);
@@ -424,35 +323,27 @@ const updateProduct = async (req, res) => {
             .from('products')
             .select('category_id, stock_quantity')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (oldError) throw oldError;
 
         const { data: product, error } = await supabase
             .from('products')
-            .update({
-                ...updates,
-                updated_at: new Date()
-            })
+            .update({ ...updates, updated_at: new Date() })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Product not found'
-                });
+                return res.status(404).json({ success: false, error: 'Product not found' });
+            }
+            if (error.code === '23505') {
+                return res.status(400).json({ success: false, error: 'Another product with this SKU exists in this branch' });
             }
             throw error;
-        }
-
-        if (oldProduct.category_id) {
-            await updateCategoryProductCount(oldProduct.category_id);
-        }
-        if (product.category_id && product.category_id !== oldProduct.category_id) {
-            await updateCategoryProductCount(product.category_id);
         }
 
         if (updates.stock_quantity && updates.stock_quantity !== oldProduct.stock_quantity) {
@@ -461,6 +352,7 @@ const updateProduct = async (req, res) => {
             await supabase
                 .from('stock_movements')
                 .insert({
+                    branch_id: branchId,
                     product_id: id,
                     quantity: stockDiff,
                     movement_type: 'ADJUSTMENT',
@@ -474,6 +366,7 @@ const updateProduct = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Product Updated',
@@ -488,112 +381,77 @@ const updateProduct = async (req, res) => {
 
     } catch (error) {
         console.error('Update product error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to update product'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to update product' });
     }
 };
 
 const deleteProduct = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid product ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
         const { data: product, error: productError } = await supabase
             .from('products')
-            .select('id, name, category_id')
+            .select('id, name')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (productError || !product) {
-            return res.status(404).json({
-                success: false,
-                error: 'Product not found'
-            });
+            return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
         const { error } = await supabase
             .from('products')
-            .update({
-                is_active: false,
-                updated_at: new Date()
-            })
-            .eq('id', id);
+            .update({ is_active: false, updated_at: new Date() })
+            .eq('id', id)
+            .eq('branch_id', branchId);
 
         if (error) throw error;
-
-        if (product.category_id) {
-            await updateCategoryProductCount(product.category_id);
-        }
 
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Product Deleted',
                 details: { product_id: id, name: product.name }
             });
 
-        return res.status(200).json({
-            success: true,
-            message: 'Product deleted successfully'
-        });
+        return res.status(200).json({ success: true, message: 'Product deleted successfully' });
 
     } catch (error) {
         console.error('Delete product error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to delete product'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to delete product' });
     }
 };
 
 const adjustStock = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const { quantity, reason, type } = req.body;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid product ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
-
         if (!isValidQuantity(quantity)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Valid quantity is required'
-            });
+            return res.status(400).json({ success: false, error: 'Valid quantity is required' });
         }
-
-        if (!reason || !isValidLength(reason, 3, 200)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Reason is required (min 3 characters, max 200)'
-            });
+        if (!reason || !isValidLength(reason, 3, 200) || !isSafeText(reason)) {
+            return res.status(400).json({ success: false, error: 'Reason is required (3-200 chars, no HTML or scripts)' });
         }
-
-        if (!isSafeText(reason)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Reason contains invalid content'
-            });
-        }
-
         if (!['add', 'remove'].includes(type)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Type must be "add" or "remove"'
-            });
+            return res.status(400).json({ success: false, error: 'Type must be "add" or "remove"' });
         }
 
         const cleanReason = sanitize(reason.trim());
@@ -602,13 +460,11 @@ const adjustStock = async (req, res) => {
             .from('products')
             .select('id, name, stock_quantity, sku')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (findError || !product) {
-            return res.status(404).json({
-                success: false,
-                error: 'Product not found'
-            });
+            return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
         let newStock = product.stock_quantity;
@@ -616,21 +472,16 @@ const adjustStock = async (req, res) => {
             newStock += parseInt(quantity);
         } else {
             if (newStock < quantity) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Insufficient stock'
-                });
+                return res.status(400).json({ success: false, error: 'Insufficient stock' });
             }
             newStock -= parseInt(quantity);
         }
 
         const { data: updated, error } = await supabase
             .from('products')
-            .update({
-                stock_quantity: newStock,
-                updated_at: new Date()
-            })
+            .update({ stock_quantity: newStock, updated_at: new Date() })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
@@ -641,6 +492,7 @@ const adjustStock = async (req, res) => {
         await supabase
             .from('stock_movements')
             .insert({
+                branch_id: branchId,
                 product_id: id,
                 quantity: movementQuantity,
                 movement_type: 'ADJUSTMENT',
@@ -653,14 +505,14 @@ const adjustStock = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Stock Adjusted',
                 details: {
                     product_id: id,
                     product_name: product.name,
-                    type,
-                    quantity,
+                    type, quantity,
                     reason: cleanReason,
                     old_stock: product.stock_quantity,
                     new_stock: newStock
@@ -675,18 +527,19 @@ const adjustStock = async (req, res) => {
 
     } catch (error) {
         console.error('Adjust stock error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to adjust stock'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to adjust stock' });
     }
 };
 
 const getLowStockProducts = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { data: products, error } = await supabase
             .from('products')
             .select('id, name, stock_quantity, low_stock_threshold')
+            .eq('branch_id', branchId)
             .eq('is_active', true)
             .order('stock_quantity');
 
@@ -696,18 +549,11 @@ const getLowStockProducts = async (req, res) => {
             p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 5)
         );
 
-        return res.status(200).json({
-            success: true,
-            count: lowStock.length,
-            data: lowStock
-        });
+        return res.status(200).json({ success: true, count: lowStock.length, data: lowStock });
 
     } catch (error) {
         console.error('Get low stock products error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch low stock products'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch low stock products' });
     }
 };
 

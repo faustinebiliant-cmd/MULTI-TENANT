@@ -1,8 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Customers Controller
+// Branch-scoped
 // ============================================================
 
 const supabase = require('../config/supabase');
+const { requireBranchId } = require('../utils/branchScope');
 const {
     isValidName,
     isValidPhone,
@@ -15,6 +17,9 @@ const {
 
 const getAllCustomers = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         let { page = 1, limit = 50, search } = req.query;
 
         const pageNum = parseInt(page);
@@ -27,15 +32,19 @@ const getAllCustomers = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Limit must be between 1 and 200' });
         }
 
-        let dataQuery = supabase.from('customers').select('*');
+        const cleanSearch = search && search.trim()
+            ? search.trim().replace(/[%_,()'"]/g, '')
+            : null;
 
-        if (search && search.trim()) {
-            const term = search.trim().replace(/[%_,()'"]/g, '');
-            if (term) {
-                dataQuery = dataQuery.or(
-                    `name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
-                );
-            }
+        let dataQuery = supabase
+            .from('customers')
+            .select('*')
+            .eq('branch_id', branchId);
+
+        if (cleanSearch) {
+            dataQuery = dataQuery.or(
+                `name.ilike.%${cleanSearch}%,phone.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`
+            );
         }
 
         const from = (pageNum - 1) * limitNum;
@@ -47,15 +56,13 @@ const getAllCustomers = async (req, res) => {
 
         let countQuery = supabase
             .from('customers')
-            .select('id', { count: 'exact', head: true });
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
 
-        if (search && search.trim()) {
-            const term = search.trim().replace(/[%_,()'"]/g, '');
-            if (term) {
-                countQuery = countQuery.or(
-                    `name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
-                );
-            }
+        if (cleanSearch) {
+            countQuery = countQuery.or(
+                `name.ilike.%${cleanSearch}%,phone.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`
+            );
         }
 
         const { count: totalCount, error: countError } = await countQuery;
@@ -72,123 +79,84 @@ const getAllCustomers = async (req, res) => {
 
     } catch (error) {
         console.error('Get customers error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch customers'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch customers' });
     }
 };
 
 const getCustomerById = async (req, res) => {
     try {
-        const { id } = req.params;
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
 
+        const { id } = req.params;
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid customer ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid customer ID' });
         }
 
         const { data, error } = await supabase
             .from('customers')
             .select('*')
             .eq('id', id)
+            .eq('branch_id', branchId)
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Customer not found'
-                });
+                return res.status(404).json({ success: false, error: 'Customer not found' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            data
-        });
+        return res.status(200).json({ success: true, data });
 
     } catch (error) {
         console.error('Get customer error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to fetch customer'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to fetch customer' });
     }
 };
 
 const createCustomer = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { name, phone, email, address, notes } = req.body;
 
         if (!isValidName(name) || !isSafeText(name)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Customer name must be up to 20 characters and contain no HTML or scripts'
-            });
+            return res.status(400).json({ success: false, error: 'Customer name must be 2-20 characters and contain no HTML or scripts' });
         }
 
-         if (email && (!isValidPhone(phone) || !isSafeText(phone))) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid phone number format'
-            });
+        if (!isValidPhone(phone) || !isSafeText(phone)) {
+            return res.status(400).json({ success: false, error: 'Invalid phone number format' });
         }
 
         if (email && (!isValidEmail(email) || !isSafeText(email))) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid email format'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid email format' });
         }
 
         let cleanAddress = '';
         if (address) {
-            if (!isValidLength(address, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(address)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address contains invalid content'
-                });
+            if (!isValidLength(address, 0, 500) || !isSafeText(address)) {
+                return res.status(400).json({ success: false, error: 'Address must be under 500 characters and contain no HTML or scripts' });
             }
             cleanAddress = sanitize(address);
         }
 
         let cleanNotes = '';
         if (notes) {
-            if (!isValidLength(notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(notes, 0, 500) || !isSafeText(notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             cleanNotes = sanitize(notes);
         }
 
-        const cleanName = sanitize(name.trim());
-        const cleanPhone = sanitize(phone.trim());
-        const cleanEmail = email ? sanitize(email.trim()) : '';
-
         const { data, error } = await supabase
             .from('customers')
             .insert({
-                name: cleanName,
-                phone: cleanPhone,
-                email: cleanEmail,
+                branch_id: branchId,
+                name: sanitize(name.trim()),
+                phone: sanitize(phone.trim()),
+                email: email ? sanitize(email.toLowerCase().trim()) : '',
                 address: cleanAddress,
                 notes: cleanNotes
             })
@@ -197,10 +165,7 @@ const createCustomer = async (req, res) => {
 
         if (error) {
             if (error.code === '23505') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Customer with this phone already exists'
-                });
+                return res.status(400).json({ success: false, error: 'Customer with this phone already exists in this branch' });
             }
             throw error;
         }
@@ -208,6 +173,7 @@ const createCustomer = async (req, res) => {
         await supabase
             .from('activity_logs')
             .insert({
+                branch_id: branchId,
                 user_id: req.user.id,
                 user_name: req.user.full_name,
                 action: 'Customer Created',
@@ -222,103 +188,71 @@ const createCustomer = async (req, res) => {
 
     } catch (error) {
         console.error('Create customer error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to create customer'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to create customer' });
     }
 };
 
 const updateCustomer = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
         const updates = req.body;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid customer ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid customer ID' });
         }
 
         if (updates.name) {
             if (!isValidName(updates.name) || !isSafeText(updates.name)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Customer name must be 2-100 characters and contain no HTML or scripts'
-                });
+                return res.status(400).json({ success: false, error: 'Customer name must be 2-20 characters and contain no HTML or scripts' });
             }
             updates.name = sanitize(updates.name);
         }
 
         if (updates.phone) {
-            if (!isValidPhone(updates.phone)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid phone number format'
-                });
+            if (!isValidPhone(updates.phone) || !isSafeText(updates.phone)) {
+                return res.status(400).json({ success: false, error: 'Invalid phone number format' });
             }
             updates.phone = sanitize(updates.phone);
         }
 
         if (updates.email) {
             if (!isValidEmail(updates.email) || !isSafeText(updates.email)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Invalid email format'
-                });
+                return res.status(400).json({ success: false, error: 'Invalid email format' });
             }
-            updates.email = sanitize(updates.email);
+            updates.email = sanitize(updates.email.toLowerCase());
         }
 
         if (updates.address) {
-            if (!isValidLength(updates.address, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(updates.address)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Address contains invalid content'
-                });
+            if (!isValidLength(updates.address, 0, 500) || !isSafeText(updates.address)) {
+                return res.status(400).json({ success: false, error: 'Address must be under 500 characters and contain no HTML or scripts' });
             }
             updates.address = sanitize(updates.address);
         }
 
         if (updates.notes) {
-            if (!isValidLength(updates.notes, 0, 500)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes must be less than 500 characters'
-                });
-            }
-            if (!isSafeText(updates.notes)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Notes contain invalid content'
-                });
+            if (!isValidLength(updates.notes, 0, 500) || !isSafeText(updates.notes)) {
+                return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
             updates.notes = sanitize(updates.notes);
         }
 
         const { data, error } = await supabase
             .from('customers')
-            .update({
-                ...updates,
-                updated_at: new Date()
-            })
+            .update({ ...updates, updated_at: new Date() })
             .eq('id', id)
+            .eq('branch_id', branchId)
             .select()
             .single();
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Customer not found'
-                });
+                return res.status(404).json({ success: false, error: 'Customer not found' });
+            }
+            if (error.code === '23505') {
+                return res.status(400).json({ success: false, error: 'Another customer with this phone exists in this branch' });
             }
             throw error;
         }
@@ -331,56 +265,42 @@ const updateCustomer = async (req, res) => {
 
     } catch (error) {
         console.error('Update customer error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to update customer'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to update customer' });
     }
 };
 
 const deleteCustomer = async (req, res) => {
     try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
         const { id } = req.params;
 
         if (!isValidUUID(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid customer ID'
-            });
+            return res.status(400).json({ success: false, error: 'Invalid customer ID' });
         }
 
         const { error } = await supabase
             .from('customers')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('branch_id', branchId);
 
         if (error) {
             if (error.code === 'PGRST116') {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Customer not found'
-                });
+                return res.status(404).json({ success: false, error: 'Customer not found' });
             }
             if (error.code === '23503') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Customer has orders and cannot be deleted'
-                });
+                return res.status(400).json({ success: false, error: 'Customer has orders and cannot be deleted' });
             }
             throw error;
         }
 
-        return res.status(200).json({
-            success: true,
-            message: 'Customer deleted successfully'
-        });
+        return res.status(200).json({ success: true, message: 'Customer deleted successfully' });
 
     } catch (error) {
         console.error('Delete customer error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Failed to delete customer'
-        });
+        return res.status(500).json({ success: false, error: 'Failed to delete customer' });
     }
 };
 
