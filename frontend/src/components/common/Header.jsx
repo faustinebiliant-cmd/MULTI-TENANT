@@ -28,7 +28,7 @@ const Header = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isBoss = user.is_boss === true;
-  const branches = activeBusiness?.branches || [];
+  const branches = (activeBusiness?.branches || []).filter(b => b.is_active !== false);
 
   return (
     <header className="app-header">

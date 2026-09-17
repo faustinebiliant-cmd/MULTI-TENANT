@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiZap, FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useShop } from '../../contexts/ShopContext';
@@ -205,6 +205,12 @@ const Login = () => {
           </form>
 
           <div className="login-footer">
+            <p style={{ marginBottom: '6px' }}>
+              Don't have an account?{' '}
+              <Link to="/signup" style={{ fontWeight: 600 }}>
+                Create one
+              </Link>
+            </p>
             <p>{appName}</p>
             <small>{location}{phone ? ` - ${phone}` : ''}</small>
           </div>

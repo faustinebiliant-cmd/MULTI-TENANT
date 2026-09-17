@@ -1,5 +1,8 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Branch Context
+// Holds the currently active business and branch.
+// Caches businesses in localStorage during login so page
+// refreshes don't need a network round-trip.
 // ============================================================
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
@@ -7,6 +10,22 @@ import api from '../api/client';
 import { useAuth } from './AuthContext';
 
 const BranchContext = createContext();
+
+const readCachedBusinesses = () => {
+  try {
+    const raw = localStorage.getItem('businesses');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+// Only active branches can be selected.
+const activeBranchesOf = (business) =>
+  (business?.branches || []).filter(b => b.is_active !== false);
 
 export const BranchProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -16,10 +35,6 @@ export const BranchProvider = ({ children }) => {
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
-  // ---------------------------------------------------------
-  // Load businesses on login. Boss gets all; staff gets none
-  // (staff don't switch, their scope is fixed by JWT).
-  // ---------------------------------------------------------
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setBusinesses([]);
@@ -29,11 +44,42 @@ export const BranchProvider = ({ children }) => {
       return;
     }
 
+    // Staff: scope comes from JWT, nothing to load
     if (!user.is_boss) {
-      // Staff: their scope comes from JWT, nothing to load
       setActiveBusinessId(user.business_id || null);
       setActiveBranchId(user.branch_id || null);
       setLoaded(true);
+      return;
+    }
+
+    const cached = readCachedBusinesses();
+
+    const finishSetup = (list) => {
+      const activeBusinesses = (list || []).filter(b => b.is_active !== false);
+      setBusinesses(activeBusinesses);
+
+      if (activeBusinesses.length === 0) {
+        setActiveBusinessId(null);
+        setActiveBranchId(null);
+        setLoaded(true);
+        return;
+      }
+
+      const savedBiz = localStorage.getItem('activeBusinessId');
+      const savedBr = localStorage.getItem('activeBranchId');
+
+      const bizMatch = activeBusinesses.find(b => b.id === savedBiz) || activeBusinesses[0];
+      setActiveBusinessId(bizMatch.id);
+
+      const activeBranches = activeBranchesOf(bizMatch);
+      const brMatch = activeBranches.find(b => b.id === savedBr) || activeBranches[0];
+      setActiveBranchId(brMatch?.id || null);
+
+      setLoaded(true);
+    };
+
+    if (cached) {
+      finishSetup(cached);
       return;
     }
 
@@ -41,28 +87,10 @@ export const BranchProvider = ({ children }) => {
       try {
         const res = await api.auth.getMe();
         const list = res.businesses || [];
-        setBusinesses(list);
-
-        if (list.length === 0) {
-          setActiveBusinessId(null);
-          setActiveBranchId(null);
-          setLoaded(true);
-          return;
-        }
-
-        // Restore from localStorage, else pick first business + its first branch
-        const savedBiz = localStorage.getItem('activeBusinessId');
-        const savedBr = localStorage.getItem('activeBranchId');
-
-        const bizMatch = list.find(b => b.id === savedBiz) || list[0];
-        setActiveBusinessId(bizMatch.id);
-
-        const branches = bizMatch.branches || [];
-        const brMatch = branches.find(b => b.id === savedBr) || branches[0];
-        setActiveBranchId(brMatch?.id || null);
+        localStorage.setItem('businesses', JSON.stringify(list));
+        finishSetup(list);
       } catch (err) {
         console.error('BranchContext load error:', err);
-      } finally {
         setLoaded(true);
       }
     };
@@ -70,9 +98,6 @@ export const BranchProvider = ({ children }) => {
     load();
   }, [isAuthenticated, user]);
 
-  // ---------------------------------------------------------
-  // Persist selection
-  // ---------------------------------------------------------
   useEffect(() => {
     if (activeBusinessId) localStorage.setItem('activeBusinessId', activeBusinessId);
     if (activeBranchId) localStorage.setItem('activeBranchId', activeBranchId);
@@ -82,13 +107,49 @@ export const BranchProvider = ({ children }) => {
     const biz = businesses.find(b => b.id === businessId);
     if (!biz) return;
     setActiveBusinessId(biz.id);
-    const firstBranch = (biz.branches || [])[0];
-    setActiveBranchId(firstBranch?.id || null);
+    const activeBranches = activeBranchesOf(biz);
+    setActiveBranchId(activeBranches[0]?.id || null);
   }, [businesses]);
 
   const switchBranch = useCallback((branchId) => {
+    // Only allow switching to an active branch
+    const biz = businesses.find(b => b.id === activeBusinessId);
+    if (!biz) return;
+    const activeBranches = activeBranchesOf(biz);
+    if (!activeBranches.find(b => b.id === branchId)) return;
     setActiveBranchId(branchId);
-  }, []);
+  }, [businesses, activeBusinessId]);
+
+  const refresh = useCallback(async () => {
+    if (!user?.is_boss) return;
+    try {
+      const res = await api.auth.getMe();
+      const list = res.businesses || [];
+      // Cache the FULL list (Settings page needs to see inactive branches)
+      localStorage.setItem('businesses', JSON.stringify(list));
+
+      // State only holds active businesses
+      const activeBusinesses = list.filter(b => b.is_active !== false);
+      setBusinesses(activeBusinesses);
+
+      // Re-pick business and branch, respecting saved selection when still valid
+      const savedBiz = localStorage.getItem('activeBusinessId');
+      const bizMatch = activeBusinesses.find(b => b.id === savedBiz) || activeBusinesses[0];
+      if (!bizMatch) {
+        setActiveBusinessId(null);
+        setActiveBranchId(null);
+        return;
+      }
+      setActiveBusinessId(bizMatch.id);
+
+      const activeBranches = activeBranchesOf(bizMatch);
+      const savedBr = localStorage.getItem('activeBranchId');
+      const brMatch = activeBranches.find(b => b.id === savedBr) || activeBranches[0];
+      setActiveBranchId(brMatch?.id || null);
+    } catch (err) {
+      console.error('BranchContext refresh error:', err);
+    }
+  }, [user]);
 
   const activeBusiness = businesses.find(b => b.id === activeBusinessId) || null;
 
@@ -99,7 +160,8 @@ export const BranchProvider = ({ children }) => {
     activeBusiness,
     loaded,
     switchBusiness,
-    switchBranch
+    switchBranch,
+    refresh
   };
 
   return (

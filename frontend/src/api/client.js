@@ -77,6 +77,15 @@ const api = {
       const response = await apiClient.post('/auth/login', data);
       return response.data;
     },
+    signup: async (data) => {
+  if (!data.email) throw new Error('Email is required');
+  if (!data.password) throw new Error('Password is required');
+  if (!data.full_name) throw new Error('Full name is required');
+  if (!data.business_name) throw new Error('Business name is required');
+  if (!data.branch_name) throw new Error('Branch name is required');
+  const response = await apiClient.post('/onboarding/signup', data);
+  return response.data;
+},
     getMe: async () => {
       const response = await apiClient.get('/auth/me');
       return response.data;

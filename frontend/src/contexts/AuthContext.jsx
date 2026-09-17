@@ -5,7 +5,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
-import { toastMessages } from '../styles/toastConfig';
 
 const AuthContext = createContext();
 
@@ -81,20 +80,28 @@ export const AuthProvider = ({ children }) => {
       const response = await api.auth.login({ email, password });
 
       if (response.success) {
-        const { token, user: userData } = response;
+        const { token, user: userData, businesses } = response;
 
         const minimalUser = {
-  id: userData.id,
-  full_name: userData.full_name,
-  email: userData.email,
-  role: userData.role,
-  is_first_login: userData.is_first_login,
-  is_boss: userData.is_boss === true,
-  business_id: userData.business_id || null,
-  branch_id: userData.branch_id || null
-};
+          id: userData.id,
+          full_name: userData.full_name,
+          email: userData.email,
+          role: userData.role,
+          is_first_login: userData.is_first_login,
+          is_boss: userData.is_boss === true,
+          business_id: userData.business_id || null,
+          branch_id: userData.branch_id || null,
+          account_code: userData.account_code || null
+        };
+
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(minimalUser));
+
+        // Cache the businesses list so BranchContext doesn't have to
+        // re-fetch /auth/me on every page refresh.
+        if (Array.isArray(businesses)) {
+          localStorage.setItem('businesses', JSON.stringify(businesses));
+        }
 
         setUser(minimalUser);
         setIsAuthenticated(true);
@@ -111,6 +118,48 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Signup
+const signup = async (payload) => {
+  try {
+    const response = await api.auth.signup(payload);
+
+    if (response.success) {
+      const { token, user: userData, businesses } = response;
+
+      const minimalUser = {
+        id: userData.id,
+        full_name: userData.full_name,
+        email: userData.email,
+        role: userData.role,
+        is_first_login: userData.is_first_login,
+        is_boss: userData.is_boss === true,
+        business_id: userData.business_id || null,
+        branch_id: userData.branch_id || null,
+        account_code: userData.account_code || null
+      };
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(minimalUser));
+
+      if (Array.isArray(businesses)) {
+        localStorage.setItem('businesses', JSON.stringify(businesses));
+      }
+
+      setUser(minimalUser);
+      setIsAuthenticated(true);
+
+      toast.success(`Welcome, ${userData.full_name}`);
+      return { success: true };
+    } else {
+      return { success: false, error: response.error };
+    }
+  } catch (error) {
+    console.error('Signup error:', error);
+    const errorMessage = error.response?.data?.error || 'Signup failed. Please try again.';
+    return { success: false, error: errorMessage };
+  }
+};
+
   // Logout
   const logout = () => {
     if (inactivityTimerRef.current) {
@@ -119,6 +168,9 @@ export const AuthProvider = ({ children }) => {
     }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('businesses');
+    localStorage.removeItem('activeBusinessId');
+    localStorage.removeItem('activeBranchId');
     setUser(null);
     setIsAuthenticated(false);
   };
@@ -146,14 +198,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const value = {
-    user,
-    loading,
-    isAuthenticated,
-    login,
-    logout,
-    changePassword,
-    setUser
-  };
+  user,
+  loading,
+  isAuthenticated,
+  login,
+  signup,           
+  logout,
+  changePassword,
+  setUser
+};
 
   return (
     <AuthContext.Provider value={value}>

@@ -15,26 +15,30 @@ const {
     createBranch,
     updateBranch,
     deactivateBranch,
-    activateBranch
+    activateBranch,
+    deleteBranch,
+    deactivateBusiness,
+    activateBusiness,
+    deleteBusiness
 } = require('../controllers/businessController');
 
 router.use(authenticate);
 
-// Current business (from X-Business-Id header)
 router.get('/current', getCurrent);
 router.put('/current', isBoss, updateCurrent);
 
-// List all businesses owned by the Boss
 router.get('/list', isBoss, listBusinesses);
 
-// Create a new business (with its first branch)
 router.post('/', isBoss, createBusiness);
+router.patch('/:id/deactivate', isBoss, deactivateBusiness);
+router.patch('/:id/activate', isBoss, activateBusiness);
+router.delete('/:id', isBoss, deleteBusiness);
 
-// Branches of the active business
 router.get('/branches', listBranches);
 router.post('/branches', isBoss, createBranch);
 router.put('/branches/:id', isBoss, updateBranch);
 router.patch('/branches/:id/deactivate', isBoss, deactivateBranch);
 router.patch('/branches/:id/activate', isBoss, activateBranch);
+router.delete('/branches/:id', isBoss, deleteBranch);
 
 module.exports = router;

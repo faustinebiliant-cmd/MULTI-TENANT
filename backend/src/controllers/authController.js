@@ -23,7 +23,7 @@ const loadBusinessesForBoss = async (bossId) => {
         .select(`
             id, name, shop_name, location, phone, email,
             currency, tin, vrn, vat_enabled, vat_rate,
-            expense_categories, is_active,
+            expense_categories, is_active, business_code,
             branches (id, name, location, phone, email, is_active)
         `)
         .eq('owner_id', bossId)
@@ -113,12 +113,13 @@ const login = async (req, res) => {
         }
 
         const tokenPayload = {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role,
-            is_boss,
-            is_first_login: user.is_first_login
+           id: user.id,
+           email: user.email,
+           full_name: user.full_name,
+           role: user.role,
+           is_boss,
+           is_first_login: user.is_first_login,
+           account_code: user.account_code
         };
 
         // Staff tokens carry their branch scope inside the JWT
@@ -182,7 +183,7 @@ const getCurrentUser = async (req, res) => {
 
         const { data: user, error } = await supabase
             .from('users')
-            .select('id, full_name, email, phone, role, business_id, branch_id, is_active, is_first_login, created_at')
+            .select('id, full_name, email, phone, role, business_id, branch_id, is_active, is_first_login, account_code, created_at')
             .eq('id', userId)
             .single();
 

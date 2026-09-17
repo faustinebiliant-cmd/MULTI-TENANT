@@ -1,16 +1,20 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Sidebar
+// Brand shows the active business name and the user's
+// account code (e.g. USR-0001) for support identification.
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiLogOut, FiZap, FiMenu, FiX } from 'react-icons/fi';
+import { FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBranch } from '../../contexts/BranchContext';
 import { getInitials } from '../../utils/helpers';
 import { getMenuGroups } from '../../utils/navConfig';
 
 const Sidebar = () => {
   const { logout } = useAuth();
+  const { activeBusiness } = useBranch();
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +42,11 @@ const Sidebar = () => {
   const initials = getInitials(user.full_name);
   const roleDisplay = role ? role.replace('_', ' ') : 'Staff';
 
+  // Line 1: the business name the user registered
+  // Line 2: their support code, labeled so users understand what it is
+  const brandName = activeBusiness?.name || user.full_name || 'OSWAGO';
+  const accountLabel = user.account_code ? `userID: ${user.account_code}` : '—';
+
   return (
     <>
       <button
@@ -57,12 +66,9 @@ const Sidebar = () => {
 
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <div className="sidebar-brand-icon">
-            <FiZap size={22} />
-          </div>
           <div>
-            <h2>OSWAGO</h2>
-            <p>Electrical Equipment</p>
+            <h2 className="sidebar-brand-name">{brandName}</h2>
+            <p className="sidebar-brand-code">{accountLabel}</p>
           </div>
           <button
             type="button"
@@ -120,4 +126,3 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
-

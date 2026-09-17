@@ -848,6 +848,469 @@ const activateBranch = async (req, res) => {
     }
 };
 
+// ============================================================
+// DELETE BRANCH (permanent, Boss only)
+// Body: { force: boolean }
+// ============================================================
+const deleteBranch = async (req, res) => {
+    try {
+        if (!req.user.is_boss) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the Boss can delete branches'
+            });
+        }
+
+        const { id } = req.params;
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid branch ID'
+            });
+        }
+
+        const businessId = req.scope?.business_id;
+        if (!businessId) {
+            return res.status(400).json({
+                success: false,
+                error: 'No active business selected'
+            });
+        }
+
+        const force = req.body?.force === true;
+
+        const { data: branch } = await supabase
+            .from('branches')
+            .select('id, name, business_id, is_active')
+            .eq('id', id)
+            .single();
+
+        if (!branch || branch.business_id !== businessId) {
+            return res.status(404).json({
+                success: false,
+                error: 'Branch not found in the active business'
+            });
+        }
+
+        const { count: activeCount } = await supabase
+            .from('branches')
+            .select('id', { count: 'exact', head: true })
+            .eq('business_id', businessId)
+            .eq('is_active', true);
+
+        if (branch.is_active && (activeCount || 0) <= 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot delete the last active branch. Deactivate the business instead.'
+            });
+        }
+
+        const checks = await Promise.all([
+            supabase.from('products').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('customers').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('orders').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('payments').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('expenses').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('suppliers').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('purchase_orders').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('stock_movements').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('categories').select('id', { count: 'exact', head: true }).eq('branch_id', id),
+            supabase.from('users').select('id', { count: 'exact', head: true }).eq('branch_id', id).eq('is_deleted', false)
+        ]);
+
+        const counts = {
+            products: checks[0].count || 0,
+            customers: checks[1].count || 0,
+            orders: checks[2].count || 0,
+            payments: checks[3].count || 0,
+            expenses: checks[4].count || 0,
+            suppliers: checks[5].count || 0,
+            purchase_orders: checks[6].count || 0,
+            stock_movements: checks[7].count || 0,
+            categories: checks[8].count || 0,
+            users: checks[9].count || 0
+        };
+
+        const hasData = Object.values(counts).some(n => n > 0);
+
+        if (hasData && !force) {
+            return res.status(400).json({
+                success: false,
+                error: 'Branch has data. Use force delete to wipe it, or deactivate it instead.',
+                details: counts,
+                requires_force: true
+            });
+        }
+
+        await supabase
+            .from('users')
+            .update({ branch_id: null })
+            .eq('branch_id', id);
+
+        const { error } = await supabase
+            .from('branches')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: null,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: force ? 'Branch Force Deleted' : 'Branch Deleted',
+                details: { branch_id: id, name: branch.name, force, counts }
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: force
+                ? 'Branch and all its data permanently deleted.'
+                : 'Branch permanently deleted.',
+            counts
+        });
+
+    } catch (error) {
+        console.error('Delete branch error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to delete branch: ' + error.message
+        });
+    }
+};
+
+// ============================================================
+// DEACTIVATE BUSINESS (Boss only)
+// Hides the business and all its branches. Data preserved.
+// ============================================================
+const deactivateBusiness = async (req, res) => {
+    try {
+        if (!req.user.is_boss) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the Boss can deactivate businesses'
+            });
+        }
+
+        const { id } = req.params;
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid business ID'
+            });
+        }
+
+        const { data: business } = await supabase
+            .from('businesses')
+            .select('id, name, owner_id, is_active')
+            .eq('id', id)
+            .single();
+
+        if (!business || business.owner_id !== req.user.id) {
+            return res.status(404).json({
+                success: false,
+                error: 'Business not found or access denied'
+            });
+        }
+
+        if (!business.is_active) {
+            return res.status(400).json({
+                success: false,
+                error: 'Business is already inactive'
+            });
+        }
+
+        // Boss must keep at least one active business
+        const { count: activeCount } = await supabase
+            .from('businesses')
+            .select('id', { count: 'exact', head: true })
+            .eq('owner_id', req.user.id)
+            .eq('is_active', true);
+
+        if ((activeCount || 0) <= 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot deactivate the last active business. Create another one first.'
+            });
+        }
+
+        const { error: bizErr } = await supabase
+            .from('businesses')
+            .update({ is_active: false, updated_at: new Date() })
+            .eq('id', id);
+
+        if (bizErr) throw bizErr;
+
+        await supabase
+            .from('branches')
+            .update({ is_active: false, updated_at: new Date() })
+            .eq('business_id', id);
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: null,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: 'Business Deactivated',
+                details: { business_id: id, name: business.name }
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Business deactivated. Its data is preserved.'
+        });
+
+    } catch (error) {
+        console.error('Deactivate business error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to deactivate business: ' + error.message
+        });
+    }
+};
+
+// ============================================================
+// ACTIVATE BUSINESS (Boss only)
+// Brings the business back. Branches remain individually inactive
+// until the Boss activates them one by one.
+// ============================================================
+const activateBusiness = async (req, res) => {
+    try {
+        if (!req.user.is_boss) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the Boss can activate businesses'
+            });
+        }
+
+        const { id } = req.params;
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid business ID'
+            });
+        }
+
+        const { data: business } = await supabase
+            .from('businesses')
+            .select('id, name, owner_id, is_active')
+            .eq('id', id)
+            .single();
+
+        if (!business || business.owner_id !== req.user.id) {
+            return res.status(404).json({
+                success: false,
+                error: 'Business not found or access denied'
+            });
+        }
+
+        if (business.is_active) {
+            return res.status(400).json({
+                success: false,
+                error: 'Business is already active'
+            });
+        }
+
+        const { error } = await supabase
+            .from('businesses')
+            .update({ is_active: true, updated_at: new Date() })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        // Auto-reactivate all its branches so the business is usable
+        await supabase
+            .from('branches')
+            .update({ is_active: true, updated_at: new Date() })
+            .eq('business_id', id);
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: null,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: 'Business Activated',
+                details: { business_id: id, name: business.name }
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Business activated. Its branches are active again.'
+        });
+
+    } catch (error) {
+        console.error('Activate business error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to activate business: ' + error.message
+        });
+    }
+};
+
+// ============================================================
+// DELETE BUSINESS (permanent, Boss only)
+// Body: { force: boolean }
+//   force = false (default): refuses if the business has ANY data
+//   force = true:             deletes everything via cascade
+// ============================================================
+const deleteBusiness = async (req, res) => {
+    try {
+        if (!req.user.is_boss) {
+            return res.status(403).json({
+                success: false,
+                error: 'Only the Boss can delete businesses'
+            });
+        }
+
+        const { id } = req.params;
+        if (!isValidUUID(id)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid business ID'
+            });
+        }
+
+        const force = req.body?.force === true;
+
+        const { data: business } = await supabase
+            .from('businesses')
+            .select('id, name, owner_id')
+            .eq('id', id)
+            .single();
+
+        if (!business || business.owner_id !== req.user.id) {
+            return res.status(404).json({
+                success: false,
+                error: 'Business not found or access denied'
+            });
+        }
+
+        const { count: totalCount } = await supabase
+            .from('businesses')
+            .select('id', { count: 'exact', head: true })
+            .eq('owner_id', req.user.id);
+
+        if ((totalCount || 0) <= 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot delete your last business.'
+            });
+        }
+
+        const { data: branchRows } = await supabase
+            .from('branches')
+            .select('id')
+            .eq('business_id', id);
+
+        const branchIds = (branchRows || []).map(b => b.id);
+
+        // Count everything under this business
+        let counts = {
+            branches: branchIds.length,
+            products: 0,
+            customers: 0,
+            orders: 0,
+            payments: 0,
+            expenses: 0,
+            suppliers: 0,
+            purchase_orders: 0,
+            stock_movements: 0,
+            categories: 0,
+            users: 0
+        };
+
+        if (branchIds.length > 0) {
+            const checks = await Promise.all([
+                supabase.from('products').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('customers').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('orders').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('payments').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('expenses').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('suppliers').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('purchase_orders').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('stock_movements').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('categories').select('id', { count: 'exact', head: true }).in('branch_id', branchIds),
+                supabase.from('users').select('id', { count: 'exact', head: true }).in('branch_id', branchIds).eq('is_deleted', false)
+            ]);
+
+            counts.products = checks[0].count || 0;
+            counts.customers = checks[1].count || 0;
+            counts.orders = checks[2].count || 0;
+            counts.payments = checks[3].count || 0;
+            counts.expenses = checks[4].count || 0;
+            counts.suppliers = checks[5].count || 0;
+            counts.purchase_orders = checks[6].count || 0;
+            counts.stock_movements = checks[7].count || 0;
+            counts.categories = checks[8].count || 0;
+            counts.users = checks[9].count || 0;
+        }
+
+        const hasData = Object.entries(counts)
+            .filter(([k]) => k !== 'branches')
+            .some(([, n]) => n > 0);
+
+        if (hasData && !force) {
+            return res.status(400).json({
+                success: false,
+                error: 'Business has data. Use force delete to wipe it, or deactivate it instead.',
+                details: counts,
+                requires_force: true
+            });
+        }
+
+        // Detach users first (both active and soft-deleted) so FK doesn't block
+        if (branchIds.length > 0) {
+            await supabase
+                .from('users')
+                .update({ branch_id: null, business_id: null })
+                .in('branch_id', branchIds);
+        }
+
+        // Delete business — cascades to branches, and branches cascade
+        // to their products/orders/customers/etc. via ON DELETE CASCADE
+        const { error } = await supabase
+            .from('businesses')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: null,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: force ? 'Business Force Deleted' : 'Business Deleted',
+                details: {
+                    business_id: id,
+                    name: business.name,
+                    force,
+                    counts
+                }
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: force
+                ? 'Business and all its data permanently deleted.'
+                : 'Business permanently deleted.',
+            counts
+        });
+
+    } catch (error) {
+        console.error('Delete business error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to delete business: ' + error.message
+        });
+    }
+};
+
 module.exports = {
     getCurrent,
     listBusinesses,
@@ -857,5 +1320,9 @@ module.exports = {
     createBranch,
     updateBranch,
     deactivateBranch,
-    activateBranch
+    activateBranch,
+    deleteBranch,
+    deactivateBusiness,
+    activateBusiness,
+    deleteBusiness
 };

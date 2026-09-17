@@ -1,14 +1,16 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Settings
-// Reads and writes the active business via /api/business/current
-// Also manages branches (create, rename, activate, deactivate).
+// - My Businesses: switch / deactivate / force-delete
+// - Active business: edit identity, VAT
+// - Branches: add / rename / deactivate / force-delete
+// Force delete requires typing the name twice for confirmation.
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiUser, FiUsers, FiSettings, FiMoon, FiSun,
-  FiPlus, FiEdit2, FiCheck, FiX, FiPower
+  FiPlus, FiEdit2, FiCheck, FiX, FiPower, FiTrash2, FiBriefcase
 } from 'react-icons/fi';
 import { useApp } from '../../contexts/AppContext';
 import { useShop } from '../../contexts/ShopContext';
@@ -17,10 +19,18 @@ import api from '../../api/client';
 import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
+// Count non-branch rows that would be destroyed in a force delete
+const totalRows = (counts) => {
+  if (!counts) return 0;
+  return Object.entries(counts)
+    .filter(([k]) => k !== 'branches')
+    .reduce((sum, [, n]) => sum + (n || 0), 0);
+};
+
 const Settings = () => {
   const { darkMode, toggleDarkMode } = useApp();
   const { refresh: refreshShop } = useShop();
-  const { activeBusinessId, refresh: refreshBranch } = useBranch();
+  const { activeBusinessId, businesses, refresh: refreshBranch, switchBusiness } = useBranch();
 
   const [form, setForm] = useState({
     name: '',
@@ -41,16 +51,24 @@ const Settings = () => {
 
   // Branch UI state
   const [isAddingBranch, setIsAddingBranch] = useState(false);
+  const [creatingBranch, setCreatingBranch] = useState(false);
   const [newBranch, setNewBranch] = useState({ name: '', location: '', phone: '' });
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editBranchValue, setEditBranchValue] = useState('');
-  const [branchAction, setBranchAction] = useState(null); // { type: 'deactivate'|'activate', branch }
+  const [branchAction, setBranchAction] = useState(null);
 
-  // New business modal state
+  // New business modal
   const [showNewBusiness, setShowNewBusiness] = useState(false);
+  const [creatingBusiness, setCreatingBusiness] = useState(false);
   const [newBusiness, setNewBusiness] = useState({
     name: '', branch_name: '', location: '', phone: '', email: ''
   });
+
+  // Business lifecycle modals
+  const [businessAction, setBusinessAction] = useState(null); // { type: 'deactivate'|'activate'|'delete', business, counts }
+
+  // Force delete confirmation state
+  const [forceDelete, setForceDelete] = useState(null); // { kind: 'business'|'branch', id, name, counts, confirmName, confirmWord }
 
   // ---------------------------------------------------------
   // Load business + branches
@@ -89,7 +107,6 @@ const Settings = () => {
         await fetchBranches();
       } catch (error) {
         console.error('Error fetching business:', error);
-        toast.error('Failed to load settings');
       } finally {
         setLoaded(true);
       }
@@ -130,7 +147,6 @@ const Settings = () => {
       await refreshBranch();
       toast.success('Settings saved successfully');
     } catch (error) {
-      console.error('Error saving settings:', error);
       toast.error(error.response?.data?.error || 'Failed to save settings');
     } finally {
       setLoading(false);
@@ -141,11 +157,13 @@ const Settings = () => {
   // Branch actions
   // ---------------------------------------------------------
   const handleAddBranch = async () => {
+    if (creatingBranch) return;
     if (!newBranch.name.trim()) {
       toast.error('Branch name is required');
       return;
     }
 
+    setCreatingBranch(true);
     try {
       await api.createBranch({
         name: newBranch.name.trim(),
@@ -159,6 +177,8 @@ const Settings = () => {
       await refreshBranch();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to create branch');
+    } finally {
+      setCreatingBranch(false);
     }
   };
 
@@ -187,7 +207,7 @@ const Settings = () => {
     try {
       if (type === 'deactivate') {
         await api.deactivateBranch(branch.id);
-        toast.success('Branch deactivated. Its data is preserved.');
+        toast.success('Branch deactivated');
       } else {
         await api.activateBranch(branch.id);
         toast.success('Branch activated');
@@ -201,9 +221,10 @@ const Settings = () => {
   };
 
   // ---------------------------------------------------------
-  // New business
+  // Business lifecycle
   // ---------------------------------------------------------
   const handleCreateBusiness = async () => {
+    if (creatingBusiness) return;
     if (!newBusiness.name.trim()) {
       toast.error('Business name is required');
       return;
@@ -213,6 +234,7 @@ const Settings = () => {
       return;
     }
 
+    setCreatingBusiness(true);
     try {
       await api.createBusiness({
         name: newBusiness.name.trim(),
@@ -224,10 +246,116 @@ const Settings = () => {
       toast.success('Business created. Reloading...');
       setShowNewBusiness(false);
       setNewBusiness({ name: '', branch_name: '', location: '', phone: '', email: '' });
-      // Full reload to pull the new businesses list into BranchContext
       setTimeout(() => window.location.reload(), 800);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to create business');
+      setCreatingBusiness(false);
+    }
+  };
+
+  const handleBusinessToggleConfirm = async () => {
+    if (!businessAction) return;
+    const { type, business } = businessAction;
+
+    try {
+      if (type === 'deactivate') {
+        await api.deactivateBusiness(business.id);
+        toast.success('Business deactivated. Data preserved.');
+      } else {
+        await api.activateBusiness(business.id);
+        toast.success('Business activated.');
+      }
+      setBusinessAction(null);
+      await refreshBranch();
+      await refreshShop();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to change business status');
+    }
+  };
+
+  // ---------------------------------------------------------
+  // Delete flows
+  // ---------------------------------------------------------
+  const attemptDeleteBusiness = async (business) => {
+    try {
+      const res = await api.deleteBusiness(business.id, false);
+      toast.success(res.message || 'Business deleted');
+      await refreshBranch();
+      await refreshShop();
+      if (business.id === activeBusinessId) {
+        setTimeout(() => window.location.reload(), 600);
+      }
+    } catch (error) {
+      const data = error.response?.data;
+      if (data?.requires_force) {
+        // Open force delete modal with the counts
+        setForceDelete({
+          kind: 'business',
+          id: business.id,
+          name: business.name,
+          counts: data.details,
+          confirmName: '',
+          confirmWord: ''
+        });
+      } else {
+        toast.error(data?.error || 'Failed to delete business');
+      }
+    }
+  };
+
+  const attemptDeleteBranch = async (branch) => {
+    try {
+      const res = await api.deleteBranch(branch.id, false);
+      toast.success(res.message || 'Branch deleted');
+      await fetchBranches();
+      await refreshBranch();
+    } catch (error) {
+      const data = error.response?.data;
+      if (data?.requires_force) {
+        setForceDelete({
+          kind: 'branch',
+          id: branch.id,
+          name: branch.name,
+          counts: data.details,
+          confirmName: '',
+          confirmWord: ''
+        });
+      } else {
+        toast.error(data?.error || 'Failed to delete branch');
+      }
+    }
+  };
+
+  const confirmForceDelete = async () => {
+    if (!forceDelete) return;
+    const { kind, id, name, confirmName, confirmWord } = forceDelete;
+
+    if (confirmName.trim() !== name) {
+      toast.error('Typed name does not match');
+      return;
+    }
+    if (confirmWord.trim() !== 'DELETE') {
+      toast.error('Type DELETE to confirm');
+      return;
+    }
+
+    try {
+      if (kind === 'business') {
+        const res = await api.deleteBusiness(id, true);
+        toast.success(res.message || 'Business force-deleted');
+        setForceDelete(null);
+        await refreshBranch();
+        await refreshShop();
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        const res = await api.deleteBranch(id, true);
+        toast.success(res.message || 'Branch force-deleted');
+        setForceDelete(null);
+        await fetchBranches();
+        await refreshBranch();
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Force delete failed');
     }
   };
 
@@ -245,152 +373,139 @@ const Settings = () => {
       <div className="page-header">
         <div>
           <h1>Settings</h1>
-          <p>Manage your shop settings</p>
+          <p>Manage your shops and branches</p>
         </div>
-        <button
-          onClick={() => setShowNewBusiness(true)}
-          className="btn btn-primary"
-        >
+        <button onClick={() => setShowNewBusiness(true)} className="btn btn-primary">
           <FiPlus size={16} /> New Business
         </button>
       </div>
 
-      <div className="grid-3" style={{ marginBottom: '24px' }}>
-        <Link to="/settings/profile" className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <FiUser size={24} style={{ color: '#3b82f6' }} />
-            <div>
-              <h3>Profile</h3>
-              <p style={{ fontSize: '14px', color: '#6b7280' }}>Manage your account</p>
-            </div>
-          </div>
-        </Link>
-        <Link to="/staff" className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <FiUsers size={24} style={{ color: '#8b5cf6' }} />
-            <div>
-              <h3>Staff Management</h3>
-              <p style={{ fontSize: '14px', color: '#6b7280' }}>Manage your team</p>
-            </div>
-          </div>
-        </Link>
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <FiSettings size={24} style={{ color: '#f59e0b' }} />
-            <div>
-              <h3>Shop Settings</h3>
-              <p style={{ fontSize: '14px', color: '#6b7280' }}>Configure your shop</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      {/* -------------------------------------------------------
+          MY BUSINESSES
+          ------------------------------------------------------- */}
       <div className="card" style={{ marginBottom: '24px' }}>
-        <h3>Appearance</h3>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 0'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {darkMode ? <FiMoon size={24} color="#8b5cf6" /> : <FiSun size={24} color="#f59e0b" />}
-            <div>
-              <h4 style={{ margin: 0 }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</h4>
-              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
-                {darkMode ? 'Dark theme is active' : 'Light theme is active'}
-              </p>
-            </div>
+        <div className="flex-between" style={{ marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>My Businesses</h3>
+            <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>
+              Each business is fully separate. Switch, deactivate, or delete.
+            </small>
           </div>
-          <button
-            onClick={toggleDarkMode}
-            className="btn"
-            style={{
-              backgroundColor: darkMode ? '#8b5cf6' : '#f59e0b',
-              color: '#fff',
-              borderRadius: '50px',
-              padding: '10px 24px'
-            }}
-          >
-            {darkMode ? 'Switch to Light' : 'Switch to Dark'}
-          </button>
         </div>
+
+        {businesses.length === 0 ? (
+          <p style={{ padding: '20px', textAlign: 'center', color: 'var(--gray)' }}>
+            No businesses yet. Click "New Business" above.
+          </p>
+        ) : (
+          <div className="business-list">
+            {businesses.map((b) => {
+              const isActive = b.id === activeBusinessId;
+              const branchCount = (b.branches || []).length;
+
+              return (
+                <div
+                  key={b.id}
+                  className={`business-row ${isActive ? 'is-active' : ''}`}
+                >
+                  <div className="business-row-left">
+                    <div className="business-row-icon">
+                      <FiBriefcase size={18} />
+                    </div>
+                    <div>
+                      <div className="business-row-name">
+                        {b.name}
+                        {isActive && <span className="business-row-badge">Active view</span>}
+                      </div>
+                      <div className="business-row-meta">
+                        {branchCount} {branchCount === 1 ? 'branch' : 'branches'}
+                        {b.location ? ` · ${b.location}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="business-row-actions">
+                    {!isActive && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => switchBusiness(b.id)}
+                      >
+                        Switch to
+                      </button>
+                    )}
+                    {isActive && (
+                      <span className="business-row-active-label">Currently viewing</span>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => setBusinessAction({
+                        type: b.is_active === false ? 'activate' : 'deactivate',
+                        business: b
+                      })}
+                      title={b.is_active === false ? 'Activate business' : 'Deactivate business'}
+                    >
+                      <FiPower size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() => attemptDeleteBusiness(b)}
+                      title="Delete business permanently"
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* -------------------------------------------------------
+          ACTIVE BUSINESS IDENTITY
+          ------------------------------------------------------- */}
       <form onSubmit={handleSubmit}>
         <div className="card" style={{ marginBottom: '24px' }}>
           <h3>Business Identity</h3>
           <small style={{ color: '#6b7280', display: 'block', marginBottom: '16px' }}>
-            The <strong>Business Name</strong> is internal — used in reports and switcher.
-            The <strong>Display Name</strong> appears on receipts and the header.
+            Editing the active business: <strong>{form.name || '—'}</strong>
           </small>
 
           <div className="grid-2">
             <div className="form-group">
               <label>Business Name (internal) *</label>
-              <input
-                type="text"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="e.g., OSWAGO Electronics"
-                required
-              />
+              <input type="text" name="name" value={form.name} onChange={handleChange} required />
             </div>
             <div className="form-group">
               <label>Display Name (on receipts) *</label>
-              <input
-                type="text"
-                name="shop_name"
-                value={form.shop_name}
-                onChange={handleChange}
-                placeholder="e.g., OSWAGO Electrical Equipment"
-                required
-              />
+              <input type="text" name="shop_name" value={form.shop_name} onChange={handleChange} required />
             </div>
           </div>
 
           <div className="grid-2">
             <div className="form-group">
               <label>Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="0750825721"
-              />
+              <input type="tel" name="phone" value={form.phone} onChange={handleChange} />
             </div>
             <div className="form-group">
               <label>Email</label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="shop@example.com"
-              />
+              <input type="email" name="email" value={form.email} onChange={handleChange} />
             </div>
           </div>
 
           <div className="form-group">
             <label>Location / Address</label>
-            <input
-              type="text"
-              name="location"
-              value={form.location}
-              onChange={handleChange}
-              placeholder="e.g., Darajani, Kigamboni, Dar es Salaam"
-            />
+            <input type="text" name="location" value={form.location} onChange={handleChange} />
           </div>
 
           <div className="form-group">
             <label>Currency</label>
-            <select
-              name="currency"
-              value={form.currency}
-              onChange={handleChange}
-            >
+            <select name="currency" value={form.currency} onChange={handleChange}>
               <option value="TZS">TZS</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -412,9 +527,6 @@ const Settings = () => {
                 />
                 <span>{form.vat_enabled ? 'VAT is enabled' : 'VAT is disabled'}</span>
               </div>
-              <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>
-                Enable this if your business is VAT registered with TRA
-              </small>
             </div>
 
             {form.vat_enabled && (
@@ -430,31 +542,16 @@ const Settings = () => {
                     max="100"
                     step="0.01"
                   />
-                  <small style={{ color: '#6b7280' }}>
-                    Standard rate in Tanzania is 18%
-                  </small>
                 </div>
 
                 <div className="grid-2">
                   <div className="form-group">
-                    <label>TIN (Taxpayer ID)</label>
-                    <input
-                      type="text"
-                      name="tin"
-                      value={form.tin}
-                      onChange={handleChange}
-                      placeholder="123-456-789"
-                    />
+                    <label>TIN</label>
+                    <input type="text" name="tin" value={form.tin} onChange={handleChange} />
                   </div>
                   <div className="form-group">
-                    <label>VRN (VAT Registration No.)</label>
-                    <input
-                      type="text"
-                      name="vrn"
-                      value={form.vrn}
-                      onChange={handleChange}
-                      placeholder="40-123456-789"
-                    />
+                    <label>VRN</label>
+                    <input type="text" name="vrn" value={form.vrn} onChange={handleChange} />
                   </div>
                 </div>
               </>
@@ -462,6 +559,9 @@ const Settings = () => {
           </div>
         </div>
 
+        {/* -------------------------------------------------------
+            BRANCHES
+            ------------------------------------------------------- */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="flex-between" style={{ marginBottom: '16px' }}>
             <div>
@@ -474,6 +574,7 @@ const Settings = () => {
               type="button"
               onClick={() => setIsAddingBranch(true)}
               className="btn btn-sm btn-primary"
+              disabled={isAddingBranch}
             >
               <FiPlus size={14} /> Add Branch
             </button>
@@ -495,6 +596,7 @@ const Settings = () => {
                   onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
                   className="form-control"
                   autoFocus
+                  disabled={creatingBranch}
                 />
                 <input
                   type="text"
@@ -502,6 +604,7 @@ const Settings = () => {
                   value={newBranch.location}
                   onChange={(e) => setNewBranch({ ...newBranch, location: e.target.value })}
                   className="form-control"
+                  disabled={creatingBranch}
                 />
               </div>
               <div className="flex" style={{ gap: '10px', justifyContent: 'flex-end' }}>
@@ -509,6 +612,7 @@ const Settings = () => {
                   type="button"
                   onClick={() => { setIsAddingBranch(false); setNewBranch({ name: '', location: '', phone: '' }); }}
                   className="btn btn-sm btn-secondary"
+                  disabled={creatingBranch}
                 >
                   Cancel
                 </button>
@@ -516,8 +620,9 @@ const Settings = () => {
                   type="button"
                   onClick={handleAddBranch}
                   className="btn btn-sm btn-primary"
+                  disabled={creatingBranch}
                 >
-                  <FiPlus size={14} /> Create Branch
+                  <FiPlus size={14} /> {creatingBranch ? 'Creating...' : 'Create Branch'}
                 </button>
               </div>
             </div>
@@ -567,18 +672,10 @@ const Settings = () => {
                           <div className="flex" style={{ gap: '6px', justifyContent: 'flex-end' }}>
                             {isEditing ? (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveBranchEdit(branch.id)}
-                                  className="btn btn-sm btn-success"
-                                >
+                                <button type="button" onClick={() => handleSaveBranchEdit(branch.id)} className="btn btn-sm btn-success">
                                   <FiCheck size={14} />
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { setEditingBranchId(null); setEditBranchValue(''); }}
-                                  className="btn btn-sm btn-secondary"
-                                >
+                                <button type="button" onClick={() => { setEditingBranchId(null); setEditBranchValue(''); }} className="btn btn-sm btn-secondary">
                                   <FiX size={14} />
                                 </button>
                               </>
@@ -603,6 +700,14 @@ const Settings = () => {
                                 >
                                   <FiPower size={14} />
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => attemptDeleteBranch(branch)}
+                                  className="btn btn-sm btn-danger"
+                                  title="Delete permanently"
+                                >
+                                  <FiTrash2 size={14} />
+                                </button>
                               </>
                             )}
                           </div>
@@ -625,24 +730,45 @@ const Settings = () => {
         </div>
       </form>
 
-      {/* New Business Modal */}
+      {/* -------------------------------------------------------
+          APPEARANCE
+          ------------------------------------------------------- */}
+      <div className="card" style={{ marginTop: '24px', marginBottom: '24px' }}>
+        <h3>Appearance</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {darkMode ? <FiMoon size={24} color="#8b5cf6" /> : <FiSun size={24} color="#f59e0b" />}
+            <div>
+              <h4 style={{ margin: 0 }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</h4>
+            </div>
+          </div>
+          <button
+            onClick={toggleDarkMode}
+            className="btn"
+            style={{
+              backgroundColor: darkMode ? '#8b5cf6' : '#f59e0b',
+              color: '#fff',
+              borderRadius: '50px',
+              padding: '10px 24px'
+            }}
+          >
+            {darkMode ? 'Switch to Light' : 'Switch to Dark'}
+          </button>
+        </div>
+      </div>
+
+      {/* -------------------------------------------------------
+          NEW BUSINESS MODAL
+          ------------------------------------------------------- */}
       {showNewBusiness && (
-        <div className="modal-overlay" onClick={() => setShowNewBusiness(false)}>
+        <div className="modal-overlay" onClick={() => !creatingBusiness && setShowNewBusiness(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="flex-between" style={{ marginBottom: '16px' }}>
               <h2 style={{ margin: 0 }}>Create New Business</h2>
-              <button
-                onClick={() => setShowNewBusiness(false)}
-                className="btn btn-sm btn-secondary"
-              >
+              <button onClick={() => setShowNewBusiness(false)} className="btn btn-sm btn-secondary" disabled={creatingBusiness}>
                 <FiX size={16} />
               </button>
             </div>
-
-            <p style={{ color: 'var(--gray)', fontSize: '13px', marginBottom: '16px' }}>
-              Each business is completely separate: its own products, customers, staff, and settings.
-              You will start with one branch.
-            </p>
 
             <div className="form-group">
               <label>Business Name (internal) *</label>
@@ -652,6 +778,7 @@ const Settings = () => {
                 onChange={(e) => setNewBusiness({ ...newBusiness, name: e.target.value })}
                 placeholder="e.g., OSWAGO Cosmetics"
                 autoFocus
+                disabled={creatingBusiness}
               />
             </div>
 
@@ -662,6 +789,7 @@ const Settings = () => {
                 value={newBusiness.branch_name}
                 onChange={(e) => setNewBusiness({ ...newBusiness, branch_name: e.target.value })}
                 placeholder="e.g., Main Branch"
+                disabled={creatingBusiness}
               />
             </div>
 
@@ -671,15 +799,15 @@ const Settings = () => {
                 type="text"
                 value={newBusiness.location}
                 onChange={(e) => setNewBusiness({ ...newBusiness, location: e.target.value })}
-                placeholder="e.g., Mwenge, Dar es Salaam"
+                disabled={creatingBusiness}
               />
             </div>
 
             <div className="flex" style={{ gap: '10px', marginTop: '20px' }}>
-              <button onClick={handleCreateBusiness} className="btn btn-primary" style={{ flex: 1 }}>
-                <FiPlus size={16} /> Create Business
+              <button onClick={handleCreateBusiness} className="btn btn-primary" style={{ flex: 1 }} disabled={creatingBusiness}>
+                <FiPlus size={16} /> {creatingBusiness ? 'Creating...' : 'Create Business'}
               </button>
-              <button onClick={() => setShowNewBusiness(false)} className="btn btn-secondary">
+              <button onClick={() => setShowNewBusiness(false)} className="btn btn-secondary" disabled={creatingBusiness}>
                 Cancel
               </button>
             </div>
@@ -687,14 +815,34 @@ const Settings = () => {
         </div>
       )}
 
-      {/* Confirm branch toggle */}
+      {/* -------------------------------------------------------
+          BUSINESS DEACTIVATE / ACTIVATE CONFIRM
+          ------------------------------------------------------- */}
+      <ConfirmDialog
+        open={!!businessAction}
+        title={businessAction?.type === 'deactivate' ? 'Deactivate Business' : 'Activate Business'}
+        message={
+          businessAction?.type === 'deactivate'
+            ? `Deactivate "${businessAction?.business?.name}"? All its branches and data are preserved but hidden from the switcher.`
+            : `Activate "${businessAction?.business?.name}"? Its branches become available again.`
+        }
+        confirmLabel={businessAction?.type === 'deactivate' ? 'Deactivate' : 'Activate'}
+        cancelLabel="Cancel"
+        variant={businessAction?.type === 'deactivate' ? 'danger' : 'primary'}
+        onConfirm={handleBusinessToggleConfirm}
+        onCancel={() => setBusinessAction(null)}
+      />
+
+      {/* -------------------------------------------------------
+          BRANCH DEACTIVATE / ACTIVATE CONFIRM
+          ------------------------------------------------------- */}
       <ConfirmDialog
         open={!!branchAction}
         title={branchAction?.type === 'deactivate' ? 'Deactivate Branch' : 'Activate Branch'}
         message={
           branchAction?.type === 'deactivate'
-            ? `Deactivate "${branchAction?.branch?.name}"? Its orders, customers, and stock are preserved. Staff assigned to it must be moved first.`
-            : `Reactivate "${branchAction?.branch?.name}"? It will become usable again.`
+            ? `Deactivate "${branchAction?.branch?.name}"? Its data is preserved.`
+            : `Reactivate "${branchAction?.branch?.name}"?`
         }
         confirmLabel={branchAction?.type === 'deactivate' ? 'Deactivate' : 'Activate'}
         cancelLabel="Cancel"
@@ -702,6 +850,82 @@ const Settings = () => {
         onConfirm={handleBranchToggleConfirm}
         onCancel={() => setBranchAction(null)}
       />
+
+      {/* -------------------------------------------------------
+          FORCE DELETE MODAL (business or branch)
+          ------------------------------------------------------- */}
+      {forceDelete && (
+        <div className="modal-overlay" onClick={() => setForceDelete(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ margin: 0, color: 'var(--danger)' }}>
+              Force Delete {forceDelete.kind === 'business' ? 'Business' : 'Branch'}
+            </h2>
+
+            <p style={{ color: 'var(--gray)', fontSize: '13.5px', marginTop: '8px' }}>
+              This will permanently destroy <strong>{forceDelete.name}</strong> and every row attached to it.
+              There is <strong>no undo</strong>.
+            </p>
+
+            <div style={{
+              background: 'var(--danger-soft)',
+              border: '1px solid var(--danger)',
+              borderRadius: 'var(--radius)',
+              padding: '12px 14px',
+              margin: '16px 0',
+              fontSize: '13px'
+            }}>
+              <strong style={{ color: '#991b1b' }}>Rows that will be destroyed:</strong>
+              <ul style={{ margin: '8px 0 0 18px', color: '#991b1b' }}>
+                {Object.entries(forceDelete.counts || {})
+                  .filter(([, n]) => n > 0)
+                  .map(([k, n]) => (
+                    <li key={k}>
+                      <strong>{n}</strong> {k.replace('_', ' ')}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+
+            <div className="form-group">
+              <label>Type the exact name: <code>{forceDelete.name}</code></label>
+              <input
+                type="text"
+                value={forceDelete.confirmName}
+                onChange={(e) => setForceDelete({ ...forceDelete, confirmName: e.target.value })}
+                placeholder={forceDelete.name}
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Type <code>DELETE</code> to confirm</label>
+              <input
+                type="text"
+                value={forceDelete.confirmWord}
+                onChange={(e) => setForceDelete({ ...forceDelete, confirmWord: e.target.value })}
+                placeholder="DELETE"
+              />
+            </div>
+
+            <div className="flex" style={{ gap: '10px', marginTop: '16px' }}>
+              <button
+                onClick={confirmForceDelete}
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                disabled={
+                  forceDelete.confirmName.trim() !== forceDelete.name ||
+                  forceDelete.confirmWord.trim() !== 'DELETE'
+                }
+              >
+                <FiTrash2 size={16} /> Permanently Delete
+              </button>
+              <button onClick={() => setForceDelete(null)} className="btn btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

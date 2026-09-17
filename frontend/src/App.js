@@ -47,6 +47,7 @@ import StaffForm from './components/staff/StaffForm';
 import StaffDetail from './components/staff/StaffDetail';
 import PrivateRoute from './components/common/PrivateRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import Signup from './components/auth/Signup';
 
 function App() {
   return (
@@ -60,6 +61,7 @@ function App() {
 
                 <Routes>
                   <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
 
                   <Route
                     path="/"

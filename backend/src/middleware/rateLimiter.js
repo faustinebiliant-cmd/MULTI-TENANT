@@ -113,6 +113,18 @@ const reportLimiter = rateLimit({
     legacyHeaders: false
 });
 
+// Signup: 3 per hour per IP — protects against mass account creation
+const signupLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    message: {
+        success: false,
+        error: 'Too many signup attempts. Please try again in an hour.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 module.exports = {
     loginLimiter,
     apiLimiter,
@@ -122,5 +134,6 @@ module.exports = {
     paymentLimiter,
     passwordResetLimiter,
     apiKeyLimiter,
-    reportLimiter
+    reportLimiter,
+    signupLimiter
 };
