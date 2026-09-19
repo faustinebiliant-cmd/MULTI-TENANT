@@ -24,6 +24,7 @@ const auditRoutes = require('./routes/audit');
 const businessRoutes = require('./routes/business');
 const settingsRoutes = require('./routes/settings');
 const onboardingRoutes = require('./routes/onboarding');
+const adminRoutes = require('./routes/admin');
 
 const { apiLimiter, loginLimiter } = require('./middleware/rateLimiter');
 
@@ -119,6 +120,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ============================================================
 // ERROR HANDLING

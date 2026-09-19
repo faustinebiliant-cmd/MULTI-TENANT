@@ -17,6 +17,19 @@ const loginLimiter = rateLimit({
     skipSuccessfulRequests: true
 });
 
+// Admin login: 3 failed attempts per 15 min
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 3,
+    message: {
+        success: false,
+        error: 'Too many admin login attempts. Please try again in 15 minutes.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true
+});
+
 // Global API: 300 requests per 15 min per IP
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -127,6 +140,7 @@ const signupLimiter = rateLimit({
 
 module.exports = {
     loginLimiter,
+    adminLoginLimiter, 
     apiLimiter,
     orderCreationLimiter,
     productCreationLimiter,
