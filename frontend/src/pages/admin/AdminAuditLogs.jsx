@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
+import Loader from '../../components/common/Loader';
 
 const AdminAuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -44,7 +45,7 @@ const AdminAuditLogs = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="6" className="admin-table-empty">Loading...</td></tr>
+                <tr><td colSpan="6"><Loader message="Loading audit logs..." /></td></tr>
               ) : logs.length === 0 ? (
                 <tr><td colSpan="6" className="admin-table-empty">No actions yet</td></tr>
               ) : logs.map(l => (

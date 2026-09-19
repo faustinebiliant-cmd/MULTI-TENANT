@@ -8,6 +8,7 @@ import {
   FiUserCheck
 } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
+import Loader from '../../components/common/Loader';
 
 const AdminDashboard = () => {
   const [metrics, setMetrics] = useState(null);
@@ -27,8 +28,8 @@ const AdminDashboard = () => {
     load();
   }, []);
 
-  if (loading) return <div className="admin-loading">Loading metrics...</div>;
-  if (!metrics) return <div className="admin-loading">Failed to load.</div>;
+if (loading) return <Loader message="Loading metrics..." />;
+if (!metrics) return <div className="admin-loading">Failed to load.</div>;
 
   // Businesses per customer — shows if clients run multiple shops
   const businessesPerCustomer =

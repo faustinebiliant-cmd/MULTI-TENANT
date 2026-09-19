@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
+import Loader from '../../components/common/Loader';
 
 const AdminBusinesses = () => {
   const [list, setList] = useState([]);
@@ -78,7 +79,7 @@ const AdminBusinesses = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="8" className="admin-table-empty">Loading...</td></tr>
+                <tr><td colSpan="8"><Loader message="Loading businesses..." /></td></tr>
               ) : list.length === 0 ? (
                 <tr><td colSpan="8" className="admin-table-empty">No businesses found</td></tr>
               ) : list.map(b => (

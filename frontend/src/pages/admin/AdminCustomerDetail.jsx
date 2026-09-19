@@ -5,6 +5,7 @@ import {
   FiKey, FiEye, FiCheck, FiX, FiAlertTriangle, FiMail, FiPhone
 } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
+import Loader from '../../components/common/Loader';
 import toast from 'react-hot-toast';
 
 const AdminCustomerDetail = () => {
@@ -84,7 +85,7 @@ const AdminCustomerDetail = () => {
     }
   };
 
-  if (loading) return <div className="admin-page"><div className="admin-loading">Loading...</div></div>;
+  if (loading) return <Loader message="Loading customer..." />;
   if (!data) return null;
 
   const { boss, businesses, staff, counts, recentAdminActions } = data;
