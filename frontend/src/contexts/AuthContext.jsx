@@ -119,46 +119,46 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Signup
-const signup = async (payload) => {
-  try {
-    const response = await api.auth.signup(payload);
+  const signup = async (payload) => {
+    try {
+      const response = await api.auth.signup(payload);
 
-    if (response.success) {
-      const { token, user: userData, businesses } = response;
+      if (response.success) {
+        const { token, user: userData, businesses } = response;
 
-      const minimalUser = {
-        id: userData.id,
-        full_name: userData.full_name,
-        email: userData.email,
-        role: userData.role,
-        is_first_login: userData.is_first_login,
-        is_boss: userData.is_boss === true,
-        business_id: userData.business_id || null,
-        branch_id: userData.branch_id || null,
-        account_code: userData.account_code || null
-      };
+        const minimalUser = {
+          id: userData.id,
+          full_name: userData.full_name,
+          email: userData.email,
+          role: userData.role,
+          is_first_login: userData.is_first_login,
+          is_boss: userData.is_boss === true,
+          business_id: userData.business_id || null,
+          branch_id: userData.branch_id || null,
+          account_code: userData.account_code || null
+        };
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(minimalUser));
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(minimalUser));
 
-      if (Array.isArray(businesses)) {
-        localStorage.setItem('businesses', JSON.stringify(businesses));
+        if (Array.isArray(businesses)) {
+          localStorage.setItem('businesses', JSON.stringify(businesses));
+        }
+
+        setUser(minimalUser);
+        setIsAuthenticated(true);
+
+        toast.success(`Welcome, ${userData.full_name}`);
+        return { success: true };
+      } else {
+        return { success: false, error: response.error };
       }
-
-      setUser(minimalUser);
-      setIsAuthenticated(true);
-
-      toast.success(`Welcome, ${userData.full_name}`);
-      return { success: true };
-    } else {
-      return { success: false, error: response.error };
+    } catch (error) {
+      console.error('Signup error:', error);
+      const errorMessage = error.response?.data?.error || 'Signup failed. Please try again.';
+      return { success: false, error: errorMessage };
     }
-  } catch (error) {
-    console.error('Signup error:', error);
-    const errorMessage = error.response?.data?.error || 'Signup failed. Please try again.';
-    return { success: false, error: errorMessage };
-  }
-};
+  };
 
   // Logout
   const logout = () => {
@@ -171,6 +171,11 @@ const signup = async (payload) => {
     localStorage.removeItem('businesses');
     localStorage.removeItem('activeBusinessId');
     localStorage.removeItem('activeBranchId');
+    // Clear any leftover impersonation state so a stale banner
+    // cannot survive a normal logout/login cycle.
+    localStorage.removeItem('impersonation');
+    localStorage.removeItem('impersonationToken');
+    localStorage.removeItem('impersonationReturnTo');
     setUser(null);
     setIsAuthenticated(false);
   };
@@ -198,15 +203,15 @@ const signup = async (payload) => {
   };
 
   const value = {
-  user,
-  loading,
-  isAuthenticated,
-  login,
-  signup,           
-  logout,
-  changePassword,
-  setUser
-};
+    user,
+    loading,
+    isAuthenticated,
+    login,
+    signup,
+    logout,
+    changePassword,
+    setUser
+  };
 
   return (
     <AuthContext.Provider value={value}>

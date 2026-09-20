@@ -46,6 +46,44 @@ const authenticate = async (req, res, next) => {
         req.user = decoded;
 
         // --------------------------------------------------------
+        // Impersonation session check
+        // If this JWT is an impersonation token, verify the session
+        // is still active in the DB. This blocks requests the moment
+        // the session is ended (from another tab, admin side, or by
+        // a natural expiry) instead of waiting for the 60m JWT to lapse.
+        // --------------------------------------------------------
+        if (decoded.impersonation_token_id) {
+            const { data: session, error: sessErr } = await supabase
+                .from('impersonation_sessions')
+                .select('*')
+                .eq('token_id', decoded.impersonation_token_id)
+                .is('ended_at', null)
+                .single();
+
+            if (sessErr || !session) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Impersonation session has ended. Please log in again.'
+                });
+            }
+
+            if (new Date(session.expires_at) < new Date()) {
+                // Mark it ended so future requests short-circuit faster
+                await supabase
+                    .from('impersonation_sessions')
+                    .update({ ended_at: new Date(), ended_by: 'expiry' })
+                    .eq('id', session.id);
+
+                return res.status(401).json({
+                    success: false,
+                    error: 'Impersonation session expired. Please log in again.'
+                });
+            }
+
+            req.impersonation = session;
+        }
+
+        // --------------------------------------------------------
         // Resolve scope
         // --------------------------------------------------------
         if (decoded.is_boss) {

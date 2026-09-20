@@ -10,7 +10,8 @@ const {
     getCurrentUser,
     updateProfile,
     changePassword,
-    logout
+    logout,
+    endImpersonationSelf
 } = require('../controllers/authController');
 
 // Public
@@ -21,5 +22,8 @@ router.post('/logout', logout);
 router.get('/me', authenticate, getCurrentUser);
 router.put('/me', authenticate, updateProfile);
 router.post('/change-password', authenticate, changePassword);
+
+// Impersonation - only valid while an impersonation session is active
+router.post('/end-impersonation', authenticate, endImpersonationSelf);
 
 module.exports = router;

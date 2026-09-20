@@ -65,7 +65,12 @@ const Settings = () => {
   });
 
   // Business lifecycle modals
-  const [businessAction, setBusinessAction] = useState(null); // { type: 'deactivate'|'activate'|'delete', business, counts }
+  const [businessAction, setBusinessAction] = useState(null); // { type: 'deactivate'|'activate', business }
+
+  // Confirm-before-delete for entities that have no data
+  const [confirmDeleteBusiness, setConfirmDeleteBusiness] = useState(null);
+  const [confirmDeleteBranch, setConfirmDeleteBranch] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Force delete confirmation state
   const [forceDelete, setForceDelete] = useState(null); // { kind: 'business'|'branch', id, name, counts, confirmName, confirmWord }
@@ -243,12 +248,18 @@ const Settings = () => {
         phone: newBusiness.phone.trim() || '',
         email: newBusiness.email.trim() || ''
       });
-      toast.success('Business created. Reloading...');
+
+      // Force a fresh pull of the businesses list from the server.
+      // Without this, the local cache stays stale and the new
+      // business won't appear until a full logout/login cycle.
+      await refreshBranch();
+
+      toast.success('Business created');
       setShowNewBusiness(false);
       setNewBusiness({ name: '', branch_name: '', location: '', phone: '', email: '' });
-      setTimeout(() => window.location.reload(), 800);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to create business');
+    } finally {
       setCreatingBusiness(false);
     }
   };
@@ -261,6 +272,14 @@ const Settings = () => {
       if (type === 'deactivate') {
         await api.deactivateBusiness(business.id);
         toast.success('Business deactivated. Data preserved.');
+
+        // Deactivating the active business leaves a stale scope key.
+        // Clear it so the next request auto-picks another active one.
+        if (business.id === activeBusinessId) {
+          localStorage.removeItem('activeBusinessId');
+          localStorage.removeItem('activeBranchId');
+          localStorage.removeItem('businesses');
+        }
       } else {
         await api.activateBusiness(business.id);
         toast.success('Business activated.');
@@ -277,12 +296,26 @@ const Settings = () => {
   // Delete flows
   // ---------------------------------------------------------
   const attemptDeleteBusiness = async (business) => {
+    if (!business) return;
+    setDeleting(true);
     try {
       const res = await api.deleteBusiness(business.id, false);
       toast.success(res.message || 'Business deleted');
+
+      // If we just deleted the business we were viewing, wipe the
+      // scope keys immediately so the next request does not send a
+      // dead X-Business-Id and get rejected by the backend.
+      const wasActive = business.id === activeBusinessId;
+      if (wasActive) {
+        localStorage.removeItem('activeBusinessId');
+        localStorage.removeItem('activeBranchId');
+        localStorage.removeItem('businesses');
+      }
+
       await refreshBranch();
       await refreshShop();
-      if (business.id === activeBusinessId) {
+
+      if (wasActive) {
         setTimeout(() => window.location.reload(), 600);
       }
     } catch (error) {
@@ -300,10 +333,15 @@ const Settings = () => {
       } else {
         toast.error(data?.error || 'Failed to delete business');
       }
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteBusiness(null);
     }
   };
 
   const attemptDeleteBranch = async (branch) => {
+    if (!branch) return;
+    setDeleting(true);
     try {
       const res = await api.deleteBranch(branch.id, false);
       toast.success(res.message || 'Branch deleted');
@@ -323,6 +361,9 @@ const Settings = () => {
       } else {
         toast.error(data?.error || 'Failed to delete branch');
       }
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteBranch(null);
     }
   };
 
@@ -344,6 +385,14 @@ const Settings = () => {
         const res = await api.deleteBusiness(id, true);
         toast.success(res.message || 'Business force-deleted');
         setForceDelete(null);
+
+        // Clear scope keys if the deleted business was the active one
+        if (id === activeBusinessId) {
+          localStorage.removeItem('activeBusinessId');
+          localStorage.removeItem('activeBranchId');
+          localStorage.removeItem('businesses');
+        }
+
         await refreshBranch();
         await refreshShop();
         setTimeout(() => window.location.reload(), 800);
@@ -453,7 +502,7 @@ const Settings = () => {
                     <button
                       type="button"
                       className="btn btn-sm btn-danger"
-                      onClick={() => attemptDeleteBusiness(b)}
+                      onClick={() => setConfirmDeleteBusiness(b)}
                       title="Delete business permanently"
                     >
                       <FiTrash2 size={14} />
@@ -702,7 +751,7 @@ const Settings = () => {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => attemptDeleteBranch(branch)}
+                                  onClick={() => setConfirmDeleteBranch(branch)}
                                   className="btn btn-sm btn-danger"
                                   title="Delete permanently"
                                 >
@@ -814,6 +863,44 @@ const Settings = () => {
           </div>
         </div>
       )}
+
+      {/* -------------------------------------------------------
+          CONFIRM DELETE BUSINESS
+          ------------------------------------------------------- */}
+      <ConfirmDialog
+        open={!!confirmDeleteBusiness}
+        title="Delete Business"
+        message={
+          confirmDeleteBusiness
+            ? `Delete "${confirmDeleteBusiness.name}"? This will permanently remove the business and everything inside it. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={() => attemptDeleteBusiness(confirmDeleteBusiness)}
+        onCancel={() => setConfirmDeleteBusiness(null)}
+      />
+
+      {/* -------------------------------------------------------
+          CONFIRM DELETE BRANCH
+          ------------------------------------------------------- */}
+      <ConfirmDialog
+        open={!!confirmDeleteBranch}
+        title="Delete Branch"
+        message={
+          confirmDeleteBranch
+            ? `Delete branch "${confirmDeleteBranch.name}"? This will permanently remove the branch and all its data. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={() => attemptDeleteBranch(confirmDeleteBranch)}
+        onCancel={() => setConfirmDeleteBranch(null)}
+      />
 
       {/* -------------------------------------------------------
           BUSINESS DEACTIVATE / ACTIVATE CONFIRM

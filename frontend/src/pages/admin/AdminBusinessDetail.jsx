@@ -89,11 +89,28 @@ const AdminBusinessDetail = () => {
         id,
         impersonateReason.trim()
       );
+
       localStorage.setItem('impersonation', JSON.stringify(res.impersonation));
       localStorage.setItem('impersonationToken', res.token);
-      // Hand off to customer app: set customer token + user, then redirect
+      // Remember where to return after impersonation ends
+      localStorage.setItem('impersonationReturnTo', `/admin/businesses/${id}`);
+
+      // Hand off to customer app: token AND user must both be set,
+      // otherwise PrivateRoute will bounce to /login before
+      // AuthContext can populate the user from the API.
       localStorage.setItem('token', res.token);
-      // Note: BranchContext will refetch /auth/me and get the impersonated boss's scope
+      localStorage.setItem('user', JSON.stringify({
+        id: data.business.owner_id,
+        full_name: data.business.owner?.full_name || 'Impersonated Boss',
+        email: data.business.owner?.email || '',
+        role: 'boss',
+        is_boss: true,
+        is_first_login: false,
+        business_id: null,
+        branch_id: null,
+        account_code: data.business.owner?.account_code || null
+      }));
+
       window.location.href = '/dashboard';
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to start impersonation');

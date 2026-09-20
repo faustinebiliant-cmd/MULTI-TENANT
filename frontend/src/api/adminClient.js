@@ -115,11 +115,6 @@ const adminApi = {
     return res.data;
   },
 
-  endImpersonation: async (sessionId) => {
-    const res = await adminClient.post('/impersonate/end', { session_id: sessionId });
-    return res.data;
-  },
-
   auditLogs: async (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     const res = await adminClient.get(`/audit-logs${qs ? '?' + qs : ''}`);

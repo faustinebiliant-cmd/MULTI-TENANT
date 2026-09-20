@@ -24,16 +24,35 @@ apiClient.interceptors.request.use(
     }
 
     // Send the active business and branch scope on every request.
-    // Backend uses these to filter data. Boss validation happens
-    // server-side; staff scope is forced from JWT regardless.
+    // Backend validates these against the user's actual ownership.
+    // Staff scope is forced from JWT server-side regardless.
+    //
+    // We only send X-Business-Id / X-Branch-Id if the ID still exists
+    // in the cached businesses list. This prevents stale IDs (from a
+    // just-deleted or deactivated business) from poisoning every
+    // request with a 403.
     const businessId = localStorage.getItem('activeBusinessId');
     const branchId = localStorage.getItem('activeBranchId');
 
-    if (businessId) {
-      config.headers['X-Business-Id'] = businessId;
+    let cachedBusinesses = [];
+    try {
+      cachedBusinesses = JSON.parse(localStorage.getItem('businesses') || '[]');
+    } catch {
+      cachedBusinesses = [];
     }
-    if (branchId) {
-      config.headers['X-Branch-Id'] = branchId;
+
+    const activeBusiness = cachedBusinesses.find(b => b.id === businessId);
+    const businessIsValid = activeBusiness && activeBusiness.is_active !== false;
+
+    if (businessIsValid) {
+      config.headers['X-Business-Id'] = businessId;
+
+      const branchIsValid = (activeBusiness.branches || [])
+        .some(br => br.id === branchId && br.is_active !== false);
+
+      if (branchIsValid) {
+        config.headers['X-Branch-Id'] = branchId;
+      }
     }
 
     return config;
@@ -49,6 +68,9 @@ apiClient.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('impersonation');
+      localStorage.removeItem('impersonationToken');
+      localStorage.removeItem('impersonationReturnTo');
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
@@ -104,6 +126,10 @@ const api = {
       }
       const response = await apiClient.post('/auth/change-password', data);
       return response.data;
+    },
+    endImpersonation: async () => {
+      const response = await apiClient.post('/auth/end-impersonation');
+      return response.data;
     }
   },
 
@@ -124,6 +150,23 @@ const api = {
     if (!data.name) throw new Error('Business name is required');
     if (!data.branch_name) throw new Error('First branch name is required');
     const response = await apiClient.post('/business', data);
+    return response.data;
+  },
+  deleteBusiness: async (id, force = false) => {
+    if (!id) throw new Error('Business ID is required');
+    const response = await apiClient.delete(`/business/${id}`, {
+      data: { force: force === true }
+    });
+    return response.data;
+  },
+  deactivateBusiness: async (id) => {
+    if (!id) throw new Error('Business ID is required');
+    const response = await apiClient.patch(`/business/${id}/deactivate`);
+    return response.data;
+  },
+  activateBusiness: async (id) => {
+    if (!id) throw new Error('Business ID is required');
+    const response = await apiClient.patch(`/business/${id}/activate`);
     return response.data;
   },
   listBranches: async () => {
@@ -148,6 +191,13 @@ const api = {
   activateBranch: async (id) => {
     if (!id) throw new Error('Branch ID is required');
     const response = await apiClient.patch(`/business/branches/${id}/activate`);
+    return response.data;
+  },
+  deleteBranch: async (id, force = false) => {
+    if (!id) throw new Error('Branch ID is required');
+    const response = await apiClient.delete(`/business/branches/${id}`, {
+      data: { force: force === true }
+    });
     return response.data;
   },
 

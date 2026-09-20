@@ -410,10 +410,61 @@ const logout = async (req, res) => {
     }
 };
 
+// ============================================================
+// END IMPERSONATION (self)
+// Called from inside the customer app while impersonating.
+// Uses the impersonation token itself — no admin token needed.
+// ============================================================
+const endImpersonationSelf = async (req, res) => {
+    try {
+        // The authenticate middleware attached req.impersonation
+        // when it validated the token on this request.
+        if (!req.impersonation) {
+            return res.status(400).json({
+                success: false,
+                error: 'Not in an impersonation session'
+            });
+        }
+
+        await supabase
+            .from('impersonation_sessions')
+            .update({ ended_at: new Date(), ended_by: 'admin' })
+            .eq('id', req.impersonation.id)
+            .is('ended_at', null);
+
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: null,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: 'Impersonation Ended',
+                details: {
+                    session_id: req.impersonation.id,
+                    admin_email: req.impersonation.admin_email
+                },
+                ip_address: req.ip || req.connection?.remoteAddress || 'unknown'
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Impersonation ended'
+        });
+
+    } catch (error) {
+        console.error('End impersonation self error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to end impersonation'
+        });
+    }
+};
+
 module.exports = {
     login,
     getCurrentUser,
     updateProfile,
     changePassword,
-    logout
+    logout,
+    endImpersonationSelf
 };

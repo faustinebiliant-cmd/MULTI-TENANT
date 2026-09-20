@@ -673,6 +673,9 @@ const startImpersonation = async (req, res) => {
         }
 
         // Generate a unique token_id for this session
+        // token_id ties the JWT to the session without exposing the
+        // session row's primary key. The middleware validates against
+        // this (indexed, fast lookup).
         const tokenId = crypto.randomUUID();
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 minutes
 
@@ -706,8 +709,8 @@ const startImpersonation = async (req, res) => {
                 is_boss: true,
                 is_first_login: false,
                 account_code: boss.account_code,
-                // The magic: mark this as an impersonation
-                impersonation_session_id: session.id,
+                // Ties the token to the session row for validation
+                impersonation_token_id: tokenId,
                 impersonated_by_admin: req.admin.id
             },
             process.env.JWT_SECRET,
