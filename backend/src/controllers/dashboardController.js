@@ -22,7 +22,8 @@ const getDashboardStats = async (req, res) => {
             outstandingResult,
             lowStockResult,
             customersResult,
-            recentOrdersResult
+            recentOrdersResult,
+            profitResult
         ] = await Promise.all([
             supabase.rpc('dashboard_summary', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
             supabase.rpc('sum_payments_by_method', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
@@ -39,7 +40,13 @@ const getDashboardStats = async (req, res) => {
                 .eq('branch_id', branchId)
                 .neq('order_status', 'cancelled')
                 .order('created_at', { ascending: false })
-                .limit(5)
+                .limit(5),
+            supabase.rpc('sum_realized_profit', {
+                start_date: startISO,
+                end_date: endISO,
+                exclude_cancelled: true,
+                p_branch_id: branchId
+            })
         ]);
 
         if (summaryResult.error) throw summaryResult.error;
@@ -48,6 +55,7 @@ const getDashboardStats = async (req, res) => {
         if (lowStockResult.error) throw lowStockResult.error;
         if (customersResult.error) throw customersResult.error;
         if (recentOrdersResult.error) throw recentOrdersResult.error;
+        if (profitResult.error) throw profitResult.error;
 
         const summaryRow = summaryResult.data?.[0] || {
             today_sales: 0, today_vat: 0, today_total_with_vat: 0, today_order_count: 0
@@ -116,6 +124,14 @@ const getDashboardStats = async (req, res) => {
             name: p.name, stock: p.stock_quantity, threshold: p.low_stock_threshold
         }));
 
+        const profitRow = profitResult.data?.[0] || {
+            total_profit: 0,
+            total_revenue_paid: 0,
+            total_cost_paid: 0,
+            total_vat_paid: 0,
+            order_count: 0
+        };
+
         return res.status(200).json({
             success: true,
             data: {
@@ -125,7 +141,10 @@ const getDashboardStats = async (req, res) => {
                 lowStockItems: lowStockItems.length,
                 totalCustomers,
                 recentOrders: formattedRecent,
-                lowStock: lowStockDetails
+                lowStock: lowStockDetails,
+                // Realized profit: scaled by what customers have actually paid.
+                // VAT is excluded from profit (it belongs to the government).
+                todayProfit: Number(profitRow.total_profit) || 0
             }
         });
 

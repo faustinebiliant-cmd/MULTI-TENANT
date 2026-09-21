@@ -15,6 +15,7 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [nameConflict, setNameConflict] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -42,6 +43,36 @@ const ProductForm = () => {
     };
     fetchCategories();
   }, []);
+
+  // Live duplicate-name check. Fires 400ms after the user stops typing.
+  // Only used for the "new product" flow — editing an existing product
+  // skips this because the backend already excludes the product itself.
+  useEffect(() => {
+    if (isEdit) return;
+    const name = formData.name.trim();
+    if (!name || name.length < 2) {
+      setNameConflict(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('page', '1');
+        params.set('limit', '5');
+        params.set('search', name);
+        const response = await api.getProductsPage(params.toString());
+        const list = response.data || [];
+        const match = list.find(p => p.name.toLowerCase() === name.toLowerCase());
+        setNameConflict(match || null);
+      } catch (err) {
+        // Silent — this is a hint, not a hard gate
+        setNameConflict(null);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [formData.name, isEdit]);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -150,7 +181,13 @@ const ProductForm = () => {
               onChange={handleChange}
               placeholder="e.g., Cable 2.5mm"
               required
+              style={nameConflict ? { borderColor: '#ef4444' } : undefined}
             />
+            {nameConflict && (
+              <small style={{ color: '#dc2626', display: 'block', marginTop: '4px' }}>
+                A product named "{nameConflict.name}" already exists in this branch.
+              </small>
+            )}
           </div>
 
           <div className="form-group">
@@ -233,7 +270,11 @@ const ProductForm = () => {
           </div>
 
           <div className="flex" style={{ gap: '10px', marginTop: '20px' }}>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading || (!isEdit && nameConflict)}
+            >
               {loading ? 'Saving...' : (isEdit ? 'Update Product' : 'Add Product')}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => navigate('/products')}>

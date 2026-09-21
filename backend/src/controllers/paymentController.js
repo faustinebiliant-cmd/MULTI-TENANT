@@ -214,65 +214,30 @@ const createPayment = async (req, res) => {
             cleanNotes = sanitize(notes);
         }
 
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .select('id, total_amount, paid_amount')
-            .eq('id', order_id)
-            .eq('branch_id', branchId)
-            .single();
+        // Same atomic RPC used by the orders endpoint. Prevents payment
+        // and order from getting out of sync if any step fails.
+        const { data: updatedOrder, error: rpcError } = await supabase.rpc('record_payment_atomic', {
+            p_order_id: order_id,
+            p_branch_id: branchId,
+            p_amount: parseFloat(amount),
+            p_method: method,
+            p_reference_number: cleanReference,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name
+        });
 
-        if (orderError || !order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
-        }
-
-        const remaining = (parseFloat(order.total_amount) || 0) - (parseFloat(order.paid_amount) || 0);
-        if (parseFloat(amount) > remaining + 0.01) {
-            return res.status(400).json({ success: false, error: 'Payment amount exceeds remaining balance' });
-        }
-
-        const { data, error } = await supabase
-            .from('payments')
-            .insert({
-                branch_id: branchId,
-                order_id,
-                amount: parseFloat(amount),
-                method,
-                reference_number: cleanReference,
-                notes: cleanNotes,
-                status: 'completed',
-                recorded_by: req.user.id,
-                recorded_by_name: req.user.full_name,
-                payment_date: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        const newPaidAmount = (parseFloat(order.paid_amount) || 0) + parseFloat(amount);
-        const orderTotal = parseFloat(order.total_amount) || 0;
-        const paymentStatus = newPaidAmount >= orderTotal ? 'paid' : 'partial';
-
-        await supabase
-            .from('orders')
-            .update({ paid_amount: newPaidAmount, payment_status: paymentStatus, updated_at: new Date() })
-            .eq('id', order_id)
-            .eq('branch_id', branchId);
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Payment Created',
-                details: { payment_id: data.id, order_id, amount: parseFloat(amount), method, payment_status: paymentStatus }
+        if (rpcError) {
+            console.error('Create payment RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to create payment'
             });
+        }
 
         return res.status(201).json({
             success: true,
             message: 'Payment created successfully',
-            data
+            data: updatedOrder
         });
 
     } catch (error) {

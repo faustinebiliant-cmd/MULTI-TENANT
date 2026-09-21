@@ -215,57 +215,76 @@ const createProduct = async (req, res) => {
                 .select('id')
                 .eq('sku', cleanSku)
                 .eq('branch_id', branchId)
-                .single();
+                .eq('is_active', true)
+                .maybeSingle();
 
             if (existing) {
                 return res.status(400).json({ success: false, error: 'Product with this SKU already exists in this branch' });
             }
         }
 
-        const { data: product, error } = await supabase
+        // Check for a product with the same name (case-insensitive) in this branch.
+        // The database has a unique index that enforces this too, but checking
+        // here gives a clean error message instead of a raw Postgres error.
+        const { data: existingName } = await supabase
             .from('products')
-            .insert({
-                branch_id: branchId,
-                name: cleanName,
-                description: cleanDescription,
-                category_id: category_id || null,
-                sku: cleanSku,
-                cost_price: parseFloat(cost_price),
-                selling_price: parseFloat(selling_price),
-                stock_quantity: parseInt(stock_quantity) || 0,
-                low_stock_threshold: parseInt(low_stock_threshold) || 5,
-                supplier_id: supplier_id || null,
-                is_active: true
-            })
-            .select()
-            .single();
+            .select('id, name')
+            .eq('branch_id', branchId)
+            .eq('is_active', true)
+            .ilike('name', cleanName)
+            .maybeSingle();
 
-        if (error) throw error;
-
-        if (parseInt(stock_quantity) > 0) {
-            await supabase
-                .from('stock_movements')
-                .insert({
-                    branch_id: branchId,
-                    product_id: product.id,
-                    quantity: parseInt(stock_quantity),
-                    movement_type: 'ADJUSTMENT',
-                    reference_id: product.id,
-                    reference_number: product.sku || null,
-                    created_by: req.user.id,
-                    reason: 'Initial stock'
-                });
+        if (existingName) {
+            return res.status(400).json({
+                success: false,
+                error: `A product named "${existingName.name}" already exists in this branch`
+            });
         }
 
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Product Created',
-                details: { product_id: product.id, name: product.name }
+        // Insert product + initial stock movement + activity log
+        // in one atomic RPC. If any step fails, all roll back — no product
+        // without a stock movement, no product without an audit entry.
+        const { data: product, error: rpcError } = await supabase.rpc('create_product_atomic', {
+            p_branch_id: branchId,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name,
+            p_name: cleanName,
+            p_description: cleanDescription,
+            p_category_id: category_id || null,
+            p_sku: cleanSku,
+            p_cost_price: parseFloat(cost_price),
+            p_selling_price: parseFloat(selling_price),
+            p_stock_quantity: parseInt(stock_quantity) || 0,
+            p_low_stock_threshold: parseInt(low_stock_threshold) || 5,
+            p_supplier_id: supplier_id || null
+        });
+
+        if (rpcError) {
+            console.error('Create product RPC error:', rpcError);
+            const message = rpcError.message || '';
+            if (message.includes('23505') || message.includes('unique') || message.includes('duplicate')) {
+                if (message.includes('name')) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'A product with this name already exists in this branch'
+                    });
+                }
+                if (message.includes('sku')) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'A product with this SKU already exists in this branch'
+                    });
+                }
+                return res.status(400).json({
+                    success: false,
+                    error: 'A product with this value already exists in this branch'
+                });
+            }
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to create product: ' + message
             });
+        }
 
         return res.status(201).json({
             success: true,
@@ -321,12 +340,50 @@ const updateProduct = async (req, res) => {
 
         const { data: oldProduct, error: oldError } = await supabase
             .from('products')
-            .select('category_id, stock_quantity')
+            .select('category_id, stock_quantity, name')
             .eq('id', id)
             .eq('branch_id', branchId)
             .single();
 
         if (oldError) throw oldError;
+
+        // If the name is being changed, check no other active product in
+        // this branch already has that name (case-insensitive).
+        if (updates.name && updates.name.toLowerCase() !== oldProduct.name.toLowerCase()) {
+            const { data: conflict } = await supabase
+                .from('products')
+                .select('id, name')
+                .eq('branch_id', branchId)
+                .eq('is_active', true)
+                .ilike('name', updates.name)
+                .neq('id', id)
+                .maybeSingle();
+
+            if (conflict) {
+                return res.status(400).json({
+                    success: false,
+                    error: `A product named "${conflict.name}" already exists in this branch`
+                });
+            }
+        }
+
+        // If the SKU is being changed, check for conflicts on other products.
+        if (updates.sku) {
+            const { data: skuConflict } = await supabase
+                .from('products')
+                .select('id, sku')
+                .eq('branch_id', branchId)
+                .eq('sku', updates.sku)
+                .neq('id', id)
+                .maybeSingle();
+
+            if (skuConflict) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Another product in this branch already uses this SKU'
+                });
+            }
+        }
 
         const { data: product, error } = await supabase
             .from('products')
@@ -341,7 +398,18 @@ const updateProduct = async (req, res) => {
                 return res.status(404).json({ success: false, error: 'Product not found' });
             }
             if (error.code === '23505') {
-                return res.status(400).json({ success: false, error: 'Another product with this SKU exists in this branch' });
+                // Unique constraint violation. Could be SKU or name.
+                const message = error.message || '';
+                if (message.includes('name') || message.includes('sku')) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'A product with this name or SKU already exists in this branch'
+                    });
+                }
+                return res.status(400).json({
+                    success: false,
+                    error: 'A product with this value already exists in this branch'
+                });
             }
             throw error;
         }
@@ -456,68 +524,24 @@ const adjustStock = async (req, res) => {
 
         const cleanReason = sanitize(reason.trim());
 
-        const { data: product, error: findError } = await supabase
-            .from('products')
-            .select('id, name, stock_quantity, sku')
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .single();
+        // Atomic: stock update, movement log, activity log in one RPC.
+        const { data: updated, error: rpcError } = await supabase.rpc('adjust_stock_atomic', {
+            p_product_id: id,
+            p_branch_id: branchId,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name,
+            p_quantity: parseInt(quantity),
+            p_type: type,
+            p_reason: cleanReason
+        });
 
-        if (findError || !product) {
-            return res.status(404).json({ success: false, error: 'Product not found' });
-        }
-
-        let newStock = product.stock_quantity;
-        if (type === 'add') {
-            newStock += parseInt(quantity);
-        } else {
-            if (newStock < quantity) {
-                return res.status(400).json({ success: false, error: 'Insufficient stock' });
-            }
-            newStock -= parseInt(quantity);
-        }
-
-        const { data: updated, error } = await supabase
-            .from('products')
-            .update({ stock_quantity: newStock, updated_at: new Date() })
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        const movementQuantity = type === 'add' ? parseInt(quantity) : -parseInt(quantity);
-
-        await supabase
-            .from('stock_movements')
-            .insert({
-                branch_id: branchId,
-                product_id: id,
-                quantity: movementQuantity,
-                movement_type: 'ADJUSTMENT',
-                reference_id: id,
-                reference_number: product.sku || null,
-                created_by: req.user.id,
-                reason: cleanReason
+        if (rpcError) {
+            console.error('Adjust stock RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to adjust stock'
             });
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Stock Adjusted',
-                details: {
-                    product_id: id,
-                    product_name: product.name,
-                    type, quantity,
-                    reason: cleanReason,
-                    old_stock: product.stock_quantity,
-                    new_stock: newStock
-                }
-            });
+        }
 
         return res.status(200).json({
             success: true,

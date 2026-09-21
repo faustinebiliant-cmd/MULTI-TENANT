@@ -381,80 +381,23 @@ const receivePurchaseOrder = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid purchase order ID' });
         }
 
-        const { data: po, error: poError } = await supabase
-            .from('purchase_orders')
-            .select(`*, purchase_order_items (*)`)
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .single();
+        // All the writes (increment stock per item, insert stock movements,
+        // update PO status, log activity) happen in one atomic RPC. If any
+        // step fails, the whole receive is rolled back — no half-received POs.
+        const { data: updated, error: rpcError } = await supabase.rpc('receive_purchase_order_atomic', {
+            p_po_id: id,
+            p_branch_id: branchId,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name
+        });
 
-        if (poError || !po) {
-            return res.status(404).json({ success: false, error: 'Purchase order not found' });
-        }
-
-        if (po.status === 'received') {
-            return res.status(400).json({ success: false, error: 'Purchase order already received' });
-        }
-        if (po.status === 'cancelled') {
-            return res.status(400).json({ success: false, error: 'Cannot receive a cancelled purchase order' });
-        }
-
-        for (const item of po.purchase_order_items) {
-            const { data: product } = await supabase
-                .from('products')
-                .select('id, stock_quantity, name')
-                .eq('id', item.product_id)
-                .eq('branch_id', branchId)
-                .single();
-
-            if (!product) continue;
-
-            const newStock = (product.stock_quantity || 0) + item.quantity;
-
-            await supabase
-                .from('products')
-                .update({ stock_quantity: newStock, updated_at: new Date() })
-                .eq('id', item.product_id)
-                .eq('branch_id', branchId);
-
-            await supabase
-                .from('stock_movements')
-                .insert({
-                    branch_id: branchId,
-                    product_id: item.product_id,
-                    quantity: item.quantity,
-                    movement_type: 'PURCHASE',
-                    reference_id: po.id,
-                    reference_number: po.po_number,
-                    created_by: req.user.id,
-                    reason: 'Purchase order received'
-                });
-        }
-
-        const { data: updated, error: updateError } = await supabase
-            .from('purchase_orders')
-            .update({
-                status: 'received',
-                delivery_date: new Date().toISOString().split('T')[0],
-                updated_at: new Date()
-            })
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Purchase Order Received',
-                order_number: po.po_number,
-                details: { supplier_id: po.supplier_id, items: po.purchase_order_items.length }
+        if (rpcError) {
+            console.error('Receive PO RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to receive purchase order'
             });
+        }
 
         return res.status(200).json({
             success: true,
@@ -480,9 +423,10 @@ const updatePurchaseOrder = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid purchase order ID' });
         }
 
+        // Pre-check for status and current state
         const { data: existing } = await supabase
             .from('purchase_orders')
-            .select(`*, purchase_order_items (*)`)
+            .select('id, po_number, status, supplier_id')
             .eq('id', id)
             .eq('branch_id', branchId)
             .single();
@@ -495,16 +439,14 @@ const updatePurchaseOrder = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Cannot update a cancelled purchase order' });
         }
 
-        const wasReceived = existing.status === 'received';
+        // Build the update payload for the RPC
         const updateData = {};
-
         if (supplier_id !== undefined) {
             if (!isValidUUID(supplier_id)) {
                 return res.status(400).json({ success: false, error: 'Invalid supplier ID' });
             }
             updateData.supplier_id = supplier_id;
         }
-
         if (notes !== undefined) {
             if (notes && (!isValidLength(notes, 0, 500) || !isSafeText(notes))) {
                 return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
@@ -512,13 +454,12 @@ const updatePurchaseOrder = async (req, res) => {
             updateData.notes = notes ? sanitize(notes) : '';
         }
 
-        updateData.updated_at = new Date();
-
+        // Validate items if provided
+        let cleanItems = null;
         if (items && items.length > 0) {
             if (!isValidArrayLength(items, 100)) {
                 return res.status(400).json({ success: false, error: 'Cannot have more than 100 items' });
             }
-
             for (const item of items) {
                 if (!item.product_id || !isValidUUID(item.product_id)) {
                     return res.status(400).json({ success: false, error: 'Invalid product ID in items' });
@@ -530,106 +471,62 @@ const updatePurchaseOrder = async (req, res) => {
                     return res.status(400).json({ success: false, error: 'Invalid cost price in items' });
                 }
             }
-        }
-
-        await supabase.from('purchase_orders').update(updateData).eq('id', id).eq('branch_id', branchId);
-
-        if (items && items.length > 0) {
-            if (wasReceived) {
-                const oldQty = {};
-                (existing.purchase_order_items || []).forEach(i => {
-                    oldQty[i.product_id] = (oldQty[i.product_id] || 0) + i.quantity;
-                });
-                const newQty = {};
-                items.forEach(i => { newQty[i.product_id] = (newQty[i.product_id] || 0) + i.quantity; });
-
-                const allProductIds = new Set([...Object.keys(oldQty), ...Object.keys(newQty)]);
-
-                for (const productId of allProductIds) {
-                    const before = oldQty[productId] || 0;
-                    const after = newQty[productId] || 0;
-                    const delta = after - before;
-
-                    if (delta === 0) continue;
-
-                    const { data: product } = await supabase
-                        .from('products')
-                        .select('id, stock_quantity, name')
-                        .eq('id', productId)
-                        .eq('branch_id', branchId)
-                        .single();
-
-                    if (!product) continue;
-
-                    const newStock = (product.stock_quantity || 0) + delta;
-
-                    if (newStock < 0) {
-                        return res.status(400).json({ success: false, error: `Cannot reduce stock below zero for ${product.name}` });
-                    }
-
-                    await supabase
-                        .from('products')
-                        .update({ stock_quantity: newStock, updated_at: new Date() })
-                        .eq('id', productId)
-                        .eq('branch_id', branchId);
-
-                    const reasonText = delta > 0
-                        ? `Purchase order edit: added ${delta}`
-                        : `Purchase order edit: removed ${Math.abs(delta)}`;
-
-                    await supabase
-                        .from('stock_movements')
-                        .insert({
-                            branch_id: branchId,
-                            product_id: productId,
-                            quantity: delta,
-                            movement_type: 'ADJUSTMENT',
-                            reference_id: existing.id,
-                            reference_number: existing.po_number,
-                            created_by: req.user.id,
-                            reason: reasonText
-                        });
-                }
-            }
-
-            await supabase.from('purchase_order_items').delete().eq('purchase_order_id', id);
-
-            const newItems = items.map(item => ({
-                purchase_order_id: id,
+            cleanItems = items.map(item => ({
                 product_id: item.product_id,
-                product_name: item.name || 'Product',
+                name: item.name || 'Product',
                 quantity: item.quantity,
-                cost_price: item.cost_price,
-                subtotal: item.cost_price * item.quantity
+                cost_price: item.cost_price
             }));
-
-            const { error: insertError } = await supabase
-                .from('purchase_order_items')
-                .insert(newItems);
-
-            if (insertError) {
-                return res.status(500).json({ success: false, error: 'Failed to update PO items: ' + insertError.message });
-            }
-
-            const total = newItems.reduce((sum, item) => sum + item.subtotal, 0);
-            await supabase.from('purchase_orders').update({ total_amount: total }).eq('id', id).eq('branch_id', branchId);
         }
 
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Purchase Order Updated',
-                order_number: existing.po_number,
-                details: {
-                    status: existing.status,
-                    stock_adjusted: wasReceived && items && items.length > 0,
-                    supplier_id: updateData.supplier_id || existing.supplier_id
-                }
+        // Apply non-item updates via a plain update (safe, single-field writes)
+        if (Object.keys(updateData).length > 0) {
+            updateData.updated_at = new Date();
+            const { error: simpleErr } = await supabase
+                .from('purchase_orders')
+                .update(updateData)
+                .eq('id', id)
+                .eq('branch_id', branchId);
+            if (simpleErr) throw simpleErr;
+        }
+
+        // Apply item updates atomically. This handles stock delta, item
+        // replacement, total recalculation, and activity log in one transaction.
+        if (cleanItems) {
+            const { data: updated, error: rpcError } = await supabase.rpc('update_purchase_order_items_atomic', {
+                p_po_id: id,
+                p_branch_id: branchId,
+                p_user_id: req.user.id,
+                p_user_name: req.user.full_name,
+                p_new_items: cleanItems
             });
 
+            if (rpcError) {
+                console.error('Update PO items RPC error:', rpcError);
+                return res.status(500).json({
+                    success: false,
+                    error: rpcError.message || 'Failed to update purchase order items'
+                });
+            }
+
+            // Fetch the final PO with items
+            const { data: finalPO } = await supabase
+                .from('purchase_orders')
+                .select(`*, purchase_order_items (*)`)
+                .eq('id', id)
+                .eq('branch_id', branchId)
+                .single();
+
+            return res.status(200).json({
+                success: true,
+                message: existing.status === 'received'
+                    ? 'Purchase order updated. Stock adjusted by the difference.'
+                    : 'Purchase order updated successfully',
+                data: finalPO
+            });
+        }
+
+        // No items were changed — just fetch and return
         const { data: finalPO } = await supabase
             .from('purchase_orders')
             .select(`*, purchase_order_items (*)`)
@@ -639,9 +536,7 @@ const updatePurchaseOrder = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: wasReceived
-                ? 'Purchase order updated. Stock adjusted by the difference.'
-                : 'Purchase order updated successfully',
+            message: 'Purchase order updated successfully',
             data: finalPO
         });
 

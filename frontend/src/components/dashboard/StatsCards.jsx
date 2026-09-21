@@ -3,7 +3,7 @@
 // ============================================================
 
 import React from 'react';
-import { FiDollarSign, FiCreditCard, FiClock, FiAlertTriangle, FiPercent } from 'react-icons/fi';
+import { FiDollarSign, FiCreditCard, FiClock, FiAlertTriangle, FiPercent, FiTrendingUp } from 'react-icons/fi';
 import { formatCurrency } from '../../utils/helpers';
 
 const StatsCards = ({ stats }) => {
@@ -11,6 +11,7 @@ const StatsCards = ({ stats }) => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isSalesRep = user.role === 'sales_rep';
+  const canSeeProfit = ['boss', 'manager'].includes(user.role);
 
   const safeStats = stats || {
     todaySales: 0,
@@ -18,7 +19,8 @@ const StatsCards = ({ stats }) => {
     businessMoneyReceived: 0,
     vatCollectedFromPayments: 0,
     outstandingCredit: 0,
-    lowStockItems: 0
+    lowStockItems: 0,
+    todayProfit: 0
   };
 
   // Backend sends todayVATBilled; fallback to legacy todayVAT
@@ -31,7 +33,22 @@ const StatsCards = ({ stats }) => {
       icon: FiDollarSign,
       color: '#059669',
       bg: '#ecfdf5'
-    },
+    }
+  ];
+
+  // Profit card — Boss and Manager only. Uses realized profit
+  // (scaled by what customers have paid), VAT excluded.
+  if (canSeeProfit) {
+    cards.push({
+      title: "Today's Profit",
+      value: formatCurrency(safeStats.todayProfit || 0),
+      icon: FiTrendingUp,
+      color: '#7c3aed',
+      bg: '#f5f3ff'
+    });
+  }
+
+  cards.push(
     {
       title: 'Business Money Received',
       value: formatCurrency(safeStats.businessMoneyReceived || 0),
@@ -53,7 +70,7 @@ const StatsCards = ({ stats }) => {
       color: '#dc2626',
       bg: '#fef2f2'
     }
-  ];
+  );
 
   if (!isSalesRep) {
     cards.push({

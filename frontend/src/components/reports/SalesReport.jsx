@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FiDollarSign, FiCreditCard, FiClock, FiShoppingCart, FiBarChart2,
   FiPackage, FiSmartphone, FiTrendingDown, FiArrowUpCircle,
-  FiArrowDownCircle, FiRefreshCw, FiPercent
+  FiArrowDownCircle, FiRefreshCw, FiPercent, FiTrendingUp
 } from 'react-icons/fi';
 import { formatCurrency, formatDate } from '../../utils/helpers';
 import api from '../../api/client';
@@ -226,8 +226,8 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="stats-grid-4">
+      {/* Summary cards — row 1 */}
+      <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
             <FiDollarSign size={20} />
@@ -237,6 +237,17 @@ const SalesReport = () => {
             <p>Total Sales — Without VAT</p>
           </div>
         </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+            <FiTrendingUp size={20} />
+          </div>
+          <div className="stat-info">
+            <h3>{formatCurrency(summary.totalProfit || 0)}</h3>
+            <p>Realized Profit (excl. VAT)</p>
+          </div>
+        </div>
+
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
             <FiCreditCard size={20} />
@@ -246,6 +257,7 @@ const SalesReport = () => {
             <p>Business Money Received</p>
           </div>
         </div>
+
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#fffbeb', color: '#b45309' }}>
             <FiPercent size={20} />
@@ -255,6 +267,7 @@ const SalesReport = () => {
             <p>VAT Collected</p>
           </div>
         </div>
+
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
             <FiClock size={20} />
@@ -266,7 +279,8 @@ const SalesReport = () => {
         </div>
       </div>
 
-      <div className="stats-grid-4">
+      {/* Summary cards — row 2 */}
+      <div className="stats-grid-4" style={{ marginTop: '14px' }}>
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
             <FiDollarSign size={20} />

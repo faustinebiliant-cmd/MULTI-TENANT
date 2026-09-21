@@ -371,6 +371,10 @@ const recordPayment = async (req, res) => {
         const { id } = req.params;
         const { amount, method, reference_number } = req.body;
 
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid order ID' });
+        }
+
         if (!isValidAmount(amount)) {
             return res.status(400).json({ success: false, error: 'Valid amount is required' });
         }
@@ -378,77 +382,38 @@ const recordPayment = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid payment method' });
         }
 
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .single();
-
-        if (orderError || !order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
+        let cleanReference = null;
+        if (reference_number) {
+            if (!isValidLength(reference_number, 3, 50) || !isSafeText(reference_number)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Reference number must be 3-50 characters and contain no HTML or scripts'
+                });
+            }
+            cleanReference = sanitize(reference_number.trim());
         }
 
-        const orderTotal = parseFloat(order.total_amount) || 0;
-        const previousPaid = parseFloat(order.paid_amount) || 0;
-        const remaining = orderTotal - previousPaid;
-        const paymentAmount = parseFloat(amount);
+        // All the writes (order update, payment insert, activity log) happen
+        // inside one atomic RPC. The RPC also re-checks the remaining balance
+        // while holding a row lock, which prevents two cashiers from
+        // double-charging the same order.
+        const { data: updatedOrder, error: rpcError } = await supabase.rpc('record_payment_atomic', {
+            p_order_id: id,
+            p_branch_id: branchId,
+            p_amount: parseFloat(amount),
+            p_method: method,
+            p_reference_number: cleanReference,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name
+        });
 
-        if (paymentAmount > remaining + 0.01) {
-            return res.status(400).json({ success: false, error: `Payment exceeds remaining balance of ${remaining.toFixed(2)}` });
-        }
-
-        const paidAmount = previousPaid + paymentAmount;
-        const paymentStatus = paidAmount >= orderTotal ? 'paid' : 'partial';
-        const firstPaymentMethod = order.payment_method || method;
-
-        const { data: updatedOrder, error: updateError } = await supabase
-            .from('orders')
-            .update({
-                paid_amount: paidAmount,
-                payment_status: paymentStatus,
-                payment_method: firstPaymentMethod,
-                payment_recorded_by: req.user.id,
-                payment_recorded_by_name: req.user.full_name,
-                payment_recorded_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        const { error: paymentError } = await supabase
-            .from('payments')
-            .insert({
-                branch_id: branchId,
-                order_id: id,
-                amount: paymentAmount,
-                method,
-                reference_number: reference_number || null,
-                status: 'completed',
-                recorded_by: req.user.id,
-                recorded_by_name: req.user.full_name,
-                payment_date: new Date().toISOString()
+        if (rpcError) {
+            console.error('Record payment RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to record payment'
             });
-
-        if (paymentError) {
-            console.error('Failed to record payment:', paymentError);
         }
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Payment Recorded',
-                order_id: order.id,
-                order_number: order.order_number,
-                details: { amount: paymentAmount, method, payment_status: paymentStatus }
-            });
 
         return res.status(200).json({
             success: true,
@@ -469,48 +434,25 @@ const confirmOrder = async (req, res) => {
 
         const { id } = req.params;
 
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .single();
-
-        if (orderError || !order) {
-            return res.status(404).json({ success: false, error: 'Order not found' });
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid order ID' });
         }
 
-        if (order.payment_status !== 'paid') {
-            return res.status(400).json({ success: false, error: 'Cannot confirm order. Payment is not completed.' });
-        }
+        // Atomic: status update + activity log in one RPC.
+        const { data: updatedOrder, error: rpcError } = await supabase.rpc('confirm_order_atomic', {
+            p_order_id: id,
+            p_branch_id: branchId,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name
+        });
 
-        const { data: updatedOrder, error: updateError } = await supabase
-            .from('orders')
-            .update({
-                order_status: 'confirmed',
-                confirmed_by: req.user.id,
-                confirmed_by_name: req.user.full_name,
-                confirmed_at: new Date(),
-                updated_at: new Date()
-            })
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Order Confirmed',
-                order_id: order.id,
-                order_number: order.order_number,
-                details: { confirmed_by: req.user.full_name }
+        if (rpcError) {
+            console.error('Confirm order RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to confirm order'
             });
+        }
 
         return res.status(200).json({
             success: true,
@@ -532,6 +474,10 @@ const cancelOrder = async (req, res) => {
         const { id } = req.params;
         const { reason } = req.body;
 
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid order ID' });
+        }
+
         let cleanReason = 'No reason provided';
         if (reason) {
             if (!isValidLength(reason, 3, 500) || !isSafeText(reason)) {
@@ -540,9 +486,11 @@ const cancelOrder = async (req, res) => {
             cleanReason = sanitize(reason);
         }
 
+        // Pre-check: is this order allowed to be cancelled by this user?
+        // (Business logic that determines role restrictions, not transactional work.)
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select(`*, order_items (*)`)
+            .select('id, order_number, paid_amount, order_status')
             .eq('id', id)
             .eq('branch_id', branchId)
             .single();
@@ -560,109 +508,24 @@ const cancelOrder = async (req, res) => {
             return res.status(403).json({ success: false, error: 'Only the Boss can cancel an order that has received payment' });
         }
 
-        if (order.order_items && order.order_items.length > 0) {
-            for (const item of order.order_items) {
-                const { data: product } = await supabase
-                    .from('products')
-                    .select('id, stock_quantity')
-                    .eq('id', item.product_id)
-                    .eq('branch_id', branchId)
-                    .single();
+        // The actual cancellation is one atomic RPC call. Every step inside
+        // (restore stock, log movements, update customer, void payments,
+        // update order, write audit log) either all succeed or none do.
+        const { data: updatedOrder, error: rpcError } = await supabase.rpc('cancel_order_atomic', {
+            p_order_id: id,
+            p_branch_id: branchId,
+            p_user_id: req.user.id,
+            p_user_name: req.user.full_name,
+            p_reason: cleanReason
+        });
 
-                if (!product) continue;
-
-                await supabase
-                    .from('products')
-                    .update({ stock_quantity: product.stock_quantity + item.quantity, updated_at: new Date() })
-                    .eq('id', item.product_id)
-                    .eq('branch_id', branchId);
-            }
-
-            const stockMovements = order.order_items.map(item => ({
-                branch_id: branchId,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                movement_type: 'RETURN',
-                reference_id: order.id,
-                reference_number: order.order_number,
-                created_by: req.user.id,
-                reason: cleanReason
-            }));
-
-            await supabase.from('stock_movements').insert(stockMovements);
-        }
-
-        if (order.customer_id) {
-            const { data: customer } = await supabase
-                .from('customers')
-                .select('total_orders, total_spent')
-                .eq('id', order.customer_id)
-                .eq('branch_id', branchId)
-                .single();
-
-            if (customer) {
-                await supabase
-                    .from('customers')
-                    .update({
-                        total_orders: Math.max(0, (customer.total_orders || 0) - 1),
-                        total_spent: Math.max(0, (customer.total_spent || 0) - (parseFloat(order.total_amount) || 0))
-                    })
-                    .eq('id', order.customer_id)
-                    .eq('branch_id', branchId);
-            }
-        }
-
-        if (paidAmount > 0) {
-            await supabase
-                .from('payments')
-                .update({
-                    status: 'voided',
-                    voided_at: new Date().toISOString(),
-                    voided_by: req.user.id,
-                    voided_by_name: req.user.full_name,
-                    void_reason: cleanReason
-                })
-                .eq('order_id', id)
-                .eq('branch_id', branchId)
-                .neq('status', 'voided');
-        }
-
-        const { data: updatedOrder, error: updateError } = await supabase
-            .from('orders')
-            .update({
-                order_status: 'cancelled',
-                cancelled_by: req.user.id,
-                cancelled_by_name: req.user.full_name,
-                cancelled_at: new Date(),
-                cancellation_reason: cleanReason,
-                paid_amount: 0,
-                payment_status: 'cancelled',
-                updated_at: new Date()
-            })
-            .eq('id', id)
-            .eq('branch_id', branchId)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        await supabase
-            .from('activity_logs')
-            .insert({
-                branch_id: branchId,
-                user_id: req.user.id,
-                user_name: req.user.full_name,
-                action: 'Order Cancelled',
-                order_id: order.id,
-                order_number: order.order_number,
-                details: {
-                    reason: cleanReason,
-                    stock_restored: true,
-                    preserved_total: order.total_amount,
-                    preserved_vat: order.tax_amount,
-                    voided_paid: order.paid_amount
-                }
+        if (rpcError) {
+            console.error('Cancel order RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: rpcError.message || 'Failed to cancel order'
             });
+        }
 
         return res.status(200).json({
             success: true,

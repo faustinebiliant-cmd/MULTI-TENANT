@@ -18,7 +18,8 @@ const getSalesReport = async (req, res) => {
 
         const [
             ordersRes, stockMovementsRes, monthlyRes, productSalesRes,
-            paymentsByMethodRes, outstandingRes, ordersFullRes, paymentsRes, productsRes
+            paymentsByMethodRes, outstandingRes, ordersFullRes, paymentsRes, productsRes,
+            profitRes
         ] = await Promise.all([
             supabase.rpc('sum_orders', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
             supabase.rpc('sum_stock_movements', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
@@ -35,7 +36,13 @@ const getSalesReport = async (req, res) => {
                 .neq('order_status', 'cancelled'),
             supabase.from('payments').select('*').eq('branch_id', branchId)
                 .gte('payment_date', startISO).lte('payment_date', endISO),
-            supabase.from('products').select('id, name, stock_quantity').eq('branch_id', branchId).eq('is_active', true)
+            supabase.from('products').select('id, name, stock_quantity').eq('branch_id', branchId).eq('is_active', true),
+            supabase.rpc('sum_realized_profit', {
+                start_date: startISO,
+                end_date: endISO,
+                exclude_cancelled: true,
+                p_branch_id: branchId
+            })
         ]);
 
         const summaryRow = ordersRes.data?.[0] || { sum_subtotal: 0, sum_tax: 0, sum_total: 0, order_count: 0, item_count: 0 };
@@ -45,6 +52,15 @@ const getSalesReport = async (req, res) => {
         const totalOrders = Number(summaryRow.order_count) || 0;
         const totalItems = Number(summaryRow.item_count) || 0;
         const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+        const profitRow = profitRes.data?.[0] || {
+            total_profit: 0,
+            total_revenue_paid: 0,
+            total_cost_paid: 0,
+            total_vat_paid: 0,
+            order_count: 0
+        };
+        const totalProfit = Number(profitRow.total_profit) || 0;
 
         const orders = ordersFullRes.data || [];
         const payments = paymentsRes.data || [];
@@ -203,7 +219,18 @@ const getSalesReport = async (req, res) => {
             success: true,
             data: {
                 period: { start, end },
-                summary: { totalSales, totalVAT, totalWithVAT, totalPaymentsReceived, totalVATFromPayments, outstandingCredit, totalOrders, totalItems, averageOrderValue },
+                summary: {
+                    totalSales,
+                    totalVAT,
+                    totalWithVAT,
+                    totalPaymentsReceived,
+                    totalVATFromPayments,
+                    outstandingCredit,
+                    totalOrders,
+                    totalItems,
+                    averageOrderValue,
+                    totalProfit
+                },
                 stockSummary: { stockAdded, stockSold, stockAdjusted, stockReturned, netStockChange: stockAdded + stockReturned - stockSold - stockAdjusted },
                 productStockMovements: productStockList,
                 productFinancials: productFinancialList,
@@ -275,56 +302,87 @@ const getProfitReport = async (req, res) => {
         if (!branchId) return;
 
         const { start, end } = parsePeriodEAT(req.query);
+        const startISO = start.toISOString();
+        const endISO = end.toISOString();
 
-        const { data: orders, error } = await supabase
-            .from('orders')
-            .select(`*, order_items (*)`)
-            .eq('branch_id', branchId)
-            .gte('created_at', start.toISOString()).lte('created_at', end.toISOString())
-            .neq('order_status', 'cancelled');
+        const [profitRes, expensesRes, productSalesRes] = await Promise.all([
+            supabase.rpc('sum_realized_profit', {
+                start_date: startISO,
+                end_date: endISO,
+                exclude_cancelled: true,
+                p_branch_id: branchId
+            }),
+            supabase
+                .from('expenses')
+                .select('*')
+                .eq('branch_id', branchId)
+                .gte('created_at', startISO)
+                .lte('created_at', endISO),
+            supabase.rpc('sum_product_sales', {
+                start_date: startISO,
+                end_date: endISO,
+                exclude_cancelled: true,
+                p_branch_id: branchId
+            })
+        ]);
 
-        if (error) throw error;
+        if (profitRes.error) throw profitRes.error;
+        if (expensesRes.error) throw expensesRes.error;
+        if (productSalesRes.error) throw productSalesRes.error;
 
-        let totalRevenue = 0, totalVAT = 0, totalCost = 0;
-        const productProfit = {};
+        const profitRow = profitRes.data?.[0] || {
+            total_profit: 0,
+            total_revenue_paid: 0,
+            total_cost_paid: 0,
+            total_vat_paid: 0,
+            order_count: 0
+        };
 
-        orders.forEach(order => {
-            totalRevenue += parseFloat(order.subtotal) || 0;
-            totalVAT += parseFloat(order.tax_amount) || 0;
+        const totalProfit = Number(profitRow.total_profit) || 0;
+        const totalRevenuePaid = Number(profitRow.total_revenue_paid) || 0;
+        const totalCostPaid = Number(profitRow.total_cost_paid) || 0;
+        const totalVATPaid = Number(profitRow.total_vat_paid) || 0;
+        const orderCount = Number(profitRow.order_count) || 0;
 
-            if (order.order_items) {
-                order.order_items.forEach(item => {
-                    totalCost += (item.cost_price || 0) * (item.quantity || 0);
-                    const key = item.product_name || 'Unknown';
-                    if (!productProfit[key]) productProfit[key] = { revenue: 0, cost: 0, profit: 0 };
-                    productProfit[key].revenue += item.subtotal || 0;
-                    productProfit[key].cost += (item.cost_price || 0) * (item.quantity || 0);
-                    productProfit[key].profit = productProfit[key].revenue - productProfit[key].cost;
-                });
-            }
+        const expenses = expensesRes.data || [];
+        const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+        const netProfit = totalProfit - totalExpenses;
+        const margin = totalRevenuePaid > 0 ? (netProfit / totalRevenuePaid) * 100 : 0;
+
+        const productSales = productSalesRes.data || [];
+
+        const productProfit = productSales.map(row => {
+            const revenue = Number(row.total_revenue) || 0;
+            const cost = Number(row.total_cost) || 0;
+            const profit = revenue - cost;
+            return {
+                name: row.product_name,
+                revenue,
+                cost,
+                profit,
+                quantity: Number(row.total_quantity) || 0
+            };
         });
 
-        const { data: expenses } = await supabase
-            .from('expenses')
-            .select('*')
-            .eq('branch_id', branchId)
-            .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
-
-        const totalExpenses = (expenses || []).reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-        const grossProfit = totalRevenue - totalCost;
-        const netProfit = grossProfit - totalExpenses;
-
-        const productProfitList = Object.entries(productProfit)
-            .map(([name, data]) => ({ name, ...data }))
-            .sort((a, b) => b.profit - a.profit);
+        productProfit.sort((a, b) => b.profit - a.profit);
 
         return res.status(200).json({
             success: true,
             data: {
                 period: { start, end },
-                summary: { totalRevenue, totalVAT, totalCost, totalExpenses, grossProfit, netProfit, margin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0 },
-                productProfit: productProfitList.slice(0, 10),
-                expenses: expenses || []
+                summary: {
+                    totalRevenuePaid,
+                    totalCostPaid,
+                    totalProfit,
+                    totalExpenses,
+                    netProfit,
+                    margin,
+                    totalVATPaid,
+                    orderCount
+                },
+                productProfit: productProfit.slice(0, 10),
+                expenses: expenses
             }
         });
 
