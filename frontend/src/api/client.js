@@ -315,6 +315,16 @@ const api = {
     const response = await apiClient.post('/orders', data);
     return response.data;
   },
+  createQuickSale: async (data) => {
+    if (!data.items || data.items.length === 0) {
+      throw new Error('At least one item is required');
+    }
+    if (!data.payment || !data.payment.method) {
+      throw new Error('Payment method is required');
+    }
+    const response = await apiClient.post('/orders/quick-sale', data);
+    return response.data;
+  },
   updateOrderStatus: async (id, status) => {
     if (!id) throw new Error('Order ID is required');
     if (!status) throw new Error('Status is required');

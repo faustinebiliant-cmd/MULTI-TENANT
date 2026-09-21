@@ -26,6 +26,7 @@ export const ShopProvider = ({ children }) => {
     tin: '',
     vrn: '',
     expenseCategories: [],
+    quickSaleEnabled: false,
     loaded: false
   });
 
@@ -61,6 +62,7 @@ export const ShopProvider = ({ children }) => {
         tin: data.tin || '',
         vrn: data.vrn || '',
         expenseCategories: parseExpenseCategories(data.expense_categories),
+        quickSaleEnabled: data.quick_sale_enabled === true,
         loaded: true
       });
     } catch (error) {

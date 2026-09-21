@@ -26,6 +26,7 @@ import CustomerDetail from './components/customers/CustomerDetail';
 import OrderList from './components/orders/OrderList';
 import OrderForm from './components/orders/OrderForm';
 import OrderDetail from './components/orders/OrderDetail';
+import QuickSale from './components/orders/QuickSale';
 import PaymentList from './components/payments/PaymentList';
 import ExpenseList from './components/expenses/ExpenseList';
 import ExpenseForm from './components/expenses/ExpenseForm';
@@ -115,6 +116,7 @@ function App() {
 
                       <Route path="orders" element={<OrderList />} />
                       <Route path="orders/new" element={<OrderForm />} />
+                      <Route path="orders/quick" element={<QuickSale />} />
                       <Route path="orders/:id" element={<OrderDetail />} />
 
                       <Route path="payments" element={<PaymentList />} />

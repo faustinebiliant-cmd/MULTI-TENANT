@@ -23,7 +23,9 @@ import {
   FiUser,
   FiFileText,
   FiInbox,
-  FiSliders
+  FiSliders,
+  FiZap,
+  FiBriefcase
 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatDate } from '../../utils/helpers';
@@ -35,10 +37,12 @@ import toast from 'react-hot-toast';
 const ACTION_META = {
   'Login': { icon: FiLogIn, tone: 'success' },
   'Logout': { icon: FiLogOut, tone: 'neutral' },
+  'Quick Sale': { icon: FiZap, tone: 'primary' },
   'Order Created': { icon: FiClipboard, tone: 'primary' },
   'Order Confirmed': { icon: FiCheckCircle, tone: 'primary' },
   'Order Delivered': { icon: FiTruck, tone: 'success' },
   'Order Cancelled': { icon: FiXCircle, tone: 'danger' },
+  'Order Status Updated': { icon: FiClipboard, tone: 'warning' },
   'Payment Recorded': { icon: FiCreditCard, tone: 'success' },
   'Product Created': { icon: FiBox, tone: 'neutral' },
   'Product Updated': { icon: FiEdit2, tone: 'warning' },
@@ -48,9 +52,18 @@ const ACTION_META = {
   'Customer Updated': { icon: FiEdit2, tone: 'warning' },
   'Customer Deleted': { icon: FiTrash2, tone: 'danger' },
   'Expense Created': { icon: FiFileText, tone: 'neutral' },
+  'Expense Updated': { icon: FiEdit2, tone: 'warning' },
+  'Expense Deleted': { icon: FiTrash2, tone: 'danger' },
   'Supplier Created': { icon: FiUser, tone: 'neutral' },
   'Purchase Order Created': { icon: FiClipboard, tone: 'primary' },
-  'Purchase Order Received': { icon: FiCheckCircle, tone: 'success' }
+  'Purchase Order Received': { icon: FiCheckCircle, tone: 'success' },
+  'Branch Created': { icon: FiBriefcase, tone: 'neutral' },
+  'Branch Updated': { icon: FiEdit2, tone: 'warning' },
+  'Business Updated': { icon: FiBriefcase, tone: 'warning' },
+  'Staff Created': { icon: FiUser, tone: 'neutral' },
+  'Staff Updated': { icon: FiEdit2, tone: 'warning' },
+  'Staff Deleted': { icon: FiTrash2, tone: 'danger' },
+  'Staff Password Reset': { icon: FiUser, tone: 'warning' }
 };
 
 const DEFAULT_META = { icon: FiFileText, tone: 'neutral' };
@@ -61,10 +74,11 @@ const AuditLog = () => {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [summary, setSummary] = useState(null);
-  const [filterOptions, setFilterOptions] = useState({ actions: [], users: [] });
+  const [filterOptions, setFilterOptions] = useState({ actions: [], users: [], branches: [] });
 
   const [selectedAction, setSelectedAction] = useState('all');
   const [selectedUser, setSelectedUser] = useState('all');
+  const [selectedBranch, setSelectedBranch] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
@@ -72,7 +86,12 @@ const AuditLog = () => {
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 0 });
 
   const hasActiveFilters =
-    selectedAction !== 'all' || selectedUser !== 'all' || startDate || endDate || search;
+    selectedAction !== 'all' ||
+    selectedUser !== 'all' ||
+    selectedBranch !== 'all' ||
+    startDate ||
+    endDate ||
+    search;
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -89,6 +108,7 @@ const AuditLog = () => {
       const params = {
         action: selectedAction,
         user_id: selectedUser,
+        branch_id: selectedBranch,
         startDate,
         endDate,
         search: debouncedSearch,
@@ -100,7 +120,8 @@ const AuditLog = () => {
       setLogs(response.data.logs || []);
       setFilterOptions({
         actions: response.data.filters?.actions || [],
-        users: response.data.filters?.users || []
+        users: response.data.filters?.users || [],
+        branches: response.data.filters?.branches || []
       });
       setPagination((prev) => ({
         ...prev,
@@ -114,7 +135,7 @@ const AuditLog = () => {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedAction, selectedUser, startDate, endDate, debouncedSearch, pagination.page]);
+  }, [selectedAction, selectedUser, selectedBranch, startDate, endDate, debouncedSearch, pagination.page]);
 
   useEffect(() => {
     fetchSummary();
@@ -122,7 +143,7 @@ const AuditLog = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [selectedAction, selectedUser, startDate, endDate, debouncedSearch, pagination.page, fetchLogs]);
+  }, [selectedAction, selectedUser, selectedBranch, startDate, endDate, debouncedSearch, pagination.page, fetchLogs]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -133,6 +154,7 @@ const AuditLog = () => {
   const handleClearFilters = () => {
     setSelectedAction('all');
     setSelectedUser('all');
+    setSelectedBranch('all');
     setStartDate('');
     setEndDate('');
     setSearch('');
@@ -220,6 +242,21 @@ const AuditLog = () => {
 
         <div className="audit-filters">
           <select
+            value={selectedBranch}
+            onChange={(e) => {
+              setSelectedBranch(e.target.value);
+              goToPage(1);
+            }}
+            className="form-control"
+            aria-label="Filter by branch"
+          >
+            <option value="all">All branches</option>
+            {filterOptions.branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.name}</option>
+            ))}
+          </select>
+
+          <select
             value={selectedAction}
             onChange={(e) => {
               setSelectedAction(e.target.value);
@@ -293,6 +330,7 @@ const AuditLog = () => {
           <thead>
             <tr>
               <th>User</th>
+              <th>Branch</th>
               <th>Action</th>
               <th>Details</th>
               <th>Timestamp</th>
@@ -301,7 +339,7 @@ const AuditLog = () => {
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan="4">
+                <td colSpan="5">
                   <div className="empty-state">
                     <FiInbox size={28} />
                     <p>No activity found</p>
@@ -326,6 +364,13 @@ const AuditLog = () => {
                           <span className="badge badge-neutral badge-xs">{log.user_role}</span>
                         )}
                       </div>
+                    </td>
+                    <td>
+                      {log.branch_name ? (
+                        <span className="branch-cell">{log.branch_name}</span>
+                      ) : (
+                        <span className="details-empty">—</span>
+                      )}
                     </td>
                     <td>
                       <span className={`action-pill action-pill--${tone}`}>

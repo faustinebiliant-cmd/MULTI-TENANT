@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
-const { hasRole } = require('../middleware/permissions');
+const { hasRole, canUseQuickSale } = require('../middleware/permissions');
 const {
     getAllOrders,
     getOrderById,
@@ -13,13 +13,20 @@ const {
     updateOrderStatus,
     recordPayment,
     confirmOrder,
-    cancelOrder
+    cancelOrder,
+    createQuickSale
 } = require('../controllers/orderController');
 
 router.use(authenticate);
 
 // Read access — everyone
 router.get('/', getAllOrders);
+
+// Quick Sale — one-screen sale, roles enforced by canUseQuickSale.
+// MUST be declared BEFORE /:id, otherwise Express treats
+// "quick-sale" as an order ID and this route never matches.
+router.post('/quick-sale', canUseQuickSale, createQuickSale);
+
 router.get('/:id', getOrderById);
 
 // Create order — sales team, store keeper, management

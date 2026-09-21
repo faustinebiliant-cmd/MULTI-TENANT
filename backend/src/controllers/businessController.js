@@ -127,6 +127,13 @@ const validateBusinessPayload = (body) => {
         updates.expense_categories = catResult.value;
     }
 
+    if (body.quick_sale_enabled !== undefined) {
+        if (typeof body.quick_sale_enabled !== 'boolean') {
+            return { ok: false, error: 'quick_sale_enabled must be a boolean' };
+        }
+        updates.quick_sale_enabled = body.quick_sale_enabled;
+    }
+
     return { ok: true, value: updates };
 };
 
@@ -176,6 +183,7 @@ const shapeBusiness = (business) => ({
     vrn: business.vrn,
     vat_enabled: business.vat_enabled,
     vat_rate: business.vat_rate,
+    quick_sale_enabled: business.quick_sale_enabled === true,
     expense_categories: parseExpenseCategories(business.expense_categories),
     is_active: business.is_active,
     branches: (business.branches || []).map(b => ({
@@ -227,6 +235,7 @@ const getCurrent = async (req, res) => {
             .select(`
                 id, name, shop_name, location, phone, email,
                 currency, tin, vrn, vat_enabled, vat_rate,
+                quick_sale_enabled,
                 expense_categories, is_active,
                 branches (id, name, location, phone, email, is_active)
             `)
@@ -271,6 +280,7 @@ const listBusinesses = async (req, res) => {
             .select(`
                 id, name, shop_name, location, phone, email,
                 currency, tin, vrn, vat_enabled, vat_rate,
+                quick_sale_enabled,
                 expense_categories, is_active,
                 branches (id, name, location, phone, email, is_active)
             `)
@@ -336,6 +346,7 @@ const updateCurrent = async (req, res) => {
             .select(`
                 id, name, shop_name, location, phone, email,
                 currency, tin, vrn, vat_enabled, vat_rate,
+                quick_sale_enabled,
                 expense_categories, is_active,
                 branches (id, name, location, phone, email, is_active)
             `)

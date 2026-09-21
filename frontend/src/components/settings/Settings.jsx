@@ -1,7 +1,7 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Settings
 // - My Businesses: switch / deactivate / force-delete
-// - Active business: edit identity, VAT
+// - Active business: edit identity, VAT, Point of Sale
 // - Branches: add / rename / deactivate / force-delete
 // Force delete requires typing the name twice for confirmation.
 // ============================================================
@@ -42,7 +42,8 @@ const Settings = () => {
     vat_enabled: false,
     vat_rate: 18,
     tin: '',
-    vrn: ''
+    vrn: '',
+    quick_sale_enabled: false
   });
 
   const [branches, setBranches] = useState([]);
@@ -65,7 +66,7 @@ const Settings = () => {
   });
 
   // Business lifecycle modals
-  const [businessAction, setBusinessAction] = useState(null); // { type: 'deactivate'|'activate', business }
+  const [businessAction, setBusinessAction] = useState(null);
 
   // Confirm-before-delete for entities that have no data
   const [confirmDeleteBusiness, setConfirmDeleteBusiness] = useState(null);
@@ -73,11 +74,8 @@ const Settings = () => {
   const [deleting, setDeleting] = useState(false);
 
   // Force delete confirmation state
-  const [forceDelete, setForceDelete] = useState(null); // { kind: 'business'|'branch', id, name, counts, confirmName, confirmWord }
+  const [forceDelete, setForceDelete] = useState(null);
 
-  // ---------------------------------------------------------
-  // Load business + branches
-  // ---------------------------------------------------------
   const fetchBranches = useCallback(async () => {
     try {
       const list = await api.listBranches();
@@ -106,7 +104,8 @@ const Settings = () => {
           vat_enabled: data.vat_enabled === true,
           vat_rate: parseFloat(data.vat_rate) || 18,
           tin: data.tin || '',
-          vrn: data.vrn || ''
+          vrn: data.vrn || '',
+          quick_sale_enabled: data.quick_sale_enabled === true
         });
 
         await fetchBranches();
@@ -119,9 +118,6 @@ const Settings = () => {
     fetchBusiness();
   }, [activeBusinessId, fetchBranches]);
 
-  // ---------------------------------------------------------
-  // Business form
-  // ---------------------------------------------------------
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -145,7 +141,8 @@ const Settings = () => {
         vat_enabled: form.vat_enabled,
         vat_rate: parseFloat(form.vat_rate) || 0,
         tin: form.tin,
-        vrn: form.vrn
+        vrn: form.vrn,
+        quick_sale_enabled: form.quick_sale_enabled
       });
 
       await refreshShop();
@@ -158,9 +155,6 @@ const Settings = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // Branch actions
-  // ---------------------------------------------------------
   const handleAddBranch = async () => {
     if (creatingBranch) return;
     if (!newBranch.name.trim()) {
@@ -225,9 +219,6 @@ const Settings = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // Business lifecycle
-  // ---------------------------------------------------------
   const handleCreateBusiness = async () => {
     if (creatingBusiness) return;
     if (!newBusiness.name.trim()) {
@@ -249,9 +240,6 @@ const Settings = () => {
         email: newBusiness.email.trim() || ''
       });
 
-      // Force a fresh pull of the businesses list from the server.
-      // Without this, the local cache stays stale and the new
-      // business won't appear until a full logout/login cycle.
       await refreshBranch();
 
       toast.success('Business created');
@@ -273,8 +261,6 @@ const Settings = () => {
         await api.deactivateBusiness(business.id);
         toast.success('Business deactivated. Data preserved.');
 
-        // Deactivating the active business leaves a stale scope key.
-        // Clear it so the next request auto-picks another active one.
         if (business.id === activeBusinessId) {
           localStorage.removeItem('activeBusinessId');
           localStorage.removeItem('activeBranchId');
@@ -292,9 +278,6 @@ const Settings = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // Delete flows
-  // ---------------------------------------------------------
   const attemptDeleteBusiness = async (business) => {
     if (!business) return;
     setDeleting(true);
@@ -302,9 +285,6 @@ const Settings = () => {
       const res = await api.deleteBusiness(business.id, false);
       toast.success(res.message || 'Business deleted');
 
-      // If we just deleted the business we were viewing, wipe the
-      // scope keys immediately so the next request does not send a
-      // dead X-Business-Id and get rejected by the backend.
       const wasActive = business.id === activeBusinessId;
       if (wasActive) {
         localStorage.removeItem('activeBusinessId');
@@ -321,7 +301,6 @@ const Settings = () => {
     } catch (error) {
       const data = error.response?.data;
       if (data?.requires_force) {
-        // Open force delete modal with the counts
         setForceDelete({
           kind: 'business',
           id: business.id,
@@ -386,7 +365,6 @@ const Settings = () => {
         toast.success(res.message || 'Business force-deleted');
         setForceDelete(null);
 
-        // Clear scope keys if the deleted business was the active one
         if (id === activeBusinessId) {
           localStorage.removeItem('activeBusinessId');
           localStorage.removeItem('activeBranchId');
@@ -429,9 +407,6 @@ const Settings = () => {
         </button>
       </div>
 
-      {/* -------------------------------------------------------
-          MY BUSINESSES
-          ------------------------------------------------------- */}
       <div className="card" style={{ marginBottom: '24px' }}>
         <div className="flex-between" style={{ marginBottom: '16px' }}>
           <div>
@@ -515,9 +490,6 @@ const Settings = () => {
         )}
       </div>
 
-      {/* -------------------------------------------------------
-          ACTIVE BUSINESS IDENTITY
-          ------------------------------------------------------- */}
       <form onSubmit={handleSubmit}>
         <div className="card" style={{ marginBottom: '24px' }}>
           <h3>Business Identity</h3>
@@ -608,9 +580,34 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* -------------------------------------------------------
-            BRANCHES
-            ------------------------------------------------------- */}
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <h3>Point of Sale</h3>
+          <div style={{ marginTop: '16px' }}>
+            <div className="form-group">
+              <label>Enable Quick Sale</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <input
+                  type="checkbox"
+                  checked={form.quick_sale_enabled}
+                  onChange={(e) => setForm({ ...form, quick_sale_enabled: e.target.checked })}
+                  style={{ width: '20px', height: '20px' }}
+                />
+                <span>
+                  {form.quick_sale_enabled
+                    ? 'Quick Sale is available'
+                    : 'Quick Sale is disabled'}
+                </span>
+              </div>
+              <small style={{ color: '#6b7280', display: 'block', marginTop: '8px', lineHeight: 1.5 }}>
+                When enabled, Boss, Manager, and Cashier can sell in a single
+                screen without creating a customer first. Payment is recorded
+                in the same transaction. The full order flow stays available
+                as an alternative.
+              </small>
+            </div>
+          </div>
+        </div>
+
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="flex-between" style={{ marginBottom: '16px' }}>
             <div>
@@ -779,9 +776,6 @@ const Settings = () => {
         </div>
       </form>
 
-      {/* -------------------------------------------------------
-          APPEARANCE
-          ------------------------------------------------------- */}
       <div className="card" style={{ marginTop: '24px', marginBottom: '24px' }}>
         <h3>Appearance</h3>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
@@ -806,9 +800,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* -------------------------------------------------------
-          NEW BUSINESS MODAL
-          ------------------------------------------------------- */}
       {showNewBusiness && (
         <div className="modal-overlay" onClick={() => !creatingBusiness && setShowNewBusiness(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -864,9 +855,6 @@ const Settings = () => {
         </div>
       )}
 
-      {/* -------------------------------------------------------
-          CONFIRM DELETE BUSINESS
-          ------------------------------------------------------- */}
       <ConfirmDialog
         open={!!confirmDeleteBusiness}
         title="Delete Business"
@@ -883,9 +871,6 @@ const Settings = () => {
         onCancel={() => setConfirmDeleteBusiness(null)}
       />
 
-      {/* -------------------------------------------------------
-          CONFIRM DELETE BRANCH
-          ------------------------------------------------------- */}
       <ConfirmDialog
         open={!!confirmDeleteBranch}
         title="Delete Branch"
@@ -902,9 +887,6 @@ const Settings = () => {
         onCancel={() => setConfirmDeleteBranch(null)}
       />
 
-      {/* -------------------------------------------------------
-          BUSINESS DEACTIVATE / ACTIVATE CONFIRM
-          ------------------------------------------------------- */}
       <ConfirmDialog
         open={!!businessAction}
         title={businessAction?.type === 'deactivate' ? 'Deactivate Business' : 'Activate Business'}
@@ -920,9 +902,6 @@ const Settings = () => {
         onCancel={() => setBusinessAction(null)}
       />
 
-      {/* -------------------------------------------------------
-          BRANCH DEACTIVATE / ACTIVATE CONFIRM
-          ------------------------------------------------------- */}
       <ConfirmDialog
         open={!!branchAction}
         title={branchAction?.type === 'deactivate' ? 'Deactivate Branch' : 'Activate Branch'}
@@ -938,9 +917,6 @@ const Settings = () => {
         onCancel={() => setBranchAction(null)}
       />
 
-      {/* -------------------------------------------------------
-          FORCE DELETE MODAL (business or branch)
-          ------------------------------------------------------- */}
       {forceDelete && (
         <div className="modal-overlay" onClick={() => setForceDelete(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

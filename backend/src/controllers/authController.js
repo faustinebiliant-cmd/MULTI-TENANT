@@ -23,6 +23,7 @@ const loadBusinessesForBoss = async (bossId) => {
         .select(`
             id, name, shop_name, location, phone, email,
             currency, tin, vrn, vat_enabled, vat_rate,
+            quick_sale_enabled,
             expense_categories, is_active, business_code,
             branches (id, name, location, phone, email, is_active)
         `)

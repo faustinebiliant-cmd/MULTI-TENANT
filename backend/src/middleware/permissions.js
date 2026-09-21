@@ -14,6 +14,14 @@ const ROLE_HIERARCHY = {
     cashier: 1
 };
 
+// Roles allowed to use Quick Sale (one-screen, customer-optional sale).
+// Store keeper and sales rep are excluded — the former does not sell
+// at the till, the latter does not handle money in this workflow.
+const QUICK_SALE_ROLES = ['boss', 'manager', 'cashier'];
+
+// Roles allowed to apply a discount. Boss and manager only.
+const DISCOUNT_ROLES = ['boss', 'manager'];
+
 // Require user to have one of the allowed roles
 const hasRole = (allowedRoles) => {
     return (req, res, next) => {
@@ -152,6 +160,17 @@ const isSalesRep = (req, res, next) => {
     next();
 };
 
+// Quick Sale — boss, manager, cashier only
+const canUseQuickSale = (req, res, next) => {
+    if (!req.user || !QUICK_SALE_ROLES.includes(req.user.role)) {
+        return res.status(403).json({
+            success: false,
+            error: 'Access denied. Your role cannot use Quick Sale.'
+        });
+    }
+    next();
+};
+
 module.exports = {
     hasRole,
     hasMinRole,
@@ -160,6 +179,9 @@ module.exports = {
     isCashier,
     isStoreKeeper,
     isSalesRep,
+    canUseQuickSale,
     ALLOWED_ROLES,
-    ROLE_HIERARCHY
+    ROLE_HIERARCHY,
+    QUICK_SALE_ROLES,
+    DISCOUNT_ROLES
 };

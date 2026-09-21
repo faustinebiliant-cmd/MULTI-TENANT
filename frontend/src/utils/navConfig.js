@@ -15,14 +15,31 @@ import {
   FiSettings,
   FiUserPlus,
   FiClipboard,
-  FiDownload
+  FiDownload,
+  FiZap,
+  FiPlus
 } from 'react-icons/fi';
 
-export const getMenuGroups = (role) => {
+// Roles allowed to see and use Quick Sale.
+// Boss, Manager, Cashier. Store keeper and sales rep are excluded.
+const QUICK_SALE_ROLES = ['boss', 'manager', 'cashier'];
+
+export const getMenuGroups = (role, quickSaleEnabled = false) => {
   const isBoss = role === 'boss';
   const isManager = role === 'manager' || role === 'boss';
   const isCashier = role === 'cashier';
   const isStoreKeeper = role === 'store_keeper';
+  const isSalesRep = role === 'sales_rep';
+
+  const canUseQuickSale = QUICK_SALE_ROLES.includes(role);
+  const showQuickSale = quickSaleEnabled && canUseQuickSale;
+
+  // New Order (advanced) is hidden for cashiers when Quick Sale is on,
+  // because for a cashier the two flows overlap. Managers and Bosses
+  // keep both because they often need the advanced flow.
+  const showAdvancedNewOrder =
+    !isCashier ||
+    !showQuickSale;
 
   return [
     {
@@ -34,6 +51,8 @@ export const getMenuGroups = (role) => {
     {
       label: 'Sales',
       items: [
+        { path: '/orders/quick', icon: FiZap, label: 'Quick Sale', show: showQuickSale },
+        { path: '/orders/new', icon: FiPlus, label: 'New Order', show: showAdvancedNewOrder && !isStoreKeeper && !isSalesRep },
         { path: '/orders', icon: FiShoppingCart, label: 'Orders', show: true },
         { path: '/customers', icon: FiUsers, label: 'Customers', show: !isCashier && !isStoreKeeper },
         { path: '/payments', icon: FiCreditCard, label: 'Payments', show: isCashier || isManager || isBoss }
@@ -65,8 +84,8 @@ export const getMenuGroups = (role) => {
 // Flat, filtered list — what the command palette actually searches over.
 // Each item keeps its group label as a subtitle so results read like
 // "Products — Inventory" instead of just "Products".
-export const getFlatNavItems = (role) =>
-  getMenuGroups(role).flatMap((group) =>
+export const getFlatNavItems = (role, quickSaleEnabled = false) =>
+  getMenuGroups(role, quickSaleEnabled).flatMap((group) =>
     group.items
       .filter((item) => item.show)
       .map((item) => ({ ...item, group: group.label }))

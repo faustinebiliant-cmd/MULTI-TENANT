@@ -9,19 +9,21 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
+import { useShop } from '../../contexts/ShopContext';
 import { getInitials } from '../../utils/helpers';
 import { getMenuGroups } from '../../utils/navConfig';
 
 const Sidebar = () => {
   const { logout } = useAuth();
   const { activeBusiness } = useBranch();
+  const { quickSaleEnabled } = useShop();
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const role = user.role || '';
-  const menuGroups = getMenuGroups(role);
+  const menuGroups = getMenuGroups(role, quickSaleEnabled);
 
   // Close the drawer automatically whenever the route changes (mobile)
   useEffect(() => {

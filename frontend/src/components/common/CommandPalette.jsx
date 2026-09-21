@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiCornerDownLeft, FiArrowUp, FiArrowDown, FiClock } from 'react-icons/fi';
+import { useShop } from '../../contexts/ShopContext';
 import { getFlatNavItems } from '../../utils/navConfig';
 import './CommandPalette.css';
 
@@ -40,8 +41,7 @@ const CommandPalette = ({ searchData }) => {
   const listRef = useRef(null);
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const navItems = useMemo(() => getFlatNavItems(user.role || ''), [user.role]);
+
 
   const close = useCallback(() => {
     setOpen(false);
@@ -51,7 +51,12 @@ const CommandPalette = ({ searchData }) => {
   }, []);
 
   // Global shortcut + external open event (used by the Header trigger)
-  useEffect(() => {
+  useEffect(() => {  const { quickSaleEnabled } = useShop();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const navItems = useMemo(
+    () => getFlatNavItems(user.role || '', quickSaleEnabled),
+    [user.role, quickSaleEnabled]
+  );
     const handleKeyDown = (e) => {
       const isShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
       if (isShortcut) {

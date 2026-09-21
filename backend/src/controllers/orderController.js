@@ -13,6 +13,9 @@ const {
     isValidLength,
     isSafeText,
     isValidArrayLength,
+    isValidName,
+    isValidPhone,
+    isValidEmail,
     sanitize
 } = require('../utils/validators');
 
@@ -673,6 +676,339 @@ const cancelOrder = async (req, res) => {
     }
 };
 
+// ============================================================
+// POST /api/orders/quick-sale
+// One-screen sale: optional customer, inline payment, atomic.
+// Roles: boss, manager, cashier.
+// Payment is required and must equal the order total (full pay).
+// ============================================================
+const createQuickSale = async (req, res) => {
+    try {
+        const branchId = await requireBranchId(req, res);
+        if (!branchId) return;
+
+        const { items, payment, new_customer, notes, discount_amount } = req.body;
+
+        // ---------------- items ----------------
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one item is required'
+            });
+        }
+
+        if (!isValidArrayLength(items, 100)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Cannot have more than 100 items'
+            });
+        }
+
+        // Quick Sale items are validated by product_id and quantity only.
+        // unit_price and cost_price come from the products table, never
+        // from the client — that closes the price-manipulation hole.
+        for (const item of items) {
+            if (!item.product_id || !isValidUUID(item.product_id)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid product ID'
+                });
+            }
+            if (!isValidQuantity(item.quantity)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid quantity'
+                });
+            }
+        }
+
+        // ---------------- payment ----------------
+        if (!payment || typeof payment !== 'object') {
+            return res.status(400).json({
+                success: false,
+                error: 'Payment is required'
+            });
+        }
+
+        if (!isValidPaymentMethod(payment.method)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid payment method'
+            });
+        }
+
+        // M-Pesa and Tigo Pesa require a reference number
+        if (
+            (payment.method === 'mpesa' || payment.method === 'tigo_pesa') &&
+            (!payment.reference_number || !isSafeText(String(payment.reference_number)))
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: 'Reference number is required for mobile money payments'
+            });
+        }
+
+        let cleanReference = null;
+        if (payment.reference_number) {
+            if (!isValidLength(payment.reference_number, 3, 50) || !isSafeText(payment.reference_number)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Reference number must be 3-50 characters and contain no HTML or scripts'
+                });
+            }
+            cleanReference = sanitize(payment.reference_number.trim());
+        }
+
+        // ---------------- discount ----------------
+        let cleanDiscount = 0;
+        if (discount_amount !== undefined && discount_amount !== null && discount_amount !== '') {
+            const d = parseFloat(discount_amount);
+            if (isNaN(d) || d < 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid discount amount'
+                });
+            }
+            if (d > 0 && !['boss', 'manager'].includes(req.user.role)) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Only owners and managers can apply discounts'
+                });
+            }
+            cleanDiscount = d;
+        }
+
+        // ---------------- notes ----------------
+        let cleanNotes = '';
+        if (notes) {
+            if (!isValidLength(notes, 0, 50) || !isSafeText(notes)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Notes must be under 50 characters and contain no invalid content'
+                });
+            }
+            cleanNotes = sanitize(notes);
+        }
+
+        // ---------------- optional new customer ----------------
+        let cleanNewCustomer = null;
+        if (new_customer !== undefined && new_customer !== null) {
+            if (typeof new_customer !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'new_customer must be an object'
+                });
+            }
+
+            const { name, phone, email, address } = new_customer;
+
+            if (!name || !isValidName(name) || !isSafeText(name)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Customer name must be 2-20 characters and contain no invalid content'
+                });
+            }
+
+            if (!phone || !isValidPhone(phone) || !isSafeText(phone)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid phone number format'
+                });
+            }
+
+            if (email && (!isValidEmail(email) || !isSafeText(email))) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid email format'
+                });
+            }
+
+            let cleanAddress = '';
+            if (address) {
+                if (!isValidLength(address, 0, 500) || !isSafeText(address)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Address must be under 500 characters'
+                    });
+                }
+                cleanAddress = sanitize(address);
+            }
+
+            cleanNewCustomer = {
+                name: sanitize(name.trim()),
+                phone: sanitize(phone.trim()),
+                email: email ? sanitize(email.toLowerCase().trim()) : '',
+                address: cleanAddress
+            };
+        }
+
+        // ---------------- check quick_sale_enabled ----------------
+        const { data: business, error: bizErr } = await supabase
+            .from('businesses')
+            .select('vat_enabled, vat_rate, quick_sale_enabled')
+            .eq('id', req.scope.business_id)
+            .single();
+
+        if (bizErr || !business) {
+            return res.status(404).json({
+                success: false,
+                error: 'Business not found'
+            });
+        }
+
+        if (!business.quick_sale_enabled) {
+            return res.status(403).json({
+                success: false,
+                error: 'Quick Sale is not enabled for this business'
+            });
+        }
+
+        const vatEnabled = business.vat_enabled === true;
+        const vatRate = parseFloat(business.vat_rate) || 18;
+
+        // ---------------- resolve products and totals ----------------
+        // Ignore client-supplied unit_price / cost_price. Look them up
+        // from the products table so a cashier can't manipulate prices.
+        let subtotal = 0;
+        const orderItems = [];
+
+        for (const item of items) {
+            const { data: product, error: prodErr } = await supabase
+                .from('products')
+                .select('id, name, selling_price, cost_price, is_active')
+                .eq('id', item.product_id)
+                .eq('branch_id', branchId)
+                .single();
+
+            if (prodErr || !product) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Product not found in this branch`
+                });
+            }
+
+            if (product.is_active === false) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Product "${product.name}" is inactive`
+                });
+            }
+
+            const unitPrice = parseFloat(product.selling_price) || 0;
+            const costPrice = parseFloat(product.cost_price) || 0;
+            const itemTotal = unitPrice * item.quantity;
+            subtotal += itemTotal;
+
+            orderItems.push({
+                product_id: product.id,
+                product_name: product.name,
+                quantity: item.quantity,
+                unit_price: unitPrice,
+                cost_price: costPrice,
+                subtotal: itemTotal
+            });
+        }
+
+        const tax_amount = vatEnabled ? subtotal * (vatRate / 100) : 0;
+        const totalBeforeDiscount = subtotal + tax_amount;
+
+        if (cleanDiscount > totalBeforeDiscount) {
+            return res.status(400).json({
+                success: false,
+                error: 'Discount cannot exceed order total'
+            });
+        }
+
+        const total_amount = totalBeforeDiscount - cleanDiscount;
+        const paymentAmount = parseFloat(payment.amount);
+
+        if (isNaN(paymentAmount) || paymentAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid payment amount'
+            });
+        }
+
+        // Quick Sale requires full payment (no partials, no unpaid).
+        // Partial payments must go through the Advanced flow.
+        if (Math.abs(paymentAmount - total_amount) > 0.01) {
+            return res.status(400).json({
+                success: false,
+                error: `Quick Sale requires full payment. Order total is ${total_amount.toFixed(2)}.`
+            });
+        }
+
+        // ---------------- call RPC ----------------
+        const payload = {
+            branch_id: branchId,
+            customer_id: null,
+            created_by: req.user.id,
+            created_by_name: req.user.full_name,
+            notes: cleanNotes,
+            subtotal,
+            tax_amount,
+            discount_amount: cleanDiscount,
+            total_amount,
+            items: orderItems,
+            payment: {
+                method: payment.method,
+                amount: paymentAmount,
+                reference_number: cleanReference
+            }
+        };
+
+        // Only include new_customer when a customer is actually being created.
+        // Sending null causes the RPC to insert a customer with NULL name/phone.
+        if (cleanNewCustomer) {
+            payload.new_customer = cleanNewCustomer;
+        }
+
+        const { data: order, error: rpcError } = await supabase.rpc('create_order_atomic', { payload });
+
+        if (rpcError) {
+            console.error('Quick sale RPC error:', rpcError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to create quick sale: ' + rpcError.message
+            });
+        }
+
+        // ---------------- activity log ----------------
+        await supabase
+            .from('activity_logs')
+            .insert({
+                branch_id: branchId,
+                user_id: req.user.id,
+                user_name: req.user.full_name,
+                action: 'Quick Sale',
+                order_id: order.id,
+                order_number: order.order_number,
+                details: {
+                    mode: 'quick',
+                    role: req.user.role,
+                    method: payment.method,
+                    items: orderItems.length,
+                    total: total_amount,
+                    discount: cleanDiscount,
+                    walk_in: cleanNewCustomer === null
+                }
+            });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Sale completed',
+            data: order
+        });
+
+    } catch (error) {
+        console.error('Create quick sale error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to create quick sale: ' + error.message
+        });
+    }
+};
+
 module.exports = {
     getAllOrders,
     getOrderById,
@@ -680,5 +1016,6 @@ module.exports = {
     updateOrderStatus,
     recordPayment,
     confirmOrder,
-    cancelOrder
+    cancelOrder,
+    createQuickSale
 };
