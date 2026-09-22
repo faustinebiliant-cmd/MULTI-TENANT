@@ -122,7 +122,7 @@ const CustomerDetail = () => {
 
       <div className="stats-grid" style={{ marginTop: '20px' }}>
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-blue-bg)', color: 'var(--tone-blue-text)' }}>
             <FiShoppingBag size={20} />
           </div>
           <div className="stat-info">
@@ -131,7 +131,7 @@ const CustomerDetail = () => {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-green-bg)', color: 'var(--tone-green-text)' }}>
             <FiDollarSign size={20} />
           </div>
           <div className="stat-info">
@@ -140,7 +140,7 @@ const CustomerDetail = () => {
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-purple-bg)', color: 'var(--tone-purple-text)' }}>
             <FiTrendingUp size={20} />
           </div>
           <div className="stat-info">

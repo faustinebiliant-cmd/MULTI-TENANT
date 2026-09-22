@@ -31,8 +31,8 @@ const StatsCards = ({ stats }) => {
       title: "Today's Sales",
       value: formatCurrency(safeStats.todaySales || 0),
       icon: FiDollarSign,
-      color: '#059669',
-      bg: '#ecfdf5'
+      color: 'var(--tone-green-text)',
+      bg: 'var(--tone-green-bg)'
     }
   ];
 
@@ -43,8 +43,8 @@ const StatsCards = ({ stats }) => {
       title: "Today's Profit",
       value: formatCurrency(safeStats.todayProfit || 0),
       icon: FiTrendingUp,
-      color: '#7c3aed',
-      bg: '#f5f3ff'
+      color: 'var(--tone-purple-text)',
+      bg: 'var(--tone-purple-bg)'
     });
   }
 
@@ -53,22 +53,22 @@ const StatsCards = ({ stats }) => {
       title: 'Business Money Received',
       value: formatCurrency(safeStats.businessMoneyReceived || 0),
       icon: FiCreditCard,
-      color: '#1d4ed8',
-      bg: '#eff6ff'
+      color: 'var(--tone-blue-text)',
+      bg: 'var(--tone-blue-bg)'
     },
     {
       title: 'VAT Collected',
       value: formatCurrency(safeStats.vatCollectedFromPayments || 0),
       icon: FiPercent,
-      color: '#b45309',
-      bg: '#fffbeb'
+      color: 'var(--tone-amber-text)',
+      bg: 'var(--tone-amber-bg)'
     },
     {
       title: 'Outstanding Credit',
       value: formatCurrency(safeStats.outstandingCredit || 0),
       icon: FiClock,
-      color: '#dc2626',
-      bg: '#fef2f2'
+      color: 'var(--tone-red-text)',
+      bg: 'var(--tone-red-bg)'
     }
   );
 
@@ -77,8 +77,8 @@ const StatsCards = ({ stats }) => {
       title: 'Low Stock Items',
       value: safeStats.lowStockItems || 0,
       icon: FiAlertTriangle,
-      color: '#dc2626',
-      bg: '#fef2f2'
+      color: 'var(--tone-red-text)',
+      bg: 'var(--tone-red-bg)'
     });
   }
 

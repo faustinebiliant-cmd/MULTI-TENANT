@@ -10,13 +10,33 @@
    ============================================================ */
 
 
+/* Re-point every tone token to a dark-safe version. Any component
+   using var(--tone-*-bg)/var(--tone-*-text) — stat icons, the VAT
+   memo box, etc. — now automatically gets a readable dark variant
+   with zero extra per-component CSS. */
+body.dark-mode {
+  --tone-blue-bg: rgba(59, 130, 246, 0.16);     --tone-blue-text: #60a5fa;
+  --tone-green-bg: rgba(16, 185, 129, 0.16);    --tone-green-text: #34d399;
+  --tone-purple-bg: rgba(139, 92, 246, 0.16);   --tone-purple-text: #a78bfa;
+  --tone-amber-bg: rgba(245, 158, 11, 0.14);    --tone-amber-text: #fbbf24;
+  --tone-amber-border: rgba(245, 158, 11, 0.35);
+  --tone-red-bg: rgba(239, 68, 68, 0.16);       --tone-red-text: #f87171;
+}
+
 body.dark-mode { background: #0f172a !important; color: #e2e8f0 !important; }
 body.dark-mode .sidebar { background: linear-gradient(180deg, #0a0f1e 0%, #060a14 55%, #060a14 100%) !important; }
 body.dark-mode .app-header { background: rgba(15, 23, 42, 0.95) !important; border-bottom: 1px solid #1e293b !important; }
 body.dark-mode .main-content { background: #0f172a !important; }
 body.dark-mode .card { background: #1e293b !important; border: 1px solid #334155 !important; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important; }
 body.dark-mode h1, body.dark-mode h2, body.dark-mode h3, body.dark-mode h4 { color: #f1f5f9 !important; }
-body.dark-mode p, body.dark-mode span, body.dark-mode label { color: #cbd5e1 !important; }
+/* IMPORTANT: this used to also force every <span>, which is what made
+   colored amounts, status text, and badges wash out to grey/white in
+   dark mode — a <span> with its own inline color (profit green, loss
+   red, a status pill, etc.) was always losing to this rule. Spans now
+   keep whatever color they were given; only plain paragraph/label text
+   without its own inline color gets the neutral light-grey treatment. */
+body.dark-mode p:not([style]) { color: #cbd5e1 !important; }
+body.dark-mode label:not([style]) { color: #cbd5e1 !important; }
 body.dark-mode .table-container { background: #1e293b !important; border: 1px solid #334155 !important; }
 body.dark-mode thead { background: #0f172a !important; border-bottom: 1px solid #334155 !important; }
 body.dark-mode thead th { color: #94a3b8 !important; }
@@ -41,7 +61,41 @@ body.dark-mode .detail-label { color: #94a3b8 !important; }
 body.dark-mode .detail-value { color: #e2e8f0 !important; }
 body.dark-mode .empty-state { color: #94a3b8 !important; }
 body.dark-mode .empty-state h3 { color: #e2e8f0 !important; }
-body.dark-mode .badge { background: #334155 !important; }
+/* Neutral fallback for any badge with no success/warning/danger/info
+   variant class (e.g. badge-secondary, badge-neutral) */
+body.dark-mode .badge { background: #334155 !important; color: #cbd5e1 !important; }
+/* Color-coded variants keep their meaning instead of all collapsing
+   into the same grey box — this was the "badges lose their color"
+   half of the bug (the other half was the global span override above) */
+body.dark-mode .badge-success { background: rgba(16, 185, 129, 0.16) !important; color: #34d399 !important; }
+body.dark-mode .badge-warning { background: rgba(245, 158, 11, 0.16) !important; color: #fbbf24 !important; }
+body.dark-mode .badge-danger  { background: rgba(239, 68, 68, 0.16) !important; color: #f87171 !important; }
+body.dark-mode .badge-info    { background: rgba(59, 130, 246, 0.16) !important; color: #60a5fa !important; }
+
+/* Alerts (login/signup errors, warning banners) */
+body.dark-mode .alert-success { background: rgba(16, 185, 129, 0.12) !important; color: #34d399 !important; }
+body.dark-mode .alert-warning { background: rgba(245, 158, 11, 0.12) !important; color: #fbbf24 !important; }
+body.dark-mode .alert-danger  { background: rgba(239, 68, 68, 0.12) !important; color: #f87171 !important; }
+body.dark-mode .alert-info    { background: rgba(59, 130, 246, 0.12) !important; color: #60a5fa !important; }
+
+/* Audit log action pills */
+body.dark-mode .action-pill--primary { background: rgba(99, 102, 241, 0.16) !important; color: #a5b4fc !important; }
+body.dark-mode .action-pill--success { background: rgba(16, 185, 129, 0.16) !important; color: #34d399 !important; }
+body.dark-mode .action-pill--warning { background: rgba(245, 158, 11, 0.16) !important; color: #fbbf24 !important; }
+body.dark-mode .action-pill--danger  { background: rgba(239, 68, 68, 0.16) !important; color: #f87171 !important; }
+body.dark-mode .action-pill--neutral { background: #334155 !important; color: #cbd5e1 !important; }
+
+/* Report-type picker cards (Extract Reports) — the icon tint behind
+   each report uses a semi-transparent color that only looks right
+   once the card itself has a dark shell to sit on */
+body.dark-mode .report-type-card { background: #1e293b !important; border-color: #334155 !important; }
+body.dark-mode .report-type-card.active { background: #24324a !important; }
+body.dark-mode .report-type-info strong { color: #f1f5f9 !important; }
+body.dark-mode .report-type-info span { color: #94a3b8 !important; }
+
+/* VAT memo box — must stay visually "amber", not turn into a plain
+   dark card, or the government-money warning loses its meaning */
+body.dark-mode .card.vat-memo-card { background: var(--tone-amber-bg) !important; border-color: var(--tone-amber-border) !important; }
 body.dark-mode .page-header h1 { color: #f1f5f9 !important; }
 body.dark-mode .page-header p { color: #94a3b8 !important; }
 body.dark-mode .header-title { color: #f1f5f9 !important; }

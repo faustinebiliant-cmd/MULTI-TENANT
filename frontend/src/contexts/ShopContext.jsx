@@ -1,7 +1,8 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Shop Context
-// Reads the active business (name, location, VAT, TIN/VRN).
-// Refreshes when the Boss switches business.
+// Reads the active business (name, VAT, TIN/VRN, currency) and
+// the active branch (location, phone, email).
+// Refreshes when the Boss switches business or branch.
 // ============================================================
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
@@ -13,13 +14,17 @@ const ShopContext = createContext();
 
 export const ShopProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const { activeBusinessId } = useBranch();
+  const { activeBusinessId, activeBranchId, activeBusiness } = useBranch();
 
   const [shop, setShop] = useState({
+    // Business-level identity
     appName: 'OSWAGO',
+    businessName: '',
+    // Branch-level identity — fallback to business when no branch is active
     location: '',
     phone: '',
     email: '',
+    // Business-level settings
     currency: 'TZS',
     vatEnabled: false,
     vatRate: 18,
@@ -51,11 +56,26 @@ export const ShopProvider = ({ children }) => {
         return;
       }
 
+      // Find the active branch in the returned business data, so we can
+      // display the branch's location/phone/email instead of the business's.
+      // If the active branch isn't found (or has empty fields), fall back
+      // to the business-level values.
+      const branches = data.branches || [];
+      const activeBranch = branches.find((b) => b.id === activeBranchId);
+
+      const branchLocation = activeBranch?.location?.trim();
+      const branchPhone = activeBranch?.phone?.trim();
+      const branchEmail = activeBranch?.email?.trim();
+
       setShop({
         appName: data.shopName || data.shop_name || data.name || 'OSWAGO',
-        location: data.location || '',
-        phone: data.phone || '',
-        email: data.email || '',
+        businessName: data.name || '',
+
+        // Branch values take precedence; business values are the fallback
+        location: branchLocation || data.location || '',
+        phone: branchPhone || data.phone || '',
+        email: branchEmail || data.email || '',
+
         currency: data.currency || 'TZS',
         vatEnabled: data.vat_enabled === true,
         vatRate: parseFloat(data.vat_rate) || 18,
@@ -69,11 +89,11 @@ export const ShopProvider = ({ children }) => {
       console.error('ShopContext load error:', error);
       setShop((prev) => ({ ...prev, loaded: true }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeBranchId]);
 
   useEffect(() => {
     load();
-  }, [load, activeBusinessId]);
+  }, [load, activeBusinessId, activeBranchId]);
 
   const refresh = () => load();
 

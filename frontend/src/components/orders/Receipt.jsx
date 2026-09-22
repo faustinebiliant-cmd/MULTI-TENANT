@@ -23,6 +23,7 @@ const Receipt = ({ order, onClose }) => {
   const receiptRef = useRef(null);
 
   const {
+    appName,
     location,
     phone,
     tin: shopTin,
@@ -68,6 +69,11 @@ const Receipt = ({ order, onClose }) => {
   const displayTin = order.tin || shopTin;
   const displayVrn = order.vrn || shopVrn;
 
+  // The receipt header should show the shop's name, not the platform's.
+  // shopName comes from ShopContext (the active business's display name).
+  // Falls back to "Oswagotech" only if the business has no name set.
+  const displayShopName = appName || 'Oswagotech';
+
   return (
     <div className="receipt-container">
       <div className="receipt" id="receipt" ref={receiptRef}>
@@ -109,7 +115,7 @@ const Receipt = ({ order, onClose }) => {
         )}
 
         <div className="receipt-header">
-          <h2 style={TITLE_STYLE}>Oswago Electrical Equipment</h2>
+          <h2 style={TITLE_STYLE}>{displayShopName}</h2>
           {location && <p style={{ fontSize: '12px', color: '#6b7280' }}>{location}</p>}
           {phone && <p style={{ fontSize: '12px', color: '#6b7280' }}>{phone}</p>}
           {displayTin && <p style={{ fontSize: '11px', color: '#6b7280' }}>TIN: {displayTin}</p>}

@@ -6,6 +6,7 @@
 // ============================================================
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -109,6 +110,8 @@ export const BranchProvider = ({ children }) => {
     setActiveBusinessId(biz.id);
     const activeBranches = activeBranchesOf(biz);
     setActiveBranchId(activeBranches[0]?.id || null);
+
+    toast.success(`Switched to ${biz.name}`, { duration: 2500 });
   }, [businesses]);
 
   const switchBranch = useCallback((branchId) => {
@@ -116,8 +119,12 @@ export const BranchProvider = ({ children }) => {
     const biz = businesses.find(b => b.id === activeBusinessId);
     if (!biz) return;
     const activeBranches = activeBranchesOf(biz);
-    if (!activeBranches.find(b => b.id === branchId)) return;
+    const branch = activeBranches.find(b => b.id === branchId);
+    if (!branch) return;
+
     setActiveBranchId(branchId);
+
+    toast.success(`Switched to ${branch.name}`, { duration: 2500 });
   }, [businesses, activeBusinessId]);
 
   const refresh = useCallback(async () => {

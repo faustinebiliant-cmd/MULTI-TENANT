@@ -440,6 +440,13 @@
 .report-card-date .report-card-content h3 { font-size: 16px; }
 .report-card-date .report-card-total { font-size: 13px; }
 
+/* VAT memo box (Profit Report) — amber highlight card that must
+   still read as an amber "note" in dark mode, not just a plain card */
+.vat-memo-card { background: var(--tone-amber-bg); border: 1px solid var(--tone-amber-border); }
+.vat-memo-title { font-weight: 700; color: var(--tone-amber-text); font-size: 13.5px; }
+.vat-memo-amount { color: var(--tone-amber-text); font-size: 20px; font-weight: 700; margin-top: 4px; }
+.vat-memo-note { color: var(--tone-amber-text); opacity: 0.75; font-size: 12.5px; margin-top: 4px; }
+
 .report-summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
 
 .summary-card { background: var(--white); border-radius: var(--radius-md); padding: 18px 22px; text-align: center; box-shadow: var(--shadow); border: 1px solid var(--border); }

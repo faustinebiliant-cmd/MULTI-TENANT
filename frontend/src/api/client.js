@@ -7,6 +7,73 @@ import toast from 'react-hot-toast';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
+// ============================================================
+// Branch-change guard
+// ------------------------------------------------------------
+// When the user manually switches branch, any URL that refers
+// to a specific resource from the previous branch becomes
+// invalid (the ID belongs to the other branch). Rather than
+// letting those requests fire and 404, we intercept them here
+// — the last gate before the network — and redirect to the
+// corresponding list page.
+//
+// This runs in ONE place so every current and future detail
+// page is covered automatically.
+// ============================================================
+
+const BRANCH_SCOPED_DETAIL_ROUTES = [
+  { pattern: /^\/orders\/[^/]+$/,          redirectTo: '/orders' },
+  { pattern: /^\/orders\/[^/]+\/edit$/,    redirectTo: '/orders' },
+  { pattern: /^\/products\/[^/]+$/,        redirectTo: '/products' },
+  { pattern: /^\/products\/[^/]+\/edit$/,  redirectTo: '/products' },
+  { pattern: /^\/customers\/[^/]+$/,       redirectTo: '/customers' },
+  { pattern: /^\/customers\/[^/]+\/edit$/, redirectTo: '/customers' },
+  { pattern: /^\/suppliers\/[^/]+$/,       redirectTo: '/suppliers' },
+  { pattern: /^\/suppliers\/[^/]+\/edit$/, redirectTo: '/suppliers' },
+  { pattern: /^\/expenses\/[^/]+$/,        redirectTo: '/expenses' },
+  { pattern: /^\/expenses\/[^/]+\/edit$/,  redirectTo: '/expenses' },
+  { pattern: /^\/purchase-orders\/[^/]+$/,        redirectTo: '/purchase-orders' },
+  { pattern: /^\/purchase-orders\/[^/]+\/edit$/,  redirectTo: '/purchase-orders' }
+];
+
+// Tracks the branch ID the previous request used.
+// Starts null so the very first request of a session never
+// triggers a redirect — we only act on genuine changes.
+let lastSentBranchId = null;
+
+const checkBranchChangeGuard = (config) => {
+  const branchId = config.headers['X-Branch-Id'];
+
+  // First request of the session — remember and pass.
+  if (lastSentBranchId === null) {
+    lastSentBranchId = branchId || null;
+    return config;
+  }
+
+  // No change — pass.
+  if (branchId === lastSentBranchId) {
+    return config;
+  }
+
+  // Branch has changed. Update the tracker before anything else.
+  lastSentBranchId = branchId || null;
+
+  // If the current URL is a branch-scoped detail page, it now refers
+  // to a resource in a different branch. Redirect and cancel.
+  const path = window.location.pathname;
+  const match = BRANCH_SCOPED_DETAIL_ROUTES.find((r) => r.pattern.test(path));
+
+  if (match) {
+    window.location.replace(match.redirectTo);
+    // Never-resolving promise: caller's .then/.catch never fire.
+    // The browser is already navigating away, so nothing else matters.
+    return new Promise(() => {});
+  }
+
+  // Branch changed but the URL is fine (list page, dashboard, settings).
+  return config;
+};
+
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -55,7 +122,8 @@ apiClient.interceptors.request.use(
       }
     }
 
-    return config;
+    // Branch-change guard runs last, right before the request leaves.
+    return checkBranchChangeGuard(config);
   },
   (error) => Promise.reject(error)
 );

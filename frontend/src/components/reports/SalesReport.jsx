@@ -370,7 +370,7 @@ const SalesReport = () => {
             padding: '12px',
             borderRadius: '8px',
             backgroundColor: stockSummary.netStockChange > 0 ? '#ecfdf5' :
-                             stockSummary.netStockChange < 0 ? '#fef2f2' : '#f3f4f6',
+                             stockSummary.netStockChange < 0 ? '#f2f8f1' : '#f3f4f6',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'

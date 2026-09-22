@@ -68,4 +68,17 @@
 
   --header-h: 64px;
   --sidebar-w: 260px;
+
+  /* ----------------------------------------------------------
+     TONE TOKENS — used for icon circles, highlight boxes, etc.
+     Components reference these instead of hardcoding hex, so
+     dark mode can redefine them in one place (see dark-mode.css)
+     and every card/icon adapts automatically.
+     ---------------------------------------------------------- */
+  --tone-blue-bg: #eff6ff;     --tone-blue-text: #1d4ed8;
+  --tone-green-bg: #ecfdf5;    --tone-green-text: #059669;
+  --tone-purple-bg: #f5f3ff;   --tone-purple-text: #7c3aed;
+  --tone-amber-bg: #fffbeb;    --tone-amber-text: #b45309;
+  --tone-amber-border: #fde68a;
+  --tone-red-bg: #fef2f2;      --tone-red-text: #dc2626;
 }

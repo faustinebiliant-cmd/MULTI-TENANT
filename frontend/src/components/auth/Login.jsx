@@ -6,7 +6,6 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiZap, FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { useShop } from '../../contexts/ShopContext';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -20,7 +19,6 @@ const Login = () => {
   const [attempts, setAttempts] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState(null);
   const { login } = useAuth();
-  const { appName, location, phone } = useShop();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -120,9 +118,8 @@ const Login = () => {
             <div className="login-logo">
               <FiZap size={26} />
             </div>
-            <h1>{appName}</h1>
-            <p>Electrical Equipment</p>
-            <span className="login-subtitle">Shop Management System</span>
+            <h1>Oswagotech</h1>
+            <span className="login-subtitle">Management System</span>
           </div>
 
           {error && (
@@ -211,8 +208,17 @@ const Login = () => {
                 Create one
               </Link>
             </p>
-            <p>{appName}</p>
-            <small>{location}{phone ? ` - ${phone}` : ''}</small>
+            <p>
+              Powered by{' '}
+              <a
+                href="https://oswagotech.co.tz"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontWeight: 600 }}
+              >
+                Oswagotech
+              </a>
+            </p>
           </div>
         </div>
       </div>

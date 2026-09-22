@@ -189,7 +189,7 @@ const ProfitReport = () => {
       {/* Summary cards */}
       <div className="stats-grid-4">
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-purple-bg)', color: 'var(--tone-purple-text)' }}>
             <FiTrendingUp size={20} />
           </div>
           <div className="stat-info">
@@ -199,7 +199,7 @@ const ProfitReport = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-blue-bg)', color: 'var(--tone-blue-text)' }}>
             <FiDollarSign size={20} />
           </div>
           <div className="stat-info">
@@ -209,7 +209,7 @@ const ProfitReport = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+          <div className="stat-icon" style={{ backgroundColor: 'var(--tone-red-bg)', color: 'var(--tone-red-text)' }}>
             <FiTrendingDown size={20} />
           </div>
           <div className="stat-info">
@@ -219,7 +219,7 @@ const ProfitReport = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: summary.netProfit >= 0 ? '#ecfdf5' : '#fef2f2', color: summary.netProfit >= 0 ? '#059669' : '#dc2626' }}>
+          <div className="stat-icon" style={{ backgroundColor: summary.netProfit >= 0 ? 'var(--tone-green-bg)' : 'var(--tone-red-bg)', color: summary.netProfit >= 0 ? 'var(--tone-green-text)' : 'var(--tone-red-text)' }}>
             <FiTrendingUp size={20} />
           </div>
           <div className="stat-info">
@@ -276,17 +276,17 @@ const ProfitReport = () => {
       </div>
 
       {/* VAT memo — visible, but not part of profit */}
-      <div className="card" style={{ marginTop: '20px', background: '#fffbeb', border: '1px solid #fde68a' }}>
+      <div className="card vat-memo-card" style={{ marginTop: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FiPercent size={18} color="#b45309" />
+          <FiPercent size={18} color="var(--tone-amber-text)" />
           <div>
-            <div style={{ fontWeight: 700, color: '#b45309', fontSize: '13.5px' }}>
+            <div className="vat-memo-title">
               VAT Collected (not part of profit)
             </div>
-            <div style={{ color: '#78350f', fontSize: '20px', fontWeight: 700, marginTop: '4px' }}>
+            <div className="vat-memo-amount">
               {formatCurrency(summary.totalVATPaid || 0)}
             </div>
-            <div style={{ color: '#92400e', fontSize: '12.5px', marginTop: '4px' }}>
+            <div className="vat-memo-note">
               This amount belongs to the government and must be remitted. It is not included in the profit calculation above.
             </div>
           </div>

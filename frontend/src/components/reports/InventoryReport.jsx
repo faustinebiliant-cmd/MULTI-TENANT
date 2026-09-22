@@ -56,7 +56,7 @@ const InventoryReport = () => {
       <div className="grid-3">
         <div className="card">
           <div className="flex" style={{ alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <div className="stat-icon" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8' }}>
+            <div className="stat-icon" style={{ backgroundColor: 'var(--tone-blue-bg)', color: 'var(--tone-blue-text)' }}>
               <FiPackage size={20} />
             </div>
             <h3 style={{ margin: 0 }}>Total Products</h3>
@@ -69,7 +69,7 @@ const InventoryReport = () => {
 
         <div className="card">
           <div className="flex" style={{ alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <div className="stat-icon" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+            <div className="stat-icon" style={{ backgroundColor: 'var(--tone-red-bg)', color: 'var(--tone-red-text)' }}>
               <FiDollarSign size={20} />
             </div>
             <h3 style={{ margin: 0 }}>Cost Value</h3>
@@ -82,7 +82,7 @@ const InventoryReport = () => {
 
         <div className="card">
           <div className="flex" style={{ alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
+            <div className="stat-icon" style={{ backgroundColor: 'var(--tone-green-bg)', color: 'var(--tone-green-text)' }}>
               <FiTrendingUp size={20} />
             </div>
             <h3 style={{ margin: 0 }}>Selling Value</h3>

@@ -11,11 +11,9 @@ import {
   FiUser, FiPhone, FiBriefcase, FiMapPin
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import { useShop } from '../../contexts/ShopContext';
 
 const Signup = () => {
   const { signup } = useAuth();
-  const { appName, location, phone } = useShop();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -87,7 +85,7 @@ const Signup = () => {
               <FiZap size={26} />
             </div>
             <h1>Create your account</h1>
-            <p>Start managing your shop in minutes</p>
+            <p>Start Managing Your Business in minutes</p>
           </div>
 
           {error && (
@@ -270,7 +268,17 @@ const Signup = () => {
             <p>
               Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Log in</Link>
             </p>
-            <small>{appName}{location ? ` · ${location}` : ''}{phone ? ` · ${phone}` : ''}</small>
+            <p>
+              Powered by{' '}
+              <a
+                href="https://oswagotech.co.tz"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontWeight: 600 }}
+              >
+                Oswagotech
+              </a>
+            </p>
           </div>
         </div>
       </div>

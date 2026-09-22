@@ -8,6 +8,10 @@ const supabase = require('../config/supabase');
 const { parsePeriodEAT, formatDateEAT, formatDateTimeForExcel } = require('../utils/tz');
 const { requireBranchId } = require('../utils/branchScope');
 
+// Platform name — used as a fallback if the business has no display name.
+const PLATFORM_NAME = 'Oswagotech';
+const PLATFORM_SLUG = 'oswagotech';
+
 // Brand colours
 const BRAND_BLUE = 'FF1A56DB';
 const BRAND_DARK = 'FF0F172A';
@@ -15,6 +19,40 @@ const WHITE = 'FFFFFFFF';
 const LIGHT_GRAY = 'FFF4F6F9';
 const GRAY_TEXT = 'FF64748B';
 const CURRENCY_FORMAT = '#,##0.00';
+
+// ============================================================
+// Business name lookup
+// Every export belongs to a specific branch. The Excel header
+// and the filename should show the SHOP's name, not the
+// platform's name. This helper fetches it once per export call.
+// ============================================================
+
+const getBusinessName = async (branchId) => {
+  try {
+    const { data, error } = await supabase
+      .from('branches')
+      .select('business_id, businesses(name, shop_name)')
+      .eq('id', branchId)
+      .single();
+
+    if (error || !data || !data.businesses) {
+      return PLATFORM_NAME;
+    }
+    return data.businesses.shop_name || data.businesses.name || PLATFORM_NAME;
+  } catch {
+    return PLATFORM_NAME;
+  }
+};
+
+const slugify = (text) => {
+  if (!text) return PLATFORM_SLUG;
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || PLATFORM_SLUG;
+};
 
 // ============================================================
 // Shared styles
@@ -424,10 +462,10 @@ const writeProductSalesSheet = (wb, productSales) => {
 const testExport = async (req, res) => {
   try {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
     const sheet = wb.addWorksheet('Test');
-    sheet.addRow(['Hello', 'from', 'OSWAGO']);
+    sheet.addRow(['Hello', 'from', PLATFORM_NAME]);
     applyHeaderStyle(sheet.getRow(1));
     sheet.addRow(['This is a test export file.', '', '']);
     sheet.addRow(['Generated at:', formatDateTimeForExcel(new Date()), '']);
@@ -437,7 +475,7 @@ const testExport = async (req, res) => {
     sheet.getColumn(2).width = 40;
     sheet.getColumn(3).width = 20;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="oswago-test-export.xlsx"');
+    res.setHeader('Content-Disposition', `attachment; filename="${PLATFORM_SLUG}-test-export.xlsx"`);
     await wb.xlsx.write(res);
     res.end();
   } catch (error) {
@@ -450,6 +488,9 @@ const exportSalesReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -484,14 +525,14 @@ const exportSalesReport = async (req, res) => {
     const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    const t = sum.addRow(['OSWAGO Electrical Equipment']);
+    const t = sum.addRow([businessName]);
     sum.mergeCells(`A${t.number}:C${t.number}`);
     applyTitleStyle(sum.getRow(t.number), 16);
     const s = sum.addRow(['Sales Report']);
@@ -528,7 +569,7 @@ const exportSalesReport = async (req, res) => {
     writePaymentsSheet(wb, allPayments, orderNumberMap, true);
     writeProductSalesSheet(wb, productSales);
 
-    const fileName = `oswago-sales-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-sales-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -543,6 +584,9 @@ const exportPaymentsReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -559,14 +603,14 @@ const exportPaymentsReport = async (req, res) => {
     const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'Payments Report', [
+    styleSheetTitle(sum, businessName, 'Payments Report', [
       ['Period:', `${formatDateEAT(start)} to ${formatDateEAT(end)}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
@@ -589,7 +633,7 @@ const exportPaymentsReport = async (req, res) => {
 
     writePaymentsSheet(wb, allPayments, orderNumberMap, true);
 
-    const fileName = `oswago-payments-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-payments-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -604,6 +648,9 @@ const exportExpensesReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startDay = formatDateEAT(start);
@@ -628,14 +675,14 @@ const exportExpensesReport = async (req, res) => {
     });
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'Expenses Report', [
+    styleSheetTitle(sum, businessName, 'Expenses Report', [
       ['Period:', `${startDay} to ${endDay}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
@@ -682,7 +729,7 @@ const exportExpensesReport = async (req, res) => {
       applyTotalRowStyle(tr);
     }
 
-    const fileName = `oswago-expenses-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-expenses-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -697,6 +744,9 @@ const exportProductsReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { data: products, error } = await supabase
       .from('products')
@@ -714,14 +764,14 @@ const exportProductsReport = async (req, res) => {
     });
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'Products Report', [
+    styleSheetTitle(sum, businessName, 'Products Report', [
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
 
@@ -733,7 +783,7 @@ const exportProductsReport = async (req, res) => {
 
     writeProductsSheet(wb, list, true);
 
-    const fileName = `oswago-products-${formatDateEAT(new Date())}.xlsx`;
+    const fileName = `${businessSlug}-products-${formatDateEAT(new Date())}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -748,6 +798,8 @@ const exportStockMovementsReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessSlug = slugify(await getBusinessName(branchId));
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -774,7 +826,7 @@ const exportStockMovementsReport = async (req, res) => {
     }
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const detail = wb.addWorksheet('Stock Movements');
@@ -800,7 +852,7 @@ const exportStockMovementsReport = async (req, res) => {
       });
     });
 
-    const fileName = `oswago-stock-movements-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-stock-movements-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -816,6 +868,8 @@ const exportCustomersReport = async (req, res) => {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
 
+    const businessSlug = slugify(await getBusinessName(branchId));
+
     const { data: customers, error } = await supabase
       .from('customers')
       .select('*')
@@ -826,7 +880,7 @@ const exportCustomersReport = async (req, res) => {
     const list = customers || [];
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const detail = wb.addWorksheet('Customers');
@@ -865,7 +919,7 @@ const exportCustomersReport = async (req, res) => {
       applyTotalRowStyle(tr);
     }
 
-    const fileName = `oswago-customers-${formatDateEAT(new Date())}.xlsx`;
+    const fileName = `${businessSlug}-customers-${formatDateEAT(new Date())}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -881,6 +935,8 @@ const exportSuppliersReport = async (req, res) => {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
 
+    const businessSlug = slugify(await getBusinessName(branchId));
+
     const { data: suppliers, error } = await supabase
       .from('suppliers')
       .select('*')
@@ -891,7 +947,7 @@ const exportSuppliersReport = async (req, res) => {
     const list = suppliers || [];
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const detail = wb.addWorksheet('Suppliers');
@@ -919,7 +975,7 @@ const exportSuppliersReport = async (req, res) => {
       });
     });
 
-    const fileName = `oswago-suppliers-${formatDateEAT(new Date())}.xlsx`;
+    const fileName = `${businessSlug}-suppliers-${formatDateEAT(new Date())}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -934,6 +990,8 @@ const exportPurchaseOrdersReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessSlug = slugify(await getBusinessName(branchId));
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -975,7 +1033,7 @@ const exportPurchaseOrdersReport = async (req, res) => {
     }
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const poSheet = wb.addWorksheet('Purchase Orders');
@@ -1033,7 +1091,7 @@ const exportPurchaseOrdersReport = async (req, res) => {
     itemsSheet.getColumn('cost_price').numFmt = CURRENCY_FORMAT;
     itemsSheet.getColumn('subtotal').numFmt = CURRENCY_FORMAT;
 
-    const fileName = `oswago-purchase-orders-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-purchase-orders-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -1048,6 +1106,9 @@ const exportProfitReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -1085,14 +1146,14 @@ const exportProfitReport = async (req, res) => {
     const vatCollected = computeVATCollectedFromOrders(orders);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'Profit & Loss Report', [
+    styleSheetTitle(sum, businessName, 'Profit & Loss Report', [
       ['Period:', `${formatDateEAT(start)} to ${formatDateEAT(end)}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
@@ -1128,7 +1189,7 @@ const exportProfitReport = async (req, res) => {
       detail.getColumn(c).numFmt = CURRENCY_FORMAT;
     });
 
-    const fileName = `oswago-profit-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-profit-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -1143,6 +1204,9 @@ const exportVATReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -1166,14 +1230,14 @@ const exportVATReport = async (req, res) => {
     const vatCollected = computeVATCollectedFromOrders(orders);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('VAT Summary');
     sum.getColumn(1).width = 40;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'VAT Report', [
+    styleSheetTitle(sum, businessName, 'VAT Report', [
       ['Period:', `${formatDateEAT(start)} to ${formatDateEAT(end)}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
@@ -1223,7 +1287,7 @@ const exportVATReport = async (req, res) => {
       applyTotalRowStyle(tr);
     }
 
-    const fileName = `oswago-vat-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-vat-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
@@ -1238,6 +1302,9 @@ const exportFullReport = async (req, res) => {
   try {
     const branchId = await requireBranchId(req, res);
     if (!branchId) return;
+
+    const businessName = await getBusinessName(branchId);
+    const businessSlug = slugify(businessName);
 
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
@@ -1321,14 +1388,14 @@ const exportFullReport = async (req, res) => {
     (pos || []).forEach(p => poNumMap[p.id] = p.po_number);
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'OSWAGO Electrical Equipment';
+    wb.creator = PLATFORM_NAME;
     wb.created = new Date();
 
     const sum = wb.addWorksheet('Summary');
     sum.getColumn(1).width = 42;
     sum.getColumn(2).width = 25;
     sum.getColumn(3).width = 20;
-    styleSheetTitle(sum, 'OSWAGO Electrical Equipment', 'Full Report', [
+    styleSheetTitle(sum, businessName, 'Full Report', [
       ['Period:', `${startDay} to ${endDay}`],
       ['Generated:', formatDateTimeForExcel(new Date())]
     ]);
@@ -1519,7 +1586,7 @@ const exportFullReport = async (req, res) => {
     vatSheet.addRow(['VAT Collected (scaled by % paid)', '', vatCollected]).getCell('C').numFmt = CURRENCY_FORMAT;
     vatSheet.addRow(['VAT from Payments', '', payTotals.vat]).getCell('C').numFmt = CURRENCY_FORMAT;
 
-    const fileName = `oswago-full-${formatPeriodLabel(start, end)}.xlsx`;
+    const fileName = `${businessSlug}-full-${formatPeriodLabel(start, end)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     await wb.xlsx.write(res);
