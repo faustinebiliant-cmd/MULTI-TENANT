@@ -2,6 +2,14 @@
    OSWAGO ELECTRICAL EQUIPMENT — RESPONSIVE.CSS
    Breakpoint overrides. Load this LAST so media queries win
    over the base component styles they adjust.
+
+   Breakpoints used:
+     1200px  large tablets / small laptops
+     992px   tablets
+     768px   phones + small tablets (sidebar becomes a drawer)
+     640px   phones (tables/cards get compact)
+     480px   most phones in the field
+     380px   small/older Android phones (very common in TZ)
    ============================================================ */
 
 /* ============================================================
@@ -39,20 +47,37 @@
 
   .main-content {
     margin-left: 0;
-    padding: calc(var(--header-h) + 16px) 16px 16px 16px;
+    padding: calc(var(--header-h) + 16px) 14px 20px 14px;
   }
 
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
-  .stats-grid-4 { grid-template-columns: 1fr 1fr; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  /* FIX: two-column layouts (Quick Sale, forms, detail pages) must
+     actually stack on phones. Previously grid-2 stayed at 2 columns
+     all the way down, which is what squished Quick Sale. */
+  .grid-2 { grid-template-columns: 1fr; gap: 14px; }
+  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stats-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .report-summary-cards,
+  .report-summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .page-header h1 { font-size: 19px; letter-spacing: -0.3px; }
+  .page-header p { font-size: 12.5px; margin-top: 2px; }
 
   .header-title { font-size: 15px; }
   .header-location { display: none; }
   .header-switchers { display: none; }
   .user-info { display: none; }
-  .payment-methods { grid-template-columns: 1fr; }
+
+  /* Keep payment method buttons in 3 short compact columns
+     instead of stacking full-width — reads more like a modern
+     mobile picker and wastes less vertical space. */
+  .payment-methods { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .payment-method-btn { padding: 10px 6px; font-size: 11.5px; gap: 4px; }
 
   .stat-card { padding: 12px 14px; }
   .stat-info h3, .stat-number { font-size: 17px; }
@@ -70,37 +95,121 @@
 
   .report-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .report-grid-dates { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .report-card { padding: 12px 14px; gap: 10px; }
   .breadcrumb { padding: 10px 14px; font-size: 12px; }
 
   /* Order progress: keep only the active step's label visible */
   .order-progress-label:not(.active) { display: none; }
   .order-progress-step { min-width: 60px; }
 
+  .audit-toolbar { padding: 12px; gap: 10px; }
   .audit-filters { flex-direction: column; align-items: stretch; }
   .audit-filters .form-control,
   .date-range { width: 100%; }
-  .date-range .form-control { flex: 1; }
+  .date-range .form-control { flex: 1; min-width: 0; }
 
   .staff-toolbar { flex-direction: column; align-items: stretch; }
   .staff-count { text-align: left; }
+
+  /* Categories / report-type pickers: 1 column reads calmer on a
+     narrow screen than a squeezed 2-up grid */
+  .categories-grid { grid-template-columns: 1fr; gap: 10px; }
+  .report-type-grid { grid-template-columns: 1fr; gap: 10px; }
+  .category-card { padding: 14px 16px; }
+  .report-type-card { padding: 12px 14px; }
+
+  /* ---- Modals: this is the single biggest "popups too big" fix.
+     Less overlay padding + less content padding = a modal that
+     actually fits a 360–390px phone with room for the content. ---- */
+  .modal-overlay { padding: 12px; align-items: flex-end; }
+  .modal-content {
+    padding: 18px;
+    border-radius: var(--radius-md);
+    max-height: 88vh;
+    animation: modalSlideUp 0.22s ease;
+  }
+  @keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .confirm-dialog { padding: 18px; }
+  .confirm-dialog-header { gap: 10px; margin-bottom: 10px; }
+  .confirm-dialog-icon { width: 36px; height: 36px; min-width: 36px; }
+  .confirm-dialog-message { font-size: 13px; margin-bottom: 16px; }
+  /* Full-width, evenly split buttons are easier to tap and look
+     tidy instead of two small buttons floating on the right. */
+  .confirm-dialog-actions { gap: 8px; }
+  .confirm-dialog-actions .btn { flex: 1; min-width: 0; }
+
+  .payment-modal-header h2 { font-size: 15.5px; }
+  .payment-balance-hero { padding: 14px 12px; margin-bottom: 14px; }
+  .payment-balance-hero .balance-amount { font-size: 22px; }
+  .payment-balance-details { gap: 12px; }
+  .modal-footer-actions { gap: 8px; margin-top: 16px; }
+
+  .customer-profile-header { padding: 4px; }
 }
 
 @media (max-width: 480px) {
-  .grid-2, .grid-3, .grid-4,
+  /* grid-2 must stay a single column here too — this rule used to
+     force it back to 2 columns, which is what broke Quick Sale and
+     other two-panel pages on real phones. */
+  .grid-2 { grid-template-columns: 1fr; gap: 12px; }
+  .grid-3, .grid-4,
   .stats-grid,
-  .stats-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stats-grid-4 { grid-template-columns: 1fr 1fr; gap: 8px; }
 
-  .stat-card { padding: 11px 13px; flex-direction: column; text-align: center; min-height: 60px; }
-  .stat-icon { width: 34px; height: 34px; min-width: 34px; font-size: 15px; }
-  .stat-info h3, .stat-number { font-size: 16px; }
+  .page-header h1 { font-size: 18px; }
+  .page-header p { font-size: 12px; }
+
+  .card { padding: 12px 14px; border-radius: var(--radius); }
+  .card-header { margin-bottom: 8px; }
+  .card-header h3 { font-size: 13.5px; }
+  .card h3 { font-size: 14px; margin-bottom: 8px; }
+  .card p { font-size: 12.5px; }
+
+  .stat-card {
+    padding: 10px 12px;
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 10px;
+    min-height: unset;
+  }
+  .stat-icon { width: 32px; height: 32px; min-width: 32px; font-size: 14px; }
+  /* Let currency amounts wrap instead of clipping — TZS amounts
+     ("TZS 1,234,500") are long and used to get cut off on phones. */
+  .stat-info h3, .stat-number {
+    font-size: 14.5px;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.15;
+  }
   .stat-info p, .stat-label { font-size: 10.5px; }
+
+  .btn { padding: 9px 16px; font-size: 13px; }
+  .btn-sm { padding: 6px 12px; font-size: 11.5px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { font-size: 12px; margin-bottom: 4px; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .form-control { padding: 9px 12px; font-size: 13px; }
+
+  .badge { font-size: 9.5px; padding: 3px 9px; }
 
   .report-summary-cards,
   .report-summary-grid { grid-template-columns: 1fr; }
-  .report-card { padding: 14px 16px; }
+  .report-card { padding: 12px; }
   .report-grid { grid-template-columns: 1fr 1fr; }
   .report-grid-dates { grid-template-columns: repeat(3, 1fr); }
   .report-type-grid { grid-template-columns: 1fr; }
+  .report-type-card { gap: 10px; }
+  .report-type-icon { width: 36px; height: 36px; min-width: 36px; }
+  .report-type-info strong { font-size: 13px; }
+  .report-type-info span { font-size: 11px; }
 
   .calendar-months-grid, .months-grid { grid-template-columns: repeat(2, 1fr); }
   .calendar-day { min-height: 38px; }
@@ -109,7 +218,7 @@
   .calendar-day-revenue { display: none; }
 
   .categories-grid { grid-template-columns: 1fr; }
-  .category-card { padding: 14px 16px; }
+  .category-card { padding: 12px 14px; gap: 12px; }
   .category-edit-form { flex-wrap: wrap; }
   .category-edit-form input { width: 100%; }
 
@@ -118,7 +227,29 @@
   .customer-profile-actions { width: 100%; justify-content: center; }
 
   .report-tabs { width: 100%; }
-  .report-tab { flex: 1; text-align: center; }
+  .report-tab { flex: 1; text-align: center; padding: 7px 8px; font-size: 12px; }
+
+  /* Modals go nearly edge-to-edge with small, tap-friendly buttons */
+  .modal-overlay { padding: 0; }
+  .modal-content {
+    padding: 16px;
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+  }
+  .confirm-dialog { padding: 16px; }
+
+  .payment-methods { gap: 6px; }
+  .payment-method-btn { padding: 9px 4px; font-size: 11px; }
+  .payment-balance-hero .balance-amount { font-size: 20px; }
+  .amount-input-wrapper input { font-size: 15px; }
+
+  .receipt-container { padding: 10px; }
+  .receipt { padding: 16px; }
+
+  .detail-row { padding: 8px 0; }
+  .detail-label, .detail-value { font-size: 12.5px; }
 }
 
 /* ---- Data tables on mobile: same table, just compact ---- */
@@ -142,6 +273,11 @@
     padding: 8px 10px;
     font-size: 12px;
   }
+
+  /* Quick Sale cart table: the price-per-unit column is redundant
+     on a tiny screen since Subtotal already shows qty × price. */
+  .cart-table th:nth-child(3),
+  .cart-table td:nth-child(3) { display: none; }
 }
 
 /* ---- Cards on mobile: smaller, tighter, simpler ---- */
@@ -161,4 +297,40 @@
   .detail-row { padding: 8px 0; }
   .detail-label,
   .detail-value { font-size: 13px; }
+}
+
+/* ---- Small / older Android phones common across Tanzania ---- */
+@media (max-width: 380px) {
+  .main-content { padding: calc(var(--header-h) + 12px) 10px 16px 10px; }
+
+  /* Very narrow screens: give dashboard numbers the full row
+     instead of squeezing two cards side by side. */
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat-card { padding: 10px 12px; }
+
+  .page-header h1 { font-size: 17px; }
+
+  .card { padding: 11px 12px; }
+
+  .table-container table { min-width: 420px; }
+  .table-container tbody td { padding: 7px 8px; font-size: 11.5px; }
+
+  .btn { padding: 8px 14px; font-size: 12.5px; }
+
+  .modal-content { padding: 14px; }
+  .confirm-dialog-actions { flex-direction: column-reverse; }
+  .confirm-dialog-actions .btn { width: 100%; }
+
+  .payment-method-btn span,
+  .payment-method-btn { font-size: 10.5px; }
+
+  .staff-avatar { width: 56px; height: 56px; font-size: 22px; }
+  .customer-profile-avatar { width: 50px; height: 50px; min-width: 50px; font-size: 18px; }
+}
+
+/* Prevent any stray wide element from creating page-level horizontal
+   scroll on phones — intentional horizontal scroll (tables) still
+   works because it's scoped to .table-container, not the body. */
+@media (max-width: 768px) {
+  body { overflow-x: hidden; }
 }

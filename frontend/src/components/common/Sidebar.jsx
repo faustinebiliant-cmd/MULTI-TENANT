@@ -2,6 +2,7 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Sidebar
 // Brand shows the active business name and the user's
 // account code (e.g. USR-0001) for support identification.
+// Mobile drawer includes business + branch switchers.
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ import { useBranch } from '../../contexts/BranchContext';
 import { useShop } from '../../contexts/ShopContext';
 import { getInitials } from '../../utils/helpers';
 import { getMenuGroups } from '../../utils/navConfig';
+import Switchers from './Switchers';
 
 const Sidebar = () => {
   const { logout } = useAuth();
@@ -81,6 +83,11 @@ const Sidebar = () => {
             <FiX size={18} />
           </button>
         </div>
+
+        {/* Business + branch switchers — visible only inside the
+            mobile drawer. Hidden on desktop via CSS so the header
+            remains the single place to switch on larger screens. */}
+        <Switchers variant="sidebar" />
 
         <nav className="sidebar-nav">
           {menuGroups.map((group) => {

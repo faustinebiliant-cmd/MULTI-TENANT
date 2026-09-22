@@ -239,6 +239,89 @@
   .mobile-menu-trigger { display: flex; }
 }
 
+/* ============================================================
+   SIDEBAR SWITCHERS (mobile only)
+   Business + branch selectors shown inside the mobile drawer.
+   On desktop they're hidden — the header handles switching.
+   ============================================================ */
+
+.sidebar-switchers {
+  padding: 0 4px 16px 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-switcher-group {
+  margin-bottom: 10px;
+}
+
+.sidebar-switcher-group:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar-switcher-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 5px;
+  padding-left: 2px;
+}
+
+.sidebar-switcher-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+.sidebar-switcher-select:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-switcher-select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar-switcher-select option {
+  background: #0a1730;
+  color: #fff;
+}
+
+.sidebar-branch-label {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* On desktop, hide the sidebar switchers entirely.
+   The header is the single source of truth for switching. */
+@media (min-width: 769px) {
+  .sidebar-switchers { display: none; }
+}
+
 
 /* ============================================================
    HEADER

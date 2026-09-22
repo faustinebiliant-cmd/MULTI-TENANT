@@ -1,14 +1,14 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Header
-// Boss gets business + branch switchers.
+// Boss gets business + branch switchers (desktop only).
 // Staff just see identity.
 // ============================================================
 
 import React from 'react';
 import { FiUser, FiBell } from 'react-icons/fi';
 import { useShop } from '../../contexts/ShopContext';
-import { useBranch } from '../../contexts/BranchContext';
 import { ROLE_META } from '../../utils/constants';
+import Switchers from './Switchers';
 
 const getRoleColor = (role) => {
   const meta = ROLE_META[role];
@@ -17,18 +17,8 @@ const getRoleColor = (role) => {
 
 const Header = () => {
   const { appName, location } = useShop();
-  const {
-    businesses,
-    activeBusinessId,
-    activeBranchId,
-    activeBusiness,
-    switchBusiness,
-    switchBranch
-  } = useBranch();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isBoss = user.is_boss === true;
-  const branches = (activeBusiness?.branches || []).filter(b => b.is_active !== false);
 
   return (
     <header className="app-header">
@@ -38,39 +28,7 @@ const Header = () => {
       </div>
 
       <div className="header-right">
-        {isBoss && businesses.length > 0 && (
-          <div className="header-switchers">
-            {businesses.length > 1 && (
-              <select
-                className="header-switcher"
-                value={activeBusinessId || ''}
-                onChange={(e) => switchBusiness(e.target.value)}
-                title="Switch business"
-              >
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            )}
-
-            {branches.length > 1 && (
-              <select
-                className="header-switcher"
-                value={activeBranchId || ''}
-                onChange={(e) => switchBranch(e.target.value)}
-                title="Switch branch"
-              >
-                {branches.map((br) => (
-                  <option key={br.id} value={br.id}>{br.name}</option>
-                ))}
-              </select>
-            )}
-
-            {branches.length === 1 && (
-              <span className="header-branch-label">{branches[0].name}</span>
-            )}
-          </div>
-        )}
+        <Switchers variant="header" />
 
         <button className="header-notification">
           <FiBell size={20} />

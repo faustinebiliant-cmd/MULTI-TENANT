@@ -298,7 +298,7 @@ const QuickSale = () => {
               </div>
             ) : (
               <div className="table-container">
-                <table>
+                <table className="cart-table">
                   <thead>
                     <tr>
                       <th>Product</th>
