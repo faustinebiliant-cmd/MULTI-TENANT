@@ -1,7 +1,7 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Sidebar
-// Brand shows the active business name and the user's
-// account code (e.g. USR-0001) for support identification.
+// Brand shows the active business name and the business code
+// (e.g. BSN-0001) for support and payment reference.
 // Mobile drawer includes business + branch switchers.
 // ============================================================
 
@@ -47,9 +47,11 @@ const Sidebar = () => {
   const roleDisplay = role ? role.replace('_', ' ') : 'Staff';
 
   // Line 1: the business name the user registered
-  // Line 2: their support code, labeled so users understand what it is
+  // Line 2: the business code, used as the M-Pesa payment reference
   const brandName = activeBusiness?.name || user.full_name || 'OSWAGO';
-  const accountLabel = user.account_code ? `userID: ${user.account_code}` : '—';
+  const accountLabel = activeBusiness?.business_code
+    ? `businessID: ${activeBusiness.business_code}`
+    : '—';
 
   return (
     <>

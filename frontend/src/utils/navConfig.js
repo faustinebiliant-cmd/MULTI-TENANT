@@ -80,13 +80,3 @@ export const getMenuGroups = (role, quickSaleEnabled = false) => {
     }
   ];
 };
-
-// Flat, filtered list — what the command palette actually searches over.
-// Each item keeps its group label as a subtitle so results read like
-// "Products — Inventory" instead of just "Products".
-export const getFlatNavItems = (role, quickSaleEnabled = false) =>
-  getMenuGroups(role, quickSaleEnabled).flatMap((group) =>
-    group.items
-      .filter((item) => item.show)
-      .map((item) => ({ ...item, group: group.label }))
-  );

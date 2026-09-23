@@ -5,7 +5,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/client';
-import { FALLBACK_PRODUCT_CATEGORIES } from '../../utils/constants';
 import toast from 'react-hot-toast';
 
 const ProductForm = () => {
@@ -15,6 +14,7 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [noCategories, setNoCategories] = useState(false);
   const [nameConflict, setNameConflict] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -30,15 +30,17 @@ const ProductForm = () => {
     const fetchCategories = async () => {
       try {
         const response = await api.getCategories();
-
         if (response && response.length > 0) {
           setCategories(response);
+          setNoCategories(false);
         } else {
-          setCategories(FALLBACK_PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
+          setCategories([]);
+          setNoCategories(true);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
-        setCategories(FALLBACK_PRODUCT_CATEGORIES.map(name => ({ id: name, name })));
+        setCategories([]);
+        setNoCategories(true);
       }
     };
     fetchCategories();
@@ -207,12 +209,24 @@ const ProductForm = () => {
               name="category_id"
               value={formData.category_id}
               onChange={handleChange}
+              disabled={noCategories}
             >
-              <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
+              {noCategories ? (
+                <option value="">No categories yet — add one first</option>
+              ) : (
+                <>
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </>
+              )}
             </select>
+            {noCategories && (
+              <small style={{ color: '#b45309', display: 'block', marginTop: '4px' }}>
+                This branch has no categories yet. Go to the Categories page and add one, then come back.
+              </small>
+            )}
           </div>
 
           <div className="grid-2">
@@ -273,7 +287,7 @@ const ProductForm = () => {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || (!isEdit && nameConflict)}
+              disabled={loading || (!isEdit && nameConflict) || noCategories}
             >
               {loading ? 'Saving...' : (isEdit ? 'Update Product' : 'Add Product')}
             </button>

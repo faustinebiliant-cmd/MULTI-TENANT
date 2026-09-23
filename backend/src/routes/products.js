@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { hasRole } = require('../middleware/permissions');
+const subscriptionGuard = require('../middleware/subscriptionGuard');
 const {
     getAllProducts,
     getProductById,
@@ -40,15 +41,15 @@ router.get('/low-stock', getLowStockProducts);
 // ============================================================
 
 // Create product - Manager, Boss, Store Keeper
-router.post('/', hasRole(['boss', 'manager', 'store_keeper']), createProduct);
+router.post('/', subscriptionGuard, hasRole(['boss', 'manager', 'store_keeper']), createProduct);
 
 // Update product - Manager, Boss, Store Keeper
-router.put('/:id', hasRole(['boss', 'manager', 'store_keeper']), updateProduct);
+router.put('/:id', subscriptionGuard, hasRole(['boss', 'manager', 'store_keeper']), updateProduct);
 
 // Delete product - Boss only
-router.delete('/:id', hasRole('boss'), deleteProduct);
+router.delete('/:id', subscriptionGuard, hasRole('boss'), deleteProduct);
 
 // Adjust stock - Manager, Boss, Store Keeper
-router.patch('/:id/stock', hasRole(['boss', 'manager', 'store_keeper']), adjustStock);
+router.patch('/:id/stock', subscriptionGuard, hasRole(['boss', 'manager', 'store_keeper']), adjustStock);
 
 module.exports = router;

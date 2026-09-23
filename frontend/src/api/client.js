@@ -201,6 +201,25 @@ const api = {
     }
   },
 
+    // ---- Subscription ----
+  subscription: {
+    getStatus: async () => {
+      const response = await apiClient.get('/subscription/status');
+      return response.data.data || {};
+    },
+    getPricing: async () => {
+      const response = await apiClient.get('/subscription/pricing');
+      return response.data.data || [];
+    },
+    submitPayment: async (data) => {
+      if (!data.duration_months) throw new Error('Duration is required');
+      if (!data.method) throw new Error('Payment method is required');
+      if (!data.transaction_id) throw new Error('Transaction ID is required');
+      const response = await apiClient.post('/subscription/submit-payment', data);
+      return response.data;
+    }
+  },
+
   // ---- Business (replaces the old settings concept) ----
   getBusiness: async () => {
     const response = await apiClient.get('/business/current');

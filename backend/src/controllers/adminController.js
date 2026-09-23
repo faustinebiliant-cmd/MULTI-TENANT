@@ -1074,6 +1074,286 @@ const getCustomerDetail = async (req, res) => {
     }
 };
 
+// ============================================================
+// GET /api/admin/payment-submissions
+// Paginated list of submissions. Filter by status.
+// Joins the business and the submitting Boss so the admin panel
+// can show both the business code and the Boss account code.
+// ============================================================
+const listPaymentSubmissions = async (req, res) => {
+    try {
+        let { page = 1, limit = 50, status = 'pending' } = req.query;
+
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+
+        if (isNaN(pageNum) || pageNum < 1) {
+            return res.status(400).json({ success: false, error: 'Invalid page' });
+        }
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 200) {
+            return res.status(400).json({ success: false, error: 'Invalid limit' });
+        }
+
+        const VALID_STATUSES = ['pending', 'approved', 'rejected', 'all'];
+        if (!VALID_STATUSES.includes(status)) {
+            return res.status(400).json({ success: false, error: 'Invalid status filter' });
+        }
+
+        let query = supabase
+            .from('payment_submissions')
+            .select(`
+                id, business_id, submitted_by, submitted_by_name,
+                method, amount, duration_months, transaction_id,
+                status, rejection_reason, reviewed_by_email, reviewed_at,
+                created_at,
+                business:business_id (id, name, business_code, subscription_status, trial_ends_at),
+                submitted_by_user:submitted_by (id, full_name, email, account_code)
+            `, { count: 'exact' });
+
+        if (status !== 'all') {
+            query = query.eq('status', status);
+        }
+
+        const from = (pageNum - 1) * limitNum;
+        const to = from + limitNum - 1;
+
+        const { data, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range(from, to);
+
+        if (error) throw error;
+
+        return res.status(200).json({
+            success: true,
+            data: data || [],
+            pagination: {
+                total: count || 0,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil((count || 0) / limitNum)
+            }
+        });
+
+    } catch (error) {
+        console.error('List payment submissions error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to list payment submissions'
+        });
+    }
+};
+
+// ============================================================
+// POST /api/admin/payment-submissions/:id/approve
+// Body: { extend_months }
+// Marks submission approved, sets business to active, extends
+// trial_ends_at by extend_months from whichever is later:
+// today, or the current trial_ends_at.
+// ============================================================
+const approvePaymentSubmission = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { extend_months } = req.body;
+
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid submission ID' });
+        }
+
+        const months = parseInt(extend_months, 10);
+        if (isNaN(months) || months < 1 || months > 24) {
+            return res.status(400).json({
+                success: false,
+                error: 'Extend months must be between 1 and 24'
+            });
+        }
+
+        const { data: submission, error: subError } = await supabase
+            .from('payment_submissions')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (subError || !submission) {
+            return res.status(404).json({ success: false, error: 'Submission not found' });
+        }
+
+        if (submission.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                error: `Submission is already ${submission.status}`
+            });
+        }
+
+        const { data: business, error: bizError } = await supabase
+            .from('businesses')
+            .select('id, name, trial_ends_at, subscription_status')
+            .eq('id', submission.business_id)
+            .single();
+
+        if (bizError || !business) {
+            return res.status(404).json({ success: false, error: 'Business not found' });
+        }
+
+        // Extend from whichever is later: today or trial_ends_at.
+        // Adding months uses Postgres interval arithmetic via a fresh
+        // date calculation in JS is risky for month boundaries, so we
+        // let Postgres compute it.
+        const baseDate = business.trial_ends_at
+            ? new Date(business.trial_ends_at + 'T23:59:59.999Z')
+            : new Date();
+        const todayStart = new Date();
+        todayStart.setUTCHours(0, 0, 0, 0);
+        const startFrom = baseDate > todayStart ? baseDate : todayStart;
+
+        // Add months by setting the month on a new Date. This handles
+        // month-length differences the same way Postgres does.
+        const newEnd = new Date(startFrom);
+        newEnd.setUTCMonth(newEnd.getUTCMonth() + months);
+
+        const newTrialEndsAt = newEnd.toISOString().slice(0, 10); // YYYY-MM-DD
+
+        const { error: bizUpdateError } = await supabase
+            .from('businesses')
+            .update({
+                subscription_status: 'active',
+                trial_ends_at: newTrialEndsAt,
+                updated_at: new Date()
+            })
+            .eq('id', business.id);
+
+        if (bizUpdateError) throw bizUpdateError;
+
+        const { error: subUpdateError } = await supabase
+            .from('payment_submissions')
+            .update({
+                status: 'approved',
+                reviewed_by: req.admin.id,
+                reviewed_by_email: req.admin.email,
+                reviewed_at: new Date()
+            })
+            .eq('id', id);
+
+        if (subUpdateError) throw subUpdateError;
+
+        await logAdminAction({
+            admin: req.admin,
+            action: 'Payment Submission Approved',
+            targetType: 'business',
+            targetId: business.id,
+            targetLabel: business.name,
+            reason: `Extended by ${months} month(s)`,
+            details: {
+                submission_id: id,
+                amount: submission.amount,
+                duration_months: submission.duration_months,
+                transaction_id: submission.transaction_id,
+                new_trial_ends_at: newTrialEndsAt,
+                extend_months: months
+            },
+            req
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Submission approved. Business is now active.',
+            data: {
+                business_id: business.id,
+                subscription_status: 'active',
+                trial_ends_at: newTrialEndsAt
+            }
+        });
+
+    } catch (error) {
+        console.error('Approve payment submission error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to approve submission'
+        });
+    }
+};
+
+// ============================================================
+// POST /api/admin/payment-submissions/:id/reject
+// Body: { reason }
+// Marks submission rejected. Business status unchanged.
+// ============================================================
+const rejectPaymentSubmission = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid submission ID' });
+        }
+
+        if (!reason || !isValidLength(reason, 5, 500) || !isSafeText(reason)) {
+            return res.status(400).json({
+                success: false,
+                error: 'A reason (5-500 characters) is required'
+            });
+        }
+
+        const cleanReason = sanitize(reason.trim());
+
+        const { data: submission, error: subError } = await supabase
+            .from('payment_submissions')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (subError || !submission) {
+            return res.status(404).json({ success: false, error: 'Submission not found' });
+        }
+
+        if (submission.status !== 'pending') {
+            return res.status(400).json({
+                success: false,
+                error: `Submission is already ${submission.status}`
+            });
+        }
+
+        const { error: updateError } = await supabase
+            .from('payment_submissions')
+            .update({
+                status: 'rejected',
+                rejection_reason: cleanReason,
+                reviewed_by: req.admin.id,
+                reviewed_by_email: req.admin.email,
+                reviewed_at: new Date()
+            })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        await logAdminAction({
+            admin: req.admin,
+            action: 'Payment Submission Rejected',
+            targetType: 'business',
+            targetId: submission.business_id,
+            targetLabel: submission.submitted_by_name,
+            reason: cleanReason,
+            details: {
+                submission_id: id,
+                amount: submission.amount,
+                transaction_id: submission.transaction_id
+            },
+            req
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Submission rejected'
+        });
+
+    } catch (error) {
+        console.error('Reject payment submission error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Failed to reject submission'
+        });
+    }
+};
+
 module.exports = {
     adminLogin,
     getAdminMe,
@@ -1086,6 +1366,9 @@ module.exports = {
     startImpersonation,
     endImpersonation,
     listAuditLogs,
-    listAllCustomers,    
-    getCustomerDetail    
+    listAllCustomers,
+    getCustomerDetail,
+    listPaymentSubmissions,
+    approvePaymentSubmission,
+    rejectPaymentSubmission
 };

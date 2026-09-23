@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { hasRole } = require('../middleware/permissions');
+const subscriptionGuard = require('../middleware/subscriptionGuard');
 const {
     getAllPurchaseOrders,
     getPurchaseOrderById,
@@ -25,15 +26,15 @@ router.get('/', hasRole(['boss', 'manager', 'store_keeper']), getAllPurchaseOrde
 router.get('/:id', hasRole(['boss', 'manager', 'store_keeper']), getPurchaseOrderById);
 
 // Create purchase order - Manager, Boss
-router.post('/', hasRole(['boss', 'manager']), createPurchaseOrder);
+router.post('/', subscriptionGuard, hasRole(['boss', 'manager']), createPurchaseOrder);
 
 // Receive purchase order - Manager, Boss, Store Keeper
-router.patch('/:id/receive', hasRole(['boss', 'manager', 'store_keeper']), receivePurchaseOrder);
+router.patch('/:id/receive', subscriptionGuard, hasRole(['boss', 'manager', 'store_keeper']), receivePurchaseOrder);
 
 // Update purchase order - Manager, Boss
-router.put('/:id', hasRole(['boss', 'manager']), updatePurchaseOrder);
+router.put('/:id', subscriptionGuard, hasRole(['boss', 'manager']), updatePurchaseOrder);
 
 // Delete purchase order - Boss only
-router.delete('/:id', hasRole('boss'), deletePurchaseOrder);
+router.delete('/:id', subscriptionGuard, hasRole('boss'), deletePurchaseOrder);
 
 module.exports = router;

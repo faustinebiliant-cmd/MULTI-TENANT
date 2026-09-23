@@ -19,8 +19,11 @@ const {
     startImpersonation,
     endImpersonation,
     listAuditLogs,
-    listAllCustomers,     
-    getCustomerDetail     
+    listAllCustomers,
+    getCustomerDetail,
+    listPaymentSubmissions,
+    approvePaymentSubmission,
+    rejectPaymentSubmission
 } = require('../controllers/adminController');
 
 // Public — rate-limited
@@ -46,5 +49,9 @@ router.post('/impersonate', startImpersonation);
 router.post('/impersonate/end', endImpersonation);
 
 router.get('/audit-logs', listAuditLogs);
+
+router.get('/payment-submissions', listPaymentSubmissions);
+router.post('/payment-submissions/:id/approve', approvePaymentSubmission);
+router.post('/payment-submissions/:id/reject', rejectPaymentSubmission);
 
 module.exports = router;

@@ -115,6 +115,26 @@ const adminApi = {
     return res.data;
   },
 
+    paymentSubmissions: async (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    const res = await adminClient.get(`/payment-submissions${qs ? '?' + qs : ''}`);
+    return res.data;
+  },
+
+  approveSubmission: async (id, extendMonths) => {
+    const res = await adminClient.post(`/payment-submissions/${id}/approve`, {
+      extend_months: extendMonths
+    });
+    return res.data;
+  },
+
+  rejectSubmission: async (id, reason) => {
+    const res = await adminClient.post(`/payment-submissions/${id}/reject`, {
+      reason
+    });
+    return res.data;
+  },
+
   auditLogs: async (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     const res = await adminClient.get(`/audit-logs${qs ? '?' + qs : ''}`);

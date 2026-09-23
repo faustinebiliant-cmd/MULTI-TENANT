@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { hasRole } = require('../middleware/permissions');
+const subscriptionGuard = require('../middleware/subscriptionGuard');
 const {
     getAllExpenses,
     getExpenseById,
@@ -18,8 +19,8 @@ router.use(authenticate);
 
 router.get('/', getAllExpenses);
 router.get('/:id', getExpenseById);
-router.post('/', hasRole(['boss', 'manager']), createExpense);
-router.put('/:id', hasRole(['boss', 'manager']), updateExpense);
-router.delete('/:id', hasRole('boss'), deleteExpense);
+router.post('/', subscriptionGuard, hasRole(['boss', 'manager']), createExpense);
+router.put('/:id', subscriptionGuard, hasRole(['boss', 'manager']), updateExpense);
+router.delete('/:id', subscriptionGuard, hasRole('boss'), deleteExpense);
 
 module.exports = router;

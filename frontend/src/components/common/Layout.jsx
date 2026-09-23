@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import InactiveBranchNotice from './InactiveBranchNotice';
 import ImpersonationBanner from '../admin/ImpersonationBanner';
+import TrialBanner from '../subscription/TrialBanner';
 import { useBranch } from '../../contexts/BranchContext';
 
 const Layout = () => {
@@ -26,6 +27,7 @@ const Layout = () => {
         <Sidebar />
         <div className="main-content">
           <Header />
+          <TrialBanner />
           {branchIsInactive ? (
             <InactiveBranchNotice />
           ) : (

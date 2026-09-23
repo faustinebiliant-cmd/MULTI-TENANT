@@ -11,6 +11,7 @@ import { AdminProvider } from './contexts/AdminContext';
 import { AppProvider } from './contexts/AppContext';
 import { ShopProvider } from './contexts/ShopContext';
 import { BranchProvider } from './contexts/BranchContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { toastOptions } from './styles/toastConfig';
 
 import Layout from './components/common/Layout';
@@ -60,6 +61,7 @@ import AdminBusinessDetail from './pages/admin/AdminBusinessDetail';
 import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 import AdminCustomers from './pages/admin/AdminCustomers';
 import AdminCustomerDetail from './pages/admin/AdminCustomerDetail';
+import AdminPaymentSubmissions from './pages/admin/AdminPaymentSubmissions';
 
 function App() {
   return (
@@ -67,94 +69,97 @@ function App() {
       <AuthProvider>
         <AdminProvider>
           <BranchProvider>
-            <AppProvider>
-              <ShopProvider>
-                <BrowserRouter>
-                  <Toaster position="top-right" toastOptions={toastOptions} />
+            <SubscriptionProvider>
+              <AppProvider>
+                <ShopProvider>
+                  <BrowserRouter>
+                    <Toaster position="top-right" toastOptions={toastOptions} />
 
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
 
-                    {/* ---------- Admin login (no shell) ---------- */}
-                    <Route path="/admin/login" element={<AdminLogin />} />
+                      {/* ---------- Admin login (no shell) ---------- */}
+                      <Route path="/admin/login" element={<AdminLogin />} />
 
-                    {/* ---------- Admin (with shell) ---------- */}
-                    <Route path="/admin" element={<AdminLayout />}>
-                      <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                      <Route path="dashboard" element={<AdminDashboard />} />
-                      <Route path="businesses" element={<AdminBusinesses />} />
-                      <Route path="businesses/:id" element={<AdminBusinessDetail />} />
-                      <Route path="customers" element={<AdminCustomers />} />
-                      <Route path="customers/:id" element={<AdminCustomerDetail />} />
-                      <Route path="audit-logs" element={<AdminAuditLogs />} />
-                    </Route>
+                      {/* ---------- Admin (with shell) ---------- */}
+                      <Route path="/admin" element={<AdminLayout />}>
+                        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                        <Route path="dashboard" element={<AdminDashboard />} />
+                        <Route path="businesses" element={<AdminBusinesses />} />
+                        <Route path="businesses/:id" element={<AdminBusinessDetail />} />
+                        <Route path="customers" element={<AdminCustomers />} />
+                        <Route path="customers/:id" element={<AdminCustomerDetail />} />
+                        <Route path="audit-logs" element={<AdminAuditLogs />} />
+                        <Route path="payment-submissions" element={<AdminPaymentSubmissions />} />
+                      </Route>
 
-                    {/* ---------- Customer app ---------- */}
-                    <Route
-                      path="/"
-                      element={
-                        <PrivateRoute>
-                          <Layout />
-                        </PrivateRoute>
-                      }
-                    >
-                      <Route index element={<Navigate to="/dashboard" replace />} />
-                      <Route path="dashboard" element={<Dashboard />} />
+                      {/* ---------- Customer app ---------- */}
+                      <Route
+                        path="/"
+                        element={
+                          <PrivateRoute>
+                            <Layout />
+                          </PrivateRoute>
+                        }
+                      >
+                        <Route index element={<Navigate to="/dashboard" replace />} />
+                        <Route path="dashboard" element={<Dashboard />} />
 
-                      <Route path="products" element={<ProductList />} />
-                      <Route path="products/new" element={<ProductForm />} />
-                      <Route path="products/:id" element={<ProductDetail />} />
-                      <Route path="products/:id/edit" element={<ProductForm />} />
+                        <Route path="products" element={<ProductList />} />
+                        <Route path="products/new" element={<ProductForm />} />
+                        <Route path="products/:id" element={<ProductDetail />} />
+                        <Route path="products/:id/edit" element={<ProductForm />} />
 
-                      <Route path="categories" element={<CategoryManager />} />
+                        <Route path="categories" element={<CategoryManager />} />
 
-                      <Route path="customers" element={<CustomerList />} />
-                      <Route path="customers/new" element={<CustomerForm />} />
-                      <Route path="customers/:id" element={<CustomerDetail />} />
-                      <Route path="customers/:id/edit" element={<CustomerForm />} />
+                        <Route path="customers" element={<CustomerList />} />
+                        <Route path="customers/new" element={<CustomerForm />} />
+                        <Route path="customers/:id" element={<CustomerDetail />} />
+                        <Route path="customers/:id/edit" element={<CustomerForm />} />
 
-                      <Route path="orders" element={<OrderList />} />
-                      <Route path="orders/new" element={<OrderForm />} />
-                      <Route path="orders/quick" element={<QuickSale />} />
-                      <Route path="orders/:id" element={<OrderDetail />} />
+                        <Route path="orders" element={<OrderList />} />
+                        <Route path="orders/new" element={<OrderForm />} />
+                        <Route path="orders/quick" element={<QuickSale />} />
+                        <Route path="orders/:id" element={<OrderDetail />} />
 
-                      <Route path="payments" element={<PaymentList />} />
+                        <Route path="payments" element={<PaymentList />} />
 
-                      <Route path="expenses" element={<ExpenseList />} />
-                      <Route path="expenses/new" element={<ExpenseForm />} />
-                      <Route path="expenses/:id" element={<ExpenseDetail />} />
-                      <Route path="expenses/:id/edit" element={<ExpenseForm />} />
+                        <Route path="expenses" element={<ExpenseList />} />
+                        <Route path="expenses/new" element={<ExpenseForm />} />
+                        <Route path="expenses/:id" element={<ExpenseDetail />} />
+                        <Route path="expenses/:id/edit" element={<ExpenseForm />} />
 
-                      <Route path="suppliers" element={<SupplierList />} />
-                      <Route path="suppliers/new" element={<SupplierForm />} />
-                      <Route path="suppliers/:id" element={<SupplierDetail />} />
-                      <Route path="suppliers/:id/edit" element={<SupplierForm />} />
+                        <Route path="suppliers" element={<SupplierList />} />
+                        <Route path="suppliers/new" element={<SupplierForm />} />
+                        <Route path="suppliers/:id" element={<SupplierDetail />} />
+                        <Route path="suppliers/:id/edit" element={<SupplierForm />} />
 
-                      <Route path="purchase-orders" element={<POList />} />
-                      <Route path="purchase-orders/new" element={<POForm />} />
-                      <Route path="purchase-orders/:id" element={<PODetail />} />
-                      <Route path="purchase-orders/:id/edit" element={<POForm />} />
+                        <Route path="purchase-orders" element={<POList />} />
+                        <Route path="purchase-orders/new" element={<POForm />} />
+                        <Route path="purchase-orders/:id" element={<PODetail />} />
+                        <Route path="purchase-orders/:id/edit" element={<POForm />} />
 
-                      <Route path="reports/sales" element={<SalesReport />} />
-                      <Route path="reports/profit" element={<ProfitReport />} />
-                      <Route path="reports/inventory" element={<InventoryReport />} />
-                      <Route path="reports/extract" element={<ExtractReports />} />
+                        <Route path="reports/sales" element={<SalesReport />} />
+                        <Route path="reports/profit" element={<ProfitReport />} />
+                        <Route path="reports/inventory" element={<InventoryReport />} />
+                        <Route path="reports/extract" element={<ExtractReports />} />
 
-                      <Route path="audit-log" element={<AuditLog />} />
+                        <Route path="audit-log" element={<AuditLog />} />
 
-                      <Route path="settings" element={<Settings />} />
-                      <Route path="settings/profile" element={<ProfileSettings />} />
+                        <Route path="settings" element={<Settings />} />
+                        <Route path="settings/profile" element={<ProfileSettings />} />
 
-                      <Route path="staff" element={<StaffList />} />
-                      <Route path="staff/new" element={<StaffForm />} />
-                      <Route path="staff/:id" element={<StaffDetail />} />
-                      <Route path="staff/:id/edit" element={<StaffForm />} />
-                    </Route>
-                  </Routes>
-                </BrowserRouter>
-              </ShopProvider>
-            </AppProvider>
+                        <Route path="staff" element={<StaffList />} />
+                        <Route path="staff/new" element={<StaffForm />} />
+                        <Route path="staff/:id" element={<StaffDetail />} />
+                        <Route path="staff/:id/edit" element={<StaffForm />} />
+                      </Route>
+                    </Routes>
+                  </BrowserRouter>
+                </ShopProvider>
+              </AppProvider>
+            </SubscriptionProvider>
           </BranchProvider>
         </AdminProvider>
       </AuthProvider>

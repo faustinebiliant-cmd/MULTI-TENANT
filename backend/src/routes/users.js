@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { isBoss } = require('../middleware/permissions');
+const subscriptionGuard = require('../middleware/subscriptionGuard');
 const {
     getAllUsers,
     getUserById,
@@ -22,9 +23,9 @@ router.use(isBoss);
 // User management
 router.get('/', getAllUsers);
 router.get('/:id', getUserById);
-router.post('/', createUser);
-router.put('/:id', updateUser);
-router.delete('/:id', deleteUser);
-router.patch('/:id/reset-password', resetPassword);
+router.post('/', subscriptionGuard, createUser);
+router.put('/:id', subscriptionGuard, updateUser);
+router.delete('/:id', subscriptionGuard, deleteUser);
+router.patch('/:id/reset-password', subscriptionGuard, resetPassword);
 
 module.exports = router;

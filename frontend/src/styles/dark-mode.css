@@ -136,14 +136,3 @@ body.dark-mode .login-header h1 { color: #f1f5f9 !important; }
 body.dark-mode .login-header p { color: #94a3b8 !important; }
 body.dark-mode .login-footer { border-top: 1px solid #334155 !important; color: #94a3b8 !important; }
 body.dark-mode .sidebar-overlay { background: rgba(0, 0, 0, 0.7) !important; }
-
-/* Command palette (CommandPalette.jsx / CommandPalette.css) */
-body.dark-mode .command-palette { background: #1e293b !important; }
-body.dark-mode .command-palette-search { border-bottom: 1px solid #334155 !important; }
-body.dark-mode .command-palette-search input { color: #e2e8f0 !important; }
-body.dark-mode .command-palette-item.active,
-body.dark-mode .command-palette-item:hover { background: rgba(26, 86, 219, 0.18) !important; }
-body.dark-mode .command-palette-item-label { color: #f1f5f9 !important; }
-body.dark-mode .command-palette-footer { background: #0f172a !important; border-top: 1px solid #334155 !important; }
-body.dark-mode .header-search-trigger { background: #0f172a !important; border: 1px solid #334155 !important; color: #94a3b8 !important; }
-body.dark-mode .header-search-trigger kbd { background: #1e293b !important; border-color: #334155 !important; }

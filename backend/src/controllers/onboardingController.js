@@ -38,10 +38,8 @@ const isDisposableEmail = (email) => {
 // POST /api/onboarding/signup
 // Public. Creates Boss + Business + First Branch atomically.
 // ============================================================
-const signup = async (req, res) => {
-    let createdUserId = null;
-    let createdBusinessId = null;
 
+const signup = async (req, res) => {
     try {
         const {
             email,
@@ -134,96 +132,36 @@ const signup = async (req, res) => {
         }
 
         // ---------------------------------------------------------
-        // 4. Create Boss user
+        // 4. Hash the password before leaving Node
         // ---------------------------------------------------------
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        const { data: user, error: userErr } = await supabase
-            .from('users')
-            .insert({
-                full_name: sanitize(full_name.trim()),
-                email: cleanEmail,
-                phone: phone ? sanitize(phone.trim()) : '',
-                role: 'boss',
-                password_hash: hashedPassword,
-                is_first_login: false,
-                is_active: true,
-                business_id: null,
-                branch_id: null
-            })
-            .select('*')
-            .single();
+        // ---------------------------------------------------------
+        // 5. Atomic signup: user + business + branch in one transaction
+        // ---------------------------------------------------------
+        const { data: result, error: rpcError } = await supabase.rpc('signup_atomic', {
+            p_full_name: sanitize(full_name.trim()),
+            p_email: cleanEmail,
+            p_phone: phone ? sanitize(phone.trim()) : '',
+            p_password_hash: hashedPassword,
+            p_business_name: sanitize(business_name.trim()),
+            p_branch_name: sanitize(branch_name.trim()),
+            p_location: location ? sanitize(location.trim()) : ''
+        });
 
-        if (userErr) {
-            console.error('Signup user insert error:', userErr);
+        if (rpcError) {
+            console.error('Signup RPC error:', rpcError);
             return res.status(500).json({
                 success: false,
-                error: 'Failed to create account: ' + userErr.message
+                error: 'Failed to create account: ' + rpcError.message
             });
         }
 
-        createdUserId = user.id;
+        const user = result.user;
+        const business = result.business;
 
         // ---------------------------------------------------------
-        // 5. Create business
-        // ---------------------------------------------------------
-        const cleanBusinessName = sanitize(business_name.trim());
-
-        const { data: business, error: bizErr } = await supabase
-            .from('businesses')
-            .insert({
-                owner_id: user.id,
-                name: cleanBusinessName,
-                shop_name: cleanBusinessName,
-                location: location ? sanitize(location.trim()) : '',
-                phone: phone ? sanitize(phone.trim()) : '',
-                email: cleanEmail,
-                currency: 'TZS',
-                vat_enabled: false,
-                vat_rate: 18,
-                expense_categories: ['Rent', 'Salaries', 'Utilities', 'Transport', 'Supplies', 'Other']
-            })
-            .select()
-            .single();
-
-        if (bizErr) {
-            console.error('Signup business insert error:', bizErr);
-            // Roll back the user
-            await supabase.from('users').delete().eq('id', user.id);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create business: ' + bizErr.message
-            });
-        }
-
-        createdBusinessId = business.id;
-
-        // ---------------------------------------------------------
-        // 6. Create first branch
-        // ---------------------------------------------------------
-        const { error: branchErr } = await supabase
-            .from('branches')
-            .insert({
-                business_id: business.id,
-                name: sanitize(branch_name.trim()),
-                location: business.location,
-                phone: business.phone,
-                email: business.email
-            });
-
-        if (branchErr) {
-            console.error('Signup branch insert error:', branchErr);
-            // Roll back business and user
-            await supabase.from('businesses').delete().eq('id', business.id);
-            await supabase.from('users').delete().eq('id', user.id);
-            return res.status(500).json({
-                success: false,
-                error: 'Failed to create branch: ' + branchErr.message
-            });
-        }
-
-        // ---------------------------------------------------------
-        // 7. Load businesses (with branches) for the response
+        // 6. Load businesses (with branches) for the response
         // ---------------------------------------------------------
         const { data: businesses } = await supabase
             .from('businesses')
@@ -237,7 +175,7 @@ const signup = async (req, res) => {
             .order('created_at');
 
         // ---------------------------------------------------------
-        // 8. Issue JWT
+        // 7. Issue JWT
         // ---------------------------------------------------------
         const token = jwt.sign(
             {
@@ -254,7 +192,7 @@ const signup = async (req, res) => {
         );
 
         // ---------------------------------------------------------
-        // 9. Audit log
+        // 8. Audit log
         // ---------------------------------------------------------
         await supabase
             .from('activity_logs')
@@ -272,16 +210,14 @@ const signup = async (req, res) => {
             });
 
         // ---------------------------------------------------------
-        // 10. Response
+        // 9. Response
         // ---------------------------------------------------------
-        const { password_hash, ...userData } = user;
-
         return res.status(201).json({
             success: true,
             message: 'Account created successfully',
             token,
             user: {
-                ...userData,
+                ...user,
                 is_boss: true
             },
             businesses: businesses || []
@@ -289,19 +225,6 @@ const signup = async (req, res) => {
 
     } catch (error) {
         console.error('Signup error:', error);
-
-        // Best-effort rollback if something exploded mid-flight
-        try {
-            if (createdBusinessId) {
-                await supabase.from('businesses').delete().eq('id', createdBusinessId);
-            }
-            if (createdUserId) {
-                await supabase.from('users').delete().eq('id', createdUserId);
-            }
-        } catch (rollbackErr) {
-            console.error('Signup rollback error:', rollbackErr);
-        }
-
         return res.status(500).json({
             success: false,
             error: 'Signup failed. Please try again.'

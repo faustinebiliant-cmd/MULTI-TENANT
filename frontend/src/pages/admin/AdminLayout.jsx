@@ -1,6 +1,11 @@
+// ============================================================
+// OSWAGO - Admin Layout
+// Shell for the platform admin panel.
+// ============================================================
+
 import React from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { FiHome, FiBriefcase, FiFileText, FiLogOut, FiShield, FiUsers } from 'react-icons/fi';
+import { FiHome, FiBriefcase, FiFileText, FiLogOut, FiShield, FiUsers, FiCreditCard } from 'react-icons/fi';
 import { useAdmin } from '../../contexts/AdminContext';
 
 const AdminLayout = () => {
@@ -29,6 +34,9 @@ const AdminLayout = () => {
           </NavLink>
           <NavLink to="/admin/businesses" className={({isActive}) => 'admin-nav-link' + (isActive ? ' active' : '')}>
             <FiBriefcase size={16} /> Businesses
+          </NavLink>
+          <NavLink to="/admin/payment-submissions" className={({isActive}) => 'admin-nav-link' + (isActive ? ' active' : '')}>
+            <FiCreditCard size={16} /> Payments
           </NavLink>
           <NavLink to="/admin/customers" className={({isActive}) => 'admin-nav-link' + (isActive ? ' active' : '')}>
             <FiUsers size={16} /> Customers
