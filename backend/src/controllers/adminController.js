@@ -53,6 +53,46 @@ const logAdminAction = async ({
 };
 
 // ============================================================
+// Subscription info helper
+// Computes days_total, days_used, days_remaining for a business.
+// Used by the businesses list, business detail, and customer detail.
+// ============================================================
+const buildSubscriptionInfo = (business, hasPending = false) => {
+    const status = business.subscription_status || 'trial';
+    const endsAt = business.trial_ends_at;
+    const startedAt = business.subscription_started_at;
+
+    let daysTotal = 0;
+    let daysUsed = 0;
+    let daysRemaining = 0;
+
+    if (endsAt) {
+        const end = new Date(endsAt + 'T23:59:59.999Z');
+        const now = new Date();
+        const start = startedAt ? new Date(startedAt + 'T00:00:00.000Z') : null;
+
+        if (start) {
+            daysTotal = Math.round((end - start) / (1000 * 60 * 60 * 24));
+        }
+
+        const diffRemaining = end - now;
+        daysRemaining = Math.max(0, Math.ceil(diffRemaining / (1000 * 60 * 60 * 24)));
+        daysUsed = Math.max(0, daysTotal - daysRemaining);
+    }
+
+    return {
+        status,
+        started_at: startedAt,
+        ends_at: endsAt,
+        days_total: daysTotal,
+        days_used: daysUsed,
+        days_remaining: daysRemaining,
+        is_expired: daysRemaining <= 0 && status !== 'active' && status !== 'suspended',
+        has_pending_submission: hasPending
+    };
+};
+
+// ============================================================
 // POST /api/admin/login
 // Public. Exchanges email + password for an admin JWT.
 // ============================================================
@@ -115,7 +155,6 @@ const adminLogin = async (req, res) => {
             { expiresIn: '8h' }
         );
 
-        // Track last login
         await supabase
             .from('platform_admins')
             .update({
@@ -174,6 +213,12 @@ const getAdminMe = async (req, res) => {
 // ============================================================
 const getMetrics = async (req, res) => {
     try {
+        // Today in EAT, as YYYY-MM-DD strings for date comparisons
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0, 10);
+        const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
         const [
             businessesCount,
             activeBusinessesCount,
@@ -182,29 +227,25 @@ const getMetrics = async (req, res) => {
             staffCount,
             ordersCount,
             recentBusinessesResult,
-            recentSignupsResult
+            recentSignupsResult,
+            trialsEndingResult,
+            activeExpiringResult,
+            expiredResult
         ] = await Promise.all([
-            // Every business, ever
             supabase.from('businesses').select('id', { count: 'exact', head: true }),
 
-            // Only active businesses
             supabase.from('businesses').select('id', { count: 'exact', head: true }).eq('is_active', true),
 
-            // Every user (non-deleted)
             supabase.from('users').select('id', { count: 'exact', head: true }).eq('is_deleted', false),
 
-            // Paying customers = distinct Bosses (non-deleted)
             supabase.from('users').select('id', { count: 'exact', head: true })
                 .eq('role', 'boss').eq('is_deleted', false),
 
-            // Staff = everyone who isn't a Boss (non-deleted)
             supabase.from('users').select('id', { count: 'exact', head: true })
                 .neq('role', 'boss').eq('is_deleted', false),
 
-            // Orders across the entire platform
             supabase.from('orders').select('id', { count: 'exact', head: true }),
 
-            // Recent businesses
             supabase
                 .from('businesses')
                 .select(`
@@ -214,21 +255,40 @@ const getMetrics = async (req, res) => {
                 .order('created_at', { ascending: false })
                 .limit(10),
 
-            // Signups in the last 30 days
             supabase
                 .from('businesses')
                 .select('id, created_at')
-                .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+                .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+
+            // Businesses whose trial ends in the next 7 days (or already past today)
+            supabase
+                .from('businesses')
+                .select('id', { count: 'exact', head: true })
+                .eq('subscription_status', 'trial')
+                .gte('trial_ends_at', todayStr)
+                .lte('trial_ends_at', in7Days),
+
+            // Active subscriptions ending in the next 30 days
+            supabase
+                .from('businesses')
+                .select('id', { count: 'exact', head: true })
+                .eq('subscription_status', 'active')
+                .gte('trial_ends_at', todayStr)
+                .lte('trial_ends_at', in30Days),
+
+            // Expired businesses
+            supabase
+                .from('businesses')
+                .select('id', { count: 'exact', head: true })
+                .eq('subscription_status', 'expired')
         ]);
 
-        // Signups per day for the last 30 days
         const signupsByDay = {};
         (recentSignupsResult.data || []).forEach(b => {
             const day = new Date(b.created_at).toISOString().slice(0, 10);
             signupsByDay[day] = (signupsByDay[day] || 0) + 1;
         });
 
-        // Build the last 30 days as an ordered array
         const signupsSeries = [];
         for (let i = 29; i >= 0; i--) {
             const d = new Date();
@@ -246,6 +306,9 @@ const getMetrics = async (req, res) => {
                 bossesTotal: bossesCount.count || 0,
                 staffTotal: staffCount.count || 0,
                 ordersTotal: ordersCount.count || 0,
+                trialsEndingSoon: trialsEndingResult.count || 0,
+                activeExpiringSoon: activeExpiringResult.count || 0,
+                expiredTotal: expiredResult.count || 0,
                 recentBusinesses: recentBusinessesResult.data || [],
                 signupsSeries
             }
@@ -263,10 +326,18 @@ const getMetrics = async (req, res) => {
 // ============================================================
 // GET /api/admin/businesses
 // List all businesses with summary stats.
+// Supports subscription_filter: all | trial | active | expired |
+// suspended | payment_pending
 // ============================================================
 const listAllBusinesses = async (req, res) => {
     try {
-        let { page = 1, limit = 50, search = '', status = 'all' } = req.query;
+        let {
+            page = 1,
+            limit = 50,
+            search = '',
+            status = 'all',
+            subscription_filter = 'all'
+        } = req.query;
 
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
@@ -277,16 +348,50 @@ const listAllBusinesses = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid limit' });
         }
 
+        const VALID_SUB_FILTERS = ['all', 'trial', 'active', 'expired', 'suspended', 'payment_pending'];
+        if (!VALID_SUB_FILTERS.includes(subscription_filter)) {
+            return res.status(400).json({ success: false, error: 'Invalid subscription filter' });
+        }
+
+        // For the payment_pending filter, first fetch the business IDs
+        // that have a pending submission, then filter by those.
+        let pendingBusinessIds = null;
+        if (subscription_filter === 'payment_pending') {
+            const { data: pendingRows } = await supabase
+                .from('payment_submissions')
+                .select('business_id')
+                .eq('status', 'pending');
+
+            pendingBusinessIds = [...new Set((pendingRows || []).map(r => r.business_id))];
+
+            if (pendingBusinessIds.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    data: [],
+                    pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
+                });
+            }
+        }
+
         let query = supabase
             .from('businesses')
             .select(`
                 id, name, shop_name, business_code, location, phone, email,
                 is_active, created_at, owner_id,
+                subscription_status, trial_ends_at, subscription_started_at,
                 owner:owner_id (id, email, full_name, account_code, is_active)
             `, { count: 'exact' });
 
         if (status === 'active') query = query.eq('is_active', true);
         if (status === 'suspended') query = query.eq('is_active', false);
+
+        if (subscription_filter === 'trial') query = query.eq('subscription_status', 'trial');
+        if (subscription_filter === 'active') query = query.eq('subscription_status', 'active');
+        if (subscription_filter === 'expired') query = query.eq('subscription_status', 'expired');
+        if (subscription_filter === 'suspended') query = query.eq('subscription_status', 'suspended');
+        if (subscription_filter === 'payment_pending' && pendingBusinessIds) {
+            query = query.in('id', pendingBusinessIds);
+        }
 
         if (search && search.trim()) {
             const term = search.trim().replace(/[%_,()'"]/g, '');
@@ -304,18 +409,30 @@ const listAllBusinesses = async (req, res) => {
 
         if (error) throw error;
 
-        // Load branch + staff + order counts for each business
+        // Which of these businesses have pending submissions?
+        let pendingSet = new Set();
+        if ((businesses || []).length > 0) {
+            const ids = businesses.map(b => b.id);
+            const { data: pendingRows } = await supabase
+                .from('payment_submissions')
+                .select('business_id')
+                .eq('status', 'pending')
+                .in('business_id', ids);
+
+            pendingSet = new Set((pendingRows || []).map(r => r.business_id));
+        }
+
         const enriched = await Promise.all((businesses || []).map(async (b) => {
-            const [branches, staff, orders] = await Promise.all([
+            const [branches, staff] = await Promise.all([
                 supabase.from('branches').select('id', { count: 'exact', head: true }).eq('business_id', b.id),
-                supabase.from('users').select('id', { count: 'exact', head: true }).eq('business_id', b.id).eq('is_deleted', false),
-                supabase.from('orders').select('id', { count: 'exact', head: true }).eq('branch_id', b.id).then(() => ({ count: 0 })).catch(() => ({ count: 0 }))
+                supabase.from('users').select('id', { count: 'exact', head: true }).eq('business_id', b.id).eq('is_deleted', false)
             ]);
 
             return {
                 ...b,
                 branch_count: branches.count || 0,
-                staff_count: staff.count || 0
+                staff_count: staff.count || 0,
+                subscription: buildSubscriptionInfo(b, pendingSet.has(b.id))
             };
         }));
 
@@ -363,21 +480,25 @@ const getBusinessDetail = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Business not found' });
         }
 
-        const [branches, staff, productCount, customerCount, orderCount] = await Promise.all([
+        const branchRows = (await supabase.from('branches').select('id').eq('business_id', id)).data || [];
+        const branchIds = branchRows.map(b => b.id);
+
+        const [branches, staff, productCount, customerCount, orderCount, pendingCountResult] = await Promise.all([
             supabase.from('branches').select('id, name, is_active, created_at').eq('business_id', id).order('name'),
             supabase.from('users').select('id, full_name, email, role, branch_id, is_active, is_deleted, created_at').eq('business_id', id).order('full_name'),
-            supabase.from('products').select('id', { count: 'exact', head: true }).in('branch_id',
-                (await supabase.from('branches').select('id').eq('business_id', id)).data?.map(b => b.id) || []
-            ),
-            supabase.from('customers').select('id', { count: 'exact', head: true }).in('branch_id',
-                (await supabase.from('branches').select('id').eq('business_id', id)).data?.map(b => b.id) || []
-            ),
-            supabase.from('orders').select('id', { count: 'exact', head: true }).in('branch_id',
-                (await supabase.from('branches').select('id').eq('business_id', id)).data?.map(b => b.id) || []
-            )
+            branchIds.length > 0
+                ? supabase.from('products').select('id', { count: 'exact', head: true }).in('branch_id', branchIds)
+                : Promise.resolve({ count: 0 }),
+            branchIds.length > 0
+                ? supabase.from('customers').select('id', { count: 'exact', head: true }).in('branch_id', branchIds)
+                : Promise.resolve({ count: 0 }),
+            branchIds.length > 0
+                ? supabase.from('orders').select('id', { count: 'exact', head: true }).in('branch_id', branchIds)
+                : Promise.resolve({ count: 0 }),
+            supabase.from('payment_submissions').select('id', { count: 'exact', head: true })
+                .eq('business_id', id).eq('status', 'pending')
         ]);
 
-        // Recent admin actions against this business
         const { data: recentActions } = await supabase
             .from('admin_audit_logs')
             .select('id, admin_email, action, reason, created_at')
@@ -386,10 +507,13 @@ const getBusinessDetail = async (req, res) => {
             .order('created_at', { ascending: false })
             .limit(20);
 
+        const hasPendingSubmission = (pendingCountResult.count || 0) > 0;
+
         return res.status(200).json({
             success: true,
             data: {
                 business,
+                subscription: buildSubscriptionInfo(business, hasPendingSubmission),
                 branches: branches.data || [],
                 staff: staff.data || [],
                 counts: {
@@ -413,8 +537,6 @@ const getBusinessDetail = async (req, res) => {
 // ============================================================
 // PATCH /api/admin/businesses/:id/suspend
 // Body: { reason: string }
-// Suspends a business. Boss can still log in (to fix billing),
-// staff cannot.
 // ============================================================
 const suspendBusiness = async (req, res) => {
     try {
@@ -623,9 +745,6 @@ const resetUserPassword = async (req, res) => {
 // ============================================================
 // POST /api/admin/impersonate
 // Body: { boss_user_id, business_id, reason }
-// Issues a short-lived JWT that looks like the Boss's session.
-// The JWT is tagged with the impersonation session ID so the
-// middleware can validate it on every request.
 // ============================================================
 const startImpersonation = async (req, res) => {
     try {
@@ -644,7 +763,6 @@ const startImpersonation = async (req, res) => {
 
         const cleanReason = sanitize(reason.trim());
 
-        // Verify the Boss and business exist and are linked
         const { data: boss } = await supabase
             .from('users')
             .select('id, full_name, email, role, is_active, is_deleted, account_code')
@@ -672,12 +790,8 @@ const startImpersonation = async (req, res) => {
             });
         }
 
-        // Generate a unique token_id for this session
-        // token_id ties the JWT to the session without exposing the
-        // session row's primary key. The middleware validates against
-        // this (indexed, fast lookup).
         const tokenId = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 minutes
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
         const { data: session, error: insertErr } = await supabase
             .from('impersonation_sessions')
@@ -699,7 +813,6 @@ const startImpersonation = async (req, res) => {
 
         if (insertErr) throw insertErr;
 
-        // Issue a JWT that acts like a Boss session, but tagged
         const impersonationToken = jwt.sign(
             {
                 id: boss.id,
@@ -709,7 +822,6 @@ const startImpersonation = async (req, res) => {
                 is_boss: true,
                 is_first_login: false,
                 account_code: boss.account_code,
-                // Ties the token to the session row for validation
                 impersonation_token_id: tokenId,
                 impersonated_by_admin: req.admin.id
             },
@@ -856,6 +968,7 @@ const listAuditLogs = async (req, res) => {
 // ============================================================
 // GET /api/admin/customers
 // List all Bosses with aggregate stats across their businesses.
+// Includes a subscription summary per Boss.
 // ============================================================
 const listAllCustomers = async (req, res) => {
     try {
@@ -897,15 +1010,21 @@ const listAllCustomers = async (req, res) => {
 
         if (error) throw error;
 
-        // Enrich each Boss with aggregate stats
         const enriched = await Promise.all((bosses || []).map(async (boss) => {
             const { data: bizRows } = await supabase
                 .from('businesses')
-                .select('id, is_active')
+                .select('id, is_active, subscription_status')
                 .eq('owner_id', boss.id);
 
             const businessIds = (bizRows || []).map(b => b.id);
             const activeCount = (bizRows || []).filter(b => b.is_active).length;
+
+            const subscriptionSummary = {
+                trial: (bizRows || []).filter(b => b.subscription_status === 'trial').length,
+                active: (bizRows || []).filter(b => b.subscription_status === 'active').length,
+                expired: (bizRows || []).filter(b => b.subscription_status === 'expired').length,
+                suspended: (bizRows || []).filter(b => b.subscription_status === 'suspended').length
+            };
 
             let branchCount = 0;
             let staffCount = 0;
@@ -939,7 +1058,8 @@ const listAllCustomers = async (req, res) => {
                 business_count: businessIds.length,
                 active_business_count: activeCount,
                 branch_count: branchCount,
-                staff_count: staffCount
+                staff_count: staffCount,
+                subscriptions: subscriptionSummary
             };
         }));
 
@@ -966,6 +1086,7 @@ const listAllCustomers = async (req, res) => {
 // ============================================================
 // GET /api/admin/customers/:id
 // One Boss with full detail: all businesses, staff, aggregates.
+// Each business now carries its own subscription object.
 // ============================================================
 const getCustomerDetail = async (req, res) => {
     try {
@@ -987,12 +1108,12 @@ const getCustomerDetail = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        // All businesses this Boss owns, with their branches
         const { data: businesses } = await supabase
             .from('businesses')
             .select(`
                 id, name, shop_name, business_code, location, phone, email,
                 is_active, created_at,
+                subscription_status, trial_ends_at, subscription_started_at,
                 branches (id, name, is_active)
             `)
             .eq('owner_id', boss.id)
@@ -1000,7 +1121,6 @@ const getCustomerDetail = async (req, res) => {
 
         const businessIds = (businesses || []).map(b => b.id);
 
-        // Staff across all businesses
         let staff = [];
         let orderCount = 0;
         let customerCount = 0;
@@ -1015,7 +1135,6 @@ const getCustomerDetail = async (req, res) => {
 
             staff = staffRows || [];
 
-            // Order count across all branches of all businesses
             const allBranchIds = (businesses || []).flatMap(b =>
                 (b.branches || []).map(br => br.id)
             );
@@ -1035,7 +1154,23 @@ const getCustomerDetail = async (req, res) => {
             }
         }
 
-        // Recent admin actions affecting this customer
+        // Which businesses have a pending submission?
+        let pendingSet = new Set();
+        if (businessIds.length > 0) {
+            const { data: pendingRows } = await supabase
+                .from('payment_submissions')
+                .select('business_id')
+                .eq('status', 'pending')
+                .in('business_id', businessIds);
+
+            pendingSet = new Set((pendingRows || []).map(r => r.business_id));
+        }
+
+        const businessesWithSub = (businesses || []).map(b => ({
+            ...b,
+            subscription: buildSubscriptionInfo(b, pendingSet.has(b.id))
+        }));
+
         const { data: recentActions } = await supabase
             .from('admin_audit_logs')
             .select('id, admin_email, action, reason, created_at')
@@ -1048,7 +1183,7 @@ const getCustomerDetail = async (req, res) => {
             success: true,
             data: {
                 boss,
-                businesses: businesses || [],
+                businesses: businessesWithSub,
                 staff: staff.filter(s => !s.is_deleted),
                 counts: {
                     business_count: businessIds.length,
@@ -1077,8 +1212,6 @@ const getCustomerDetail = async (req, res) => {
 // ============================================================
 // GET /api/admin/payment-submissions
 // Paginated list of submissions. Filter by status.
-// Joins the business and the submitting Boss so the admin panel
-// can show both the business code and the Boss account code.
 // ============================================================
 const listPaymentSubmissions = async (req, res) => {
     try {
@@ -1149,6 +1282,7 @@ const listPaymentSubmissions = async (req, res) => {
 // Marks submission approved, sets business to active, extends
 // trial_ends_at by extend_months from whichever is later:
 // today, or the current trial_ends_at.
+// Also sets subscription_started_at to the start of the new period.
 // ============================================================
 const approvePaymentSubmission = async (req, res) => {
     try {
@@ -1194,10 +1328,6 @@ const approvePaymentSubmission = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Business not found' });
         }
 
-        // Extend from whichever is later: today or trial_ends_at.
-        // Adding months uses Postgres interval arithmetic via a fresh
-        // date calculation in JS is risky for month boundaries, so we
-        // let Postgres compute it.
         const baseDate = business.trial_ends_at
             ? new Date(business.trial_ends_at + 'T23:59:59.999Z')
             : new Date();
@@ -1205,18 +1335,18 @@ const approvePaymentSubmission = async (req, res) => {
         todayStart.setUTCHours(0, 0, 0, 0);
         const startFrom = baseDate > todayStart ? baseDate : todayStart;
 
-        // Add months by setting the month on a new Date. This handles
-        // month-length differences the same way Postgres does.
         const newEnd = new Date(startFrom);
         newEnd.setUTCMonth(newEnd.getUTCMonth() + months);
 
-        const newTrialEndsAt = newEnd.toISOString().slice(0, 10); // YYYY-MM-DD
+        const newTrialEndsAt = newEnd.toISOString().slice(0, 10);
+        const newStartedAt = startFrom.toISOString().slice(0, 10);
 
         const { error: bizUpdateError } = await supabase
             .from('businesses')
             .update({
                 subscription_status: 'active',
                 trial_ends_at: newTrialEndsAt,
+                subscription_started_at: newStartedAt,
                 updated_at: new Date()
             })
             .eq('id', business.id);
@@ -1248,6 +1378,7 @@ const approvePaymentSubmission = async (req, res) => {
                 duration_months: submission.duration_months,
                 transaction_id: submission.transaction_id,
                 new_trial_ends_at: newTrialEndsAt,
+                new_subscription_started_at: newStartedAt,
                 extend_months: months
             },
             req
@@ -1259,7 +1390,8 @@ const approvePaymentSubmission = async (req, res) => {
             data: {
                 business_id: business.id,
                 subscription_status: 'active',
-                trial_ends_at: newTrialEndsAt
+                trial_ends_at: newTrialEndsAt,
+                subscription_started_at: newStartedAt
             }
         });
 
@@ -1275,7 +1407,6 @@ const approvePaymentSubmission = async (req, res) => {
 // ============================================================
 // POST /api/admin/payment-submissions/:id/reject
 // Body: { reason }
-// Marks submission rejected. Business status unchanged.
 // ============================================================
 const rejectPaymentSubmission = async (req, res) => {
     try {

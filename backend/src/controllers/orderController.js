@@ -24,7 +24,7 @@ const getAllOrders = async (req, res) => {
         const branchId = await requireBranchId(req, res);
         if (!branchId) return;
 
-        let { page = 1, limit = 50, search, status, startDate, endDate } = req.query;
+        let { page = 1, limit = 50, search, status, payment_status, startDate, endDate } = req.query;
 
         const pageNum = parseInt(page);
         if (isNaN(pageNum) || pageNum < 1) {
@@ -39,6 +39,11 @@ const getAllOrders = async (req, res) => {
         const VALID_STATUSES = ['pending', 'confirmed', 'delivered', 'cancelled'];
         if (status && !VALID_STATUSES.includes(status)) {
             return res.status(400).json({ success: false, error: 'Invalid status filter' });
+        }
+
+        const VALID_PAYMENT_STATUSES = ['unpaid', 'partial', 'paid', 'cancelled'];
+        if (payment_status && !VALID_PAYMENT_STATUSES.includes(payment_status)) {
+            return res.status(400).json({ success: false, error: 'Invalid payment status filter' });
         }
 
         let matchingIdsFromSearch = null;
@@ -88,6 +93,7 @@ const getAllOrders = async (req, res) => {
             .eq('branch_id', branchId);
 
         if (status) dataQuery = dataQuery.eq('order_status', status);
+        if (payment_status) dataQuery = dataQuery.eq('payment_status', payment_status);
         if (startDate) dataQuery = dataQuery.gte('created_at', new Date(startDate).toISOString());
         if (endDate) {
             const end = new Date(endDate);
@@ -111,6 +117,7 @@ const getAllOrders = async (req, res) => {
             .eq('branch_id', branchId);
 
         if (status) countQuery = countQuery.eq('order_status', status);
+        if (payment_status) countQuery = countQuery.eq('payment_status', payment_status);
         if (startDate) countQuery = countQuery.gte('created_at', new Date(startDate).toISOString());
         if (endDate) {
             const end = new Date(endDate);

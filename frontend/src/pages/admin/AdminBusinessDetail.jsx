@@ -1,12 +1,22 @@
+// ============================================================
+// OSWAGO - Admin Business Detail
+// ============================================================
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  FiArrowLeft, FiPower, FiUserCheck, FiAlertTriangle,
+  FiArrowLeft, FiPower, FiAlertTriangle,
   FiKey, FiEye, FiCheck, FiX
 } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
 import Loader from '../../components/common/Loader';
 import toast from 'react-hot-toast';
+import {
+  formatSubscriptionLabel,
+  formatSubscriptionDetail,
+  getSubscriptionTone,
+  hasPendingPayment
+} from '../../utils/subscriptionDisplay';
 
 const AdminBusinessDetail = () => {
   const { id } = useParams();
@@ -15,14 +25,13 @@ const AdminBusinessDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Action modals
   const [suspendModal, setSuspendModal] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
 
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [impersonateReason, setImpersonateReason] = useState('');
 
-  const [resetModal, setResetModal] = useState(null); // holds user object
+  const [resetModal, setResetModal] = useState(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetReason, setResetReason] = useState('');
 
@@ -92,12 +101,8 @@ const AdminBusinessDetail = () => {
 
       localStorage.setItem('impersonation', JSON.stringify(res.impersonation));
       localStorage.setItem('impersonationToken', res.token);
-      // Remember where to return after impersonation ends
       localStorage.setItem('impersonationReturnTo', `/admin/businesses/${id}`);
 
-      // Hand off to customer app: token AND user must both be set,
-      // otherwise PrivateRoute will bounce to /login before
-      // AuthContext can populate the user from the API.
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify({
         id: data.business.owner_id,
@@ -144,8 +149,9 @@ const AdminBusinessDetail = () => {
   if (loading) return <Loader message="Loading business..." />;
   if (!data) return null;
 
-  const { business, branches, staff, counts, recentAdminActions } = data;
+  const { business, subscription, branches, staff, counts, recentAdminActions } = data;
   const isSuspended = !business.is_active;
+  const subTone = getSubscriptionTone(subscription);
 
   return (
     <div className="admin-page">
@@ -178,6 +184,45 @@ const AdminBusinessDetail = () => {
           >
             <FiEye size={16} /> Impersonate
           </button>
+        </div>
+      </div>
+
+      {/* Subscription card */}
+      <div className="admin-card">
+        <h3>Subscription</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+          <span className={`admin-badge admin-badge--${subTone}`} style={{ fontSize: '12px', padding: '5px 14px' }}>
+            {formatSubscriptionLabel(subscription)}
+          </span>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a' }}>
+            {formatSubscriptionDetail(subscription)}
+          </span>
+          {hasPendingPayment(subscription) && (
+            <span className="admin-badge admin-badge--warning">Payment pending</span>
+          )}
+        </div>
+
+        <div className="admin-kv">
+          <div>
+            <span>Period start:</span>
+            {subscription?.started_at || '—'}
+          </div>
+          <div>
+            <span>Period end:</span>
+            {subscription?.ends_at || '—'}
+          </div>
+          <div>
+            <span>Days total:</span>
+            {subscription?.days_total ?? 0}
+          </div>
+          <div>
+            <span>Days used:</span>
+            {subscription?.days_used ?? 0}
+          </div>
+          <div>
+            <span>Days remaining:</span>
+            {subscription?.days_remaining ?? 0}
+          </div>
         </div>
       </div>
 
@@ -285,7 +330,6 @@ const AdminBusinessDetail = () => {
         </div>
       )}
 
-      {/* Suspend modal */}
       {suspendModal && (
         <Modal title="Suspend business" onClose={() => setSuspendModal(false)}>
           <p className="admin-modal-text">
@@ -314,7 +358,6 @@ const AdminBusinessDetail = () => {
         </Modal>
       )}
 
-      {/* Impersonate modal */}
       {impersonateModal && (
         <Modal title="Impersonate Boss" onClose={() => setImpersonateModal(false)}>
           <div className="admin-alert admin-alert--warning">
@@ -338,7 +381,6 @@ const AdminBusinessDetail = () => {
         </Modal>
       )}
 
-      {/* Reset password modal */}
       {resetModal && (
         <Modal title={`Reset password for ${resetModal.full_name}`} onClose={() => setResetModal(null)}>
           <div className="admin-form-group">

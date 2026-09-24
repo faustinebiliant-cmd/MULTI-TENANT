@@ -1,36 +1,39 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Settings
+// - Subscription notice at top
 // - My Businesses: switch / deactivate / force-delete
 // - Active business: edit identity, VAT, Point of Sale
 // - Branches: add / rename / deactivate / force-delete
-// Force delete requires typing the name twice for confirmation.
+//   Adding branches requires an active subscription.
+//   Max 5 branches per business.
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  FiUser, FiUsers, FiSettings, FiMoon, FiSun,
-  FiPlus, FiEdit2, FiCheck, FiX, FiPower, FiTrash2, FiBriefcase
+  FiPlus, FiEdit2, FiCheck, FiX, FiPower, FiTrash2, FiBriefcase,
+  FiMoon, FiSun, FiAlertTriangle
 } from 'react-icons/fi';
 import { useApp } from '../../contexts/AppContext';
 import { useShop } from '../../contexts/ShopContext';
 import { useBranch } from '../../contexts/BranchContext';
+import { useSubscription } from '../../contexts/SubscriptionContext';
 import api from '../../api/client';
 import ConfirmDialog from '../common/ConfirmDialog';
+import SubscribeModal from '../subscription/SubscribeModal';
 import toast from 'react-hot-toast';
 
-// Count non-branch rows that would be destroyed in a force delete
-const totalRows = (counts) => {
-  if (!counts) return 0;
-  return Object.entries(counts)
-    .filter(([k]) => k !== 'branches')
-    .reduce((sum, [, n]) => sum + (n || 0), 0);
-};
+const MAX_BRANCHES = 5;
 
 const Settings = () => {
   const { darkMode, toggleDarkMode } = useApp();
   const { refresh: refreshShop } = useShop();
   const { activeBusinessId, businesses, refresh: refreshBranch, switchBusiness } = useBranch();
+  const {
+    subscription_status,
+    days_remaining,
+    has_pending_submission,
+    refresh: refreshSubscription
+  } = useSubscription();
 
   const [form, setForm] = useState({
     name: '',
@@ -50,7 +53,6 @@ const Settings = () => {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  // Branch UI state
   const [isAddingBranch, setIsAddingBranch] = useState(false);
   const [creatingBranch, setCreatingBranch] = useState(false);
   const [newBranch, setNewBranch] = useState({ name: '', location: '', phone: '' });
@@ -58,23 +60,27 @@ const Settings = () => {
   const [editBranchValue, setEditBranchValue] = useState('');
   const [branchAction, setBranchAction] = useState(null);
 
-  // New business modal
   const [showNewBusiness, setShowNewBusiness] = useState(false);
   const [creatingBusiness, setCreatingBusiness] = useState(false);
   const [newBusiness, setNewBusiness] = useState({
     name: '', branch_name: '', location: '', phone: '', email: ''
   });
 
-  // Business lifecycle modals
   const [businessAction, setBusinessAction] = useState(null);
 
-  // Confirm-before-delete for entities that have no data
   const [confirmDeleteBusiness, setConfirmDeleteBusiness] = useState(null);
   const [confirmDeleteBranch, setConfirmDeleteBranch] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Force delete confirmation state
   const [forceDelete, setForceDelete] = useState(null);
+
+  // Subscribe modal
+  const [showSubscribe, setShowSubscribe] = useState(false);
+
+  // Rule state
+  const isSubscribed = subscription_status === 'active';
+  const atBranchLimit = branches.length >= MAX_BRANCHES;
+  const branchCount = branches.length;
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -386,6 +392,29 @@ const Settings = () => {
     }
   };
 
+  // Guarded buttons
+  const handleNewBusinessClick = () => {
+    if (!isSubscribed) {
+      setShowSubscribe(true);
+      return;
+    }
+    setShowNewBusiness(true);
+  };
+
+  const handleAddBranchClick = () => {
+    if (!isSubscribed) {
+      setShowSubscribe(true);
+      return;
+    }
+    if (atBranchLimit) return;
+    setIsAddingBranch(true);
+  };
+
+  const handleSubscribeSuccess = async () => {
+    setShowSubscribe(false);
+    await refreshSubscription();
+  };
+
   if (!loaded) {
     return (
       <div className="loader-container">
@@ -402,10 +431,43 @@ const Settings = () => {
           <h1>Settings</h1>
           <p>Manage your shops and branches</p>
         </div>
-        <button onClick={() => setShowNewBusiness(true)} className="btn btn-primary">
+        <button onClick={handleNewBusinessClick} className="btn btn-primary">
           <FiPlus size={16} /> New Business
         </button>
       </div>
+
+      {/* Subscription notice */}
+      {subscription_status !== 'active' && (
+        <div style={notice.wrap}>
+          <div style={notice.left}>
+            <FiAlertTriangle size={18} style={notice.icon} />
+            <div>
+              <div style={notice.title}>
+                {subscription_status === 'suspended'
+                  ? 'Account suspended'
+                  : subscription_status === 'expired' || days_remaining <= 0
+                    ? 'Your free trial has ended'
+                    : 'Free trial active'}
+              </div>
+              <div style={notice.body}>
+                {subscription_status === 'suspended'
+                  ? 'Your account is suspended. Please contact support.'
+                  : has_pending_submission
+                    ? 'Your payment is under review. You can add branches once approved.'
+                    : 'Adding new businesses and branches requires an active subscription. Subscribe to unlock.'}
+              </div>
+            </div>
+          </div>
+          {subscription_status !== 'suspended' && !has_pending_submission && (
+            <button onClick={() => setShowSubscribe(true)} className="btn btn-primary btn-sm">
+              Subscribe
+            </button>
+          )}
+          {has_pending_submission && (
+            <span className="badge badge-info">Payment pending</span>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '24px' }}>
         <div className="flex-between" style={{ marginBottom: '16px' }}>
@@ -425,7 +487,7 @@ const Settings = () => {
           <div className="business-list">
             {businesses.map((b) => {
               const isActive = b.id === activeBusinessId;
-              const branchCount = (b.branches || []).length;
+              const branchCountForBiz = (b.branches || []).length;
 
               return (
                 <div
@@ -442,7 +504,7 @@ const Settings = () => {
                         {isActive && <span className="business-row-badge">Active view</span>}
                       </div>
                       <div className="business-row-meta">
-                        {branchCount} {branchCount === 1 ? 'branch' : 'branches'}
+                        {branchCountForBiz} {branchCountForBiz === 1 ? 'branch' : 'branches'}
                         {b.location ? ` · ${b.location}` : ''}
                       </div>
                     </div>
@@ -611,18 +673,30 @@ const Settings = () => {
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="flex-between" style={{ marginBottom: '16px' }}>
             <div>
-              <h3 style={{ margin: 0 }}>Branches</h3>
+              <h3 style={{ margin: 0 }}>
+                Branches <span style={{ color: '#64748b', fontWeight: 500 }}>
+                  ({branchCount} of {MAX_BRANCHES})
+                </span>
+              </h3>
               <small style={{ color: '#6b7280', display: 'block', marginTop: '4px' }}>
                 Each branch has its own products, customers, orders, and staff.
+                {atBranchLimit && ' You have reached the maximum number of branches.'}
               </small>
             </div>
             <button
               type="button"
-              onClick={() => setIsAddingBranch(true)}
+              onClick={handleAddBranchClick}
               className="btn btn-sm btn-primary"
-              disabled={isAddingBranch}
+              disabled={isAddingBranch || atBranchLimit || !isSubscribed}
+              title={
+                !isSubscribed
+                  ? 'Active subscription required'
+                  : atBranchLimit
+                    ? 'Branch limit reached'
+                    : 'Add a new branch'
+              }
             >
-              <FiPlus size={14} /> Add Branch
+              <FiPlus size={14} /> {atBranchLimit ? 'Limit reached' : 'Add Branch'}
             </button>
           </div>
 
@@ -816,7 +890,7 @@ const Settings = () => {
                 type="text"
                 value={newBusiness.name}
                 onChange={(e) => setNewBusiness({ ...newBusiness, name: e.target.value })}
-                placeholder="e.g., OSWAGO Cosmetics"
+                placeholder="e.g. OSWAGO Cosmetics"
                 autoFocus
                 disabled={creatingBusiness}
               />
@@ -828,7 +902,7 @@ const Settings = () => {
                 type="text"
                 value={newBusiness.branch_name}
                 onChange={(e) => setNewBusiness({ ...newBusiness, branch_name: e.target.value })}
-                placeholder="e.g., Main Branch"
+                placeholder="e.g. Main Branch"
                 disabled={creatingBusiness}
               />
             </div>
@@ -989,8 +1063,54 @@ const Settings = () => {
           </div>
         </div>
       )}
+
+      {showSubscribe && (
+        <SubscribeModal
+          onClose={() => setShowSubscribe(false)}
+          onSuccess={handleSubscribeSuccess}
+        />
+      )}
     </div>
   );
+};
+
+// Inline styles for the subscription notice
+const notice = {
+  wrap: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '16px',
+    padding: '14px 18px',
+    background: '#fffbeb',
+    border: '1px solid #fde68a',
+    borderRadius: '10px',
+    marginBottom: '20px',
+    flexWrap: 'wrap'
+  },
+  left: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    flex: 1,
+    minWidth: '240px'
+  },
+  icon: {
+    color: '#b45309',
+    flexShrink: 0,
+    marginTop: '2px'
+  },
+  title: {
+    fontWeight: 700,
+    color: '#92400e',
+    fontSize: '13.5px'
+  },
+  body: {
+    color: '#78350f',
+    fontSize: '12.5px',
+    marginTop: '2px',
+    lineHeight: 1.5
+  }
 };
 
 export default Settings;

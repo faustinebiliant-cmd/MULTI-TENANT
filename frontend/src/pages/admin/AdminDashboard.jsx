@@ -5,7 +5,10 @@ import {
   FiUsers,
   FiShoppingCart,
   FiActivity,
-  FiUserCheck
+  FiUserCheck,
+  FiClock,
+  FiAlertTriangle,
+  FiXCircle
 } from 'react-icons/fi';
 import adminApi from '../../api/adminClient';
 import Loader from '../../components/common/Loader';
@@ -28,10 +31,9 @@ const AdminDashboard = () => {
     load();
   }, []);
 
-if (loading) return <Loader message="Loading metrics..." />;
-if (!metrics) return <div className="admin-loading">Failed to load.</div>;
+  if (loading) return <Loader message="Loading metrics..." />;
+  if (!metrics) return <div className="admin-loading">Failed to load.</div>;
 
-  // Businesses per customer — shows if clients run multiple shops
   const businessesPerCustomer =
     metrics.bossesTotal > 0
       ? (metrics.businessesTotal / metrics.bossesTotal).toFixed(2)
@@ -41,7 +43,7 @@ if (!metrics) return <div className="admin-loading">Failed to load.</div>;
     <div className="admin-page">
       <div className="admin-page-header">
         <h1>Platform Overview</h1>
-        <p>Everything happening across your SaaS</p>
+        <p>Everything happening across My SaaS</p>
       </div>
 
       <div className="admin-stats-grid">
@@ -73,6 +75,39 @@ if (!metrics) return <div className="admin-loading">Failed to load.</div>;
           label="Total Orders"
           value={metrics.ordersTotal}
         />
+      </div>
+
+      {/* Subscription health cards */}
+      <div className="admin-stats-grid">
+        <Link to="/admin/businesses?subscription_filter=trial" style={{ textDecoration: 'none' }}>
+          <div className="admin-stat-card" style={{ cursor: 'pointer' }}>
+            <div className="admin-stat-icon admin-stat-icon--primary"><FiClock /></div>
+            <div>
+              <div className="admin-stat-value">{metrics.trialsEndingSoon ?? 0}</div>
+              <div className="admin-stat-label">Trials ending in 7 days</div>
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/admin/businesses?subscription_filter=active" style={{ textDecoration: 'none' }}>
+          <div className="admin-stat-card" style={{ cursor: 'pointer' }}>
+            <div className="admin-stat-icon admin-stat-icon--muted"><FiAlertTriangle /></div>
+            <div>
+              <div className="admin-stat-value">{metrics.activeExpiringSoon ?? 0}</div>
+              <div className="admin-stat-label">Active expiring in 30 days</div>
+            </div>
+          </div>
+        </Link>
+
+        <Link to="/admin/businesses?subscription_filter=expired" style={{ textDecoration: 'none' }}>
+          <div className="admin-stat-card" style={{ cursor: 'pointer' }}>
+            <div className="admin-stat-icon admin-stat-icon--muted" style={{ background: '#fef2f2', color: '#dc2626' }}><FiXCircle /></div>
+            <div>
+              <div className="admin-stat-value">{metrics.expiredTotal ?? 0}</div>
+              <div className="admin-stat-label">Expired subscriptions</div>
+            </div>
+          </div>
+        </Link>
       </div>
 
       <div className="admin-card admin-metrics-note">

@@ -505,6 +505,9 @@ const listBranches = async (req, res) => {
 
 // ============================================================
 // POST /api/business/branches  (Boss only)
+// Rules:
+//   * Only active subscriptions can add branches.
+//   * Max 5 branches per business.
 // ============================================================
 const createBranch = async (req, res) => {
     try {
@@ -523,6 +526,45 @@ const createBranch = async (req, res) => {
             });
         }
 
+        // Rule 1: subscription must be active.
+        const { data: business, error: bizErr } = await supabase
+            .from('businesses')
+            .select('subscription_status')
+            .eq('id', businessId)
+            .single();
+
+        if (bizErr || !business) {
+            return res.status(404).json({
+                success: false,
+                error: 'Business not found'
+            });
+        }
+
+        if (business.subscription_status !== 'active') {
+            return res.status(403).json({
+                success: false,
+                error: 'Adding branches requires an active subscription. Please subscribe to continue.',
+                code: 'SUBSCRIPTION_REQUIRED'
+            });
+        }
+
+        // Rule 2: max 5 branches per business.
+        const { count: branchCount, error: countErr } = await supabase
+            .from('branches')
+            .select('id', { count: 'exact', head: true })
+            .eq('business_id', businessId);
+
+        if (countErr) throw countErr;
+
+        if ((branchCount || 0) >= 5) {
+            return res.status(400).json({
+                success: false,
+                error: 'You have reached the maximum of 5 branches. Contact support if you need more.',
+                code: 'BRANCH_LIMIT_REACHED'
+            });
+        }
+
+        // Validation of the branch payload.
         const result = validateBranchPayload(req.body);
         if (!result.ok) {
             return res.status(400).json({ success: false, error: result.error });
@@ -535,6 +577,7 @@ const createBranch = async (req, res) => {
             });
         }
 
+        // Insert.
         const { data: branch, error } = await supabase
             .from('branches')
             .insert({

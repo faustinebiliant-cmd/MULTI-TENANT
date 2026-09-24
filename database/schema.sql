@@ -1,10 +1,18 @@
 -- ============================================================
 -- OSWAGO ELECTRICAL EQUIPMENT - Complete Schema
--- Version: 1.3
--- Date: 2026-09-23
+-- Version: 1.4
+-- Date: 2026-09-24
 -- ============================================================
 -- Recreates the entire database from an empty project.
 -- Run in Supabase SQL Editor.
+--
+-- Changelog from v1.3:
+--   * businesses.subscription_started_at (date) - start of the
+--     current subscription or trial period. Used by the admin
+--     panel to display "X of Y days left".
+--   * signup_atomic sets subscription_started_at on signup.
+--   * signup_atomic trial window is +13 days so the customer
+--     gets exactly 14 inclusive days of trial.
 --
 -- Changelog from v1.2:
 --   * businesses.trial_ends_at (date)
@@ -81,11 +89,19 @@ CREATE TABLE public.businesses (
     quick_sale_enabled boolean DEFAULT false,
     expense_categories jsonb DEFAULT '[]'::jsonb,
     is_active boolean DEFAULT true,
+    trial_ends_at date,
+    subscription_started_at date,
+    subscription_status text DEFAULT 'trial',
+    billing_contact_email varchar(255),
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now()
 );
 
 CREATE INDEX businesses_owner_idx ON public.businesses(owner_id);
+
+ALTER TABLE public.businesses
+    ADD CONSTRAINT businesses_subscription_status_check
+    CHECK (subscription_status IN ('trial', 'active', 'expired', 'suspended'));
 
 -- ------------------------------------------------------------
 -- 1.3 branches
@@ -406,6 +422,54 @@ ON public.activity_logs (branch_id, created_at DESC);
 CREATE UNIQUE INDEX products_branch_name_lower_key
 ON public.products (branch_id, LOWER(name))
 WHERE is_active = true;
+
+-- ------------------------------------------------------------
+-- Performance indexes (v1.4)
+-- Added for scale. Each one matches a query pattern the app
+-- runs and that would otherwise table-scan on large data.
+-- ------------------------------------------------------------
+
+-- Orders filtered by payment status (unpaid, partial, paid)
+CREATE INDEX orders_branch_payment_status_idx
+ON public.orders (branch_id, payment_status);
+
+-- Payments filtered by status (completed vs voided)
+CREATE INDEX payments_branch_status_idx
+ON public.payments (branch_id, status);
+
+-- Top customers by spend, per branch
+CREATE INDEX customers_branch_total_spent_idx
+ON public.customers (branch_id, total_spent DESC);
+
+-- Products filtered by category (only active products indexed)
+CREATE INDEX products_branch_category_active_idx
+ON public.products (branch_id, category_id)
+WHERE is_active = true;
+
+-- Audit log filtered by action
+CREATE INDEX activity_logs_branch_action_created_idx
+ON public.activity_logs (branch_id, action, created_at DESC);
+
+-- ------------------------------------------------------------
+-- Admin panel indexes (v1.4)
+-- The admin metrics page and admin lists count and sort by
+-- these columns. Keeps the admin view fast as client count grows.
+-- ------------------------------------------------------------
+
+-- Businesses: count and sort by activity and creation
+CREATE INDEX businesses_is_active_idx
+ON public.businesses (is_active);
+
+CREATE INDEX businesses_created_at_idx
+ON public.businesses (created_at DESC);
+
+-- Users: filter by role and deletion status (Boss counts, staff counts)
+CREATE INDEX users_role_deleted_idx
+ON public.users (role, is_deleted);
+
+-- Users: sort by creation date (customer list)
+CREATE INDEX users_created_at_idx
+ON public.users (created_at DESC);
 
 
 -- ============================================================
@@ -2166,26 +2230,21 @@ FOR ALL USING (
 -- ============================================================
 -- PART 8: SUBSCRIPTION TRIAL COLUMNS
 -- ============================================================
--- Added on businesses to track the free trial window and the
--- current subscription state. billing_contact_email is a
--- placeholder for future email reminders and is currently unused.
+-- The trial, subscription, and billing columns are declared
+-- inline in the businesses table definition in Part 1. This
+-- part is retained for reference so future rebuilds and
+-- migrations can look here for the semantics.
+--
+-- Columns on businesses:
+--   trial_ends_at              date, last full day of access
+--   subscription_started_at    date, first day of the period
+--   subscription_status        text, one of: trial, active,
+--                              expired, suspended
+--   billing_contact_email      varchar, placeholder for reminders
+--
+-- The businesses_subscription_status_check constraint is added
+-- right after the businesses table in Part 1.
 -- ============================================================
-
-ALTER TABLE public.businesses
-    ADD COLUMN IF NOT EXISTS trial_ends_at date,
-    ADD COLUMN IF NOT EXISTS subscription_status text DEFAULT 'trial',
-    ADD COLUMN IF NOT EXISTS billing_contact_email varchar(255);
-
--- Backfill any existing business so none is treated as already expired.
-UPDATE public.businesses
-SET trial_ends_at = CURRENT_DATE + INTERVAL '14 days',
-    subscription_status = 'trial'
-WHERE trial_ends_at IS NULL;
-
--- Only allow the four known status values.
-ALTER TABLE public.businesses
-    ADD CONSTRAINT businesses_subscription_status_check
-    CHECK (subscription_status IN ('trial', 'active', 'expired', 'suspended'));
 
 
 -- ============================================================
@@ -2246,6 +2305,11 @@ CREATE INDEX IF NOT EXISTS payment_submissions_business_created_idx
 -- business's first branch in a single Postgres transaction.
 -- Replaces the three separate inserts the onboarding controller
 -- used to do. If any step fails, everything rolls back.
+--
+-- v1.4 changes:
+--   * Sets subscription_started_at on the new business.
+--   * Uses +13 days for trial_ends_at so the customer gets
+--     exactly 14 inclusive days of trial (signup day counts).
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.signup_atomic(
@@ -2288,6 +2352,7 @@ BEGIN
         quick_sale_enabled,
         is_active,
         trial_ends_at,
+        subscription_started_at,
         subscription_status
     ) VALUES (
         v_user.id,
@@ -2302,7 +2367,8 @@ BEGIN
         '["Rent","Salaries","Utilities","Transport","Supplies","Other"]'::jsonb,
         false,
         true,
-        CURRENT_DATE + INTERVAL '14 days',
+        CURRENT_DATE + INTERVAL '13 days',
+        CURRENT_DATE,
         'trial'
     )
     RETURNING * INTO v_business;
@@ -2337,8 +2403,8 @@ $$;
 -- 2. Sign up through /signup on the frontend to create your
 --    Boss account, first business, and first branch in one
 --    step. signup_atomic handles this in a single transaction
---    and sets trial_ends_at and subscription_status
---    automatically.
+--    and sets trial_ends_at, subscription_started_at, and
+--    subscription_status automatically.
 --
 -- 3. Manually insert your platform admin row (bcrypt hash):
 --
@@ -2355,10 +2421,10 @@ $$;
 --    WHERE schemaname = 'public'
 --    ORDER BY tablename;
 --
--- 5. The trial columns (trial_ends_at, subscription_status,
---    billing_contact_email) and the payment_submissions table
---    are already included in Parts 8 and 9 above. They are
---    part of the main schema, not separate migrations.
+-- 5. Trial columns (trial_ends_at, subscription_started_at,
+--    subscription_status, billing_contact_email) are declared
+--    inline in Part 1. payment_submissions is in Part 9.
+--    Both are part of the main schema, not separate migrations.
 -- ============================================================
--- End of v1.3
+-- End of v1.4
 -- ============================================================

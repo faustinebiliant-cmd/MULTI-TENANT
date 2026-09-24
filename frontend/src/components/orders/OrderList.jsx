@@ -15,14 +15,12 @@ import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
 
-// Payment status presentation
 const PAYMENT_LABELS = {
   paid: { label: 'Paid', color: '#0bc518' },
   unpaid: { label: 'Unpaid', color: '#d00f0f' },
   partial: { label: 'Partial', color: '#92400e' }
 };
 
-// Order status text colors
 const ORDER_STATUS_COLORS = {
   pending: '#b58a09',
   confirmed: '#0c39ce',
@@ -38,6 +36,7 @@ const OrderList = () => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [filter, setFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -56,6 +55,7 @@ const OrderList = () => {
       const params = { page, limit: PAGE_SIZE };
       if (debouncedSearch) params.search = debouncedSearch;
       if (filter !== 'all') params.status = filter;
+      if (paymentFilter !== 'all') params.payment_status = paymentFilter;
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
@@ -70,7 +70,7 @@ const OrderList = () => {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, filter, startDate, endDate]);
+  }, [debouncedSearch, filter, paymentFilter, startDate, endDate]);
 
   useEffect(() => {
     fetchOrders(1);
@@ -115,7 +115,12 @@ const OrderList = () => {
     setEndDate('');
   };
 
-  const hasActiveFilters = search || filter !== 'all' || startDate || endDate;
+  const hasActiveFilters =
+    search ||
+    filter !== 'all' ||
+    paymentFilter !== 'all' ||
+    startDate ||
+    endDate;
 
   const getStatusStyle = (status) => ({
     color: ORDER_STATUS_COLORS[status?.toLowerCase()] || ORDER_STATUS_COLORS.pending,
@@ -244,6 +249,18 @@ const OrderList = () => {
             <option value="cancelled">Cancelled</option>
           </select>
 
+          <select
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value)}
+            className="form-control"
+            style={{ width: '150px', fontSize: '13px' }}
+          >
+            <option value="all">All Payments</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="partial">Partial</option>
+          </select>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="btn btn-secondary btn-sm"
@@ -259,6 +276,7 @@ const OrderList = () => {
               onClick={() => {
                 setSearch('');
                 setFilter('all');
+                setPaymentFilter('all');
                 clearDateFilters();
               }}
               className="btn btn-sm btn-secondary"

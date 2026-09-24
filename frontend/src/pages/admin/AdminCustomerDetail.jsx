@@ -1,3 +1,7 @@
+// ============================================================
+// OSWAGO - Admin Customer Detail
+// ============================================================
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
@@ -7,6 +11,12 @@ import {
 import adminApi from '../../api/adminClient';
 import Loader from '../../components/common/Loader';
 import toast from 'react-hot-toast';
+import {
+  formatSubscriptionLabel,
+  formatSubscriptionDetail,
+  getSubscriptionTone,
+  hasPendingPayment
+} from '../../utils/subscriptionDisplay';
 
 const AdminCustomerDetail = () => {
   const { id } = useParams();
@@ -15,7 +25,7 @@ const AdminCustomerDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [impersonateModal, setImpersonateModal] = useState(null); // business object
+  const [impersonateModal, setImpersonateModal] = useState(null);
   const [impersonateReason, setImpersonateReason] = useState('');
 
   const [resetModal, setResetModal] = useState(null);
@@ -39,7 +49,11 @@ const AdminCustomerDetail = () => {
     }
   };
 
-  const handleImpersonate = async () => {
+  const handleImpersonate = async (bossRecord) => {
+    if (!bossRecord) {
+      toast.error('Customer data is not loaded yet');
+      return;
+    }
     if (impersonateReason.trim().length < 10) {
       toast.error('Reason must be at least 10 characters');
       return;
@@ -47,30 +61,26 @@ const AdminCustomerDetail = () => {
     setWorking(true);
     try {
       const res = await adminApi.startImpersonation(
-        id,
+        bossRecord.id,
         impersonateModal.id,
         impersonateReason.trim()
       );
 
       localStorage.setItem('impersonation', JSON.stringify(res.impersonation));
       localStorage.setItem('impersonationToken', res.token);
-      // Remember where to return after impersonation ends
       localStorage.setItem('impersonationReturnTo', `/admin/customers/${id}`);
 
-      // Hand off to customer app: token AND user must both be set,
-      // otherwise PrivateRoute will bounce to /login before
-      // AuthContext can populate the user from the API.
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify({
-        id: boss.id,
-        full_name: boss.full_name || 'Impersonated Boss',
-        email: boss.email || '',
+        id: bossRecord.id,
+        full_name: bossRecord.full_name || 'Impersonated Boss',
+        email: bossRecord.email || '',
         role: 'boss',
         is_boss: true,
         is_first_login: false,
         business_id: null,
         branch_id: null,
-        account_code: boss.account_code || null
+        account_code: bossRecord.account_code || null
       }));
 
       window.location.href = '/dashboard';
@@ -133,7 +143,6 @@ const AdminCustomerDetail = () => {
         </div>
       </div>
 
-      {/* Profile card */}
       <div className="admin-card">
         <h3>Profile</h3>
         <div className="admin-kv">
@@ -153,7 +162,6 @@ const AdminCustomerDetail = () => {
         </div>
       </div>
 
-      {/* Aggregate stats */}
       <div className="admin-stats-grid">
         <StatCard icon={<FiBriefcase />} label="Businesses" value={counts.business_count} />
         <StatCard icon={<FiCheck />} label="Active" value={counts.active_business_count} tone="green" />
@@ -163,44 +171,77 @@ const AdminCustomerDetail = () => {
         <StatCard icon={<FiUsers />} label="Customers" value={counts.customers} />
       </div>
 
-      {/* Businesses */}
+      {/* Subscriptions table */}
       <div className="admin-card">
-        <h3>Businesses ({businesses.length})</h3>
+        <h3>Subscriptions ({businesses.length})</h3>
         {businesses.length === 0 ? (
           <p className="admin-muted">No businesses yet.</p>
         ) : (
-          <div className="admin-business-grid">
-            {businesses.map(b => (
-              <div key={b.id} className="admin-business-card">
-                <div className="admin-business-card-header">
-                  <div>
-                    <div className="admin-business-card-name">{b.name}</div>
-                    <div className="admin-business-card-code">
-                      <code>{b.business_code || '—'}</code>
-                    </div>
-                  </div>
-                  <span className={`admin-badge ${b.is_active ? 'admin-badge--success' : 'admin-badge--danger'}`}>
-                    {b.is_active ? 'Active' : 'Suspended'}
-                  </span>
-                </div>
-                <div className="admin-business-card-meta">
-                  {(b.branches || []).length} branches
-                  {b.location && ` · ${b.location}`}
-                </div>
-                <div className="admin-business-card-actions">
-                  <Link to={`/admin/businesses/${b.id}`} className="admin-btn admin-btn--sm">
-                    Open
-                  </Link>
-                  <button
-                    className="admin-btn admin-btn--sm admin-btn--warning"
-                    onClick={() => setImpersonateModal(b)}
-                    disabled={!b.is_active}
-                  >
-                    <FiEye size={12} /> Impersonate
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Business</th>
+                  <th>Code</th>
+                  <th>Status</th>
+                  <th>Subscription</th>
+                  <th>Days left</th>
+                  <th>Ends</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {businesses.map(b => {
+                  const sub = b.subscription;
+                  const tone = getSubscriptionTone(sub);
+                  return (
+                    <tr key={b.id}>
+                      <td>
+                        <strong>{b.name}</strong>
+                      </td>
+                      <td><code>{b.business_code || '—'}</code></td>
+                      <td>
+                        <span className={`admin-badge ${b.is_active ? 'admin-badge--success' : 'admin-badge--danger'}`}>
+                          {b.is_active ? 'Active' : 'Suspended'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <span className={`admin-badge admin-badge--${tone}`}>
+                            {formatSubscriptionLabel(sub)}
+                          </span>
+                          {hasPendingPayment(sub) && (
+                            <span className="admin-badge admin-badge--warning">
+                              Payment pending
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '13px', color: '#334155' }}>
+                        {formatSubscriptionDetail(sub)}
+                      </td>
+                      <td style={{ fontSize: '12.5px', color: '#64748b' }}>
+                        {sub?.ends_at || '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <Link to={`/admin/businesses/${b.id}`} className="admin-btn admin-btn--sm">
+                            Open
+                          </Link>
+                          <button
+                            className="admin-btn admin-btn--sm admin-btn--warning"
+                            onClick={() => setImpersonateModal(b)}
+                            disabled={!b.is_active}
+                          >
+                            <FiEye size={12} /> Impersonate
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -243,7 +284,6 @@ const AdminCustomerDetail = () => {
         )}
       </div>
 
-      {/* Recent admin actions */}
       {recentAdminActions.length > 0 && (
         <div className="admin-card">
           <h3>Recent Admin Actions</h3>
@@ -267,7 +307,6 @@ const AdminCustomerDetail = () => {
         </div>
       )}
 
-      {/* Impersonate modal */}
       {impersonateModal && (
         <Modal title={`Impersonate — ${impersonateModal.name}`} onClose={() => setImpersonateModal(null)}>
           <div className="admin-alert admin-alert--warning">
@@ -284,14 +323,17 @@ const AdminCustomerDetail = () => {
           </div>
           <div className="admin-modal-actions">
             <button className="admin-btn" onClick={() => setImpersonateModal(null)}>Cancel</button>
-            <button className="admin-btn admin-btn--warning" onClick={handleImpersonate} disabled={working}>
+            <button
+              className="admin-btn admin-btn--warning"
+              onClick={() => handleImpersonate(boss)}
+              disabled={working}
+            >
               {working ? 'Starting...' : 'Start impersonation'}
             </button>
           </div>
         </Modal>
       )}
 
-      {/* Reset password modal */}
       {resetModal && (
         <Modal title={`Reset password for ${resetModal.full_name}`} onClose={() => setResetModal(null)}>
           <div className="admin-form-group">

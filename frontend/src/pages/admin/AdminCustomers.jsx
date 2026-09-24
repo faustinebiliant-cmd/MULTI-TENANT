@@ -1,3 +1,7 @@
+// ============================================================
+// OSWAGO - Admin Customers
+// ============================================================
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
@@ -32,6 +36,16 @@ const AdminCustomers = () => {
     load(p);
   };
 
+  // Small summary chip per state
+  const SubChip = ({ count, tone, label }) => {
+    if (!count) return null;
+    return (
+      <span className={`admin-badge admin-badge--${tone}`} style={{ marginRight: '4px' }}>
+        {count} {label}
+      </span>
+    );
+  };
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -60,7 +74,7 @@ const AdminCustomers = () => {
                 <th>Account Code</th>
                 <th>Email</th>
                 <th>Businesses</th>
-                <th>Active</th>
+                <th>Subscriptions</th>
                 <th>Staff</th>
                 <th>Branches</th>
                 <th>Joined</th>
@@ -72,23 +86,38 @@ const AdminCustomers = () => {
                 <tr><td colSpan="9"><Loader message="Loading customers..." /></td></tr>
               ) : list.length === 0 ? (
                 <tr><td colSpan="9" className="admin-table-empty">No customers found</td></tr>
-              ) : list.map(c => (
-                <tr key={c.id}>
-                  <td><strong>{c.full_name}</strong></td>
-                  <td><code>{c.account_code || '—'}</code></td>
-                  <td>{c.email}</td>
-                  <td>{c.business_count}</td>
-                  <td>{c.active_business_count}</td>
-                  <td>{c.staff_count}</td>
-                  <td>{c.branch_count}</td>
-                  <td>{new Date(c.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <Link to={`/admin/customers/${c.id}`} className="admin-btn admin-btn--sm">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              ) : list.map(c => {
+                const sub = c.subscriptions || {};
+                const hasAny = (sub.trial || 0) + (sub.active || 0) + (sub.expired || 0) + (sub.suspended || 0);
+                return (
+                  <tr key={c.id}>
+                    <td><strong>{c.full_name}</strong></td>
+                    <td><code>{c.account_code || '—'}</code></td>
+                    <td>{c.email}</td>
+                    <td>{c.business_count}</td>
+                    <td>
+                      {hasAny === 0 ? (
+                        <span style={{ color: '#94a3b8' }}>—</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <SubChip count={sub.active} tone="success" label="active" />
+                          <SubChip count={sub.trial} tone="warning" label="trial" />
+                          <SubChip count={sub.expired} tone="danger" label="expired" />
+                          <SubChip count={sub.suspended} tone="muted" label="suspended" />
+                        </div>
+                      )}
+                    </td>
+                    <td>{c.staff_count}</td>
+                    <td>{c.branch_count}</td>
+                    <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <Link to={`/admin/customers/${c.id}`} className="admin-btn admin-btn--sm">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
