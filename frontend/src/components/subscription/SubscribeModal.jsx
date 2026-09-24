@@ -79,7 +79,7 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Subscribe to OSWAGO</h2>
+          <h2 style={styles.title}>Subscribe to OSWAGOTech</h2>
           <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close">
             <FiX size={16} />
           </button>

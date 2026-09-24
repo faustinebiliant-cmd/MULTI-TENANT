@@ -242,7 +242,6 @@ const createOrder = async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found in this branch' });
         }
 
-        // VAT settings come from the business, not from a global settings table
         const { data: business } = await supabase
             .from('businesses')
             .select('vat_enabled, vat_rate')
@@ -259,9 +258,11 @@ const createOrder = async (req, res) => {
             const itemTotal = item.unit_price * item.quantity;
             subtotal += itemTotal;
 
+            // Look up name AND cost_price from the products table.
+            // The client is never trusted for cost_price.
             const { data: product } = await supabase
                 .from('products')
-                .select('id, name')
+                .select('id, name, cost_price')
                 .eq('id', item.product_id)
                 .eq('branch_id', branchId)
                 .single();
@@ -272,10 +273,10 @@ const createOrder = async (req, res) => {
 
             orderItems.push({
                 product_id: item.product_id,
-                product_name: item.name || product.name,
+                product_name: product.name,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
-                cost_price: item.cost_price || 0,
+                cost_price: parseFloat(product.cost_price) || 0,
                 subtotal: itemTotal
             });
         }

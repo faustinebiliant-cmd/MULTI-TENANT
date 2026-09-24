@@ -92,12 +92,12 @@ const OrderDetail = () => {
       const response = await api.updateOrderStatus(id, pendingStatus);
       setOrder(response.data);
       toast.success(`Order status updated to ${pendingStatus}`);
-      setPendingStatus(null);
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error(error.response?.data?.error || 'Failed to update status');
     } finally {
       setUpdating(false);
+      setPendingStatus(null);
     }
   };
 

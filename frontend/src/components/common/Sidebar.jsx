@@ -48,21 +48,23 @@ const Sidebar = () => {
 
   // Line 1: the business name the user registered
   // Line 2: the business code, used as the M-Pesa payment reference
-  const brandName = activeBusiness?.name || user.full_name || 'OSWAGO';
+  const brandName = activeBusiness?.name || user.full_name || '—';
   const accountLabel = activeBusiness?.business_code
     ? `businessID: ${activeBusiness.business_code}`
     : '—';
 
   return (
     <>
-      <button
-        type="button"
-        className="mobile-menu-trigger"
-        onClick={() => setIsOpen(true)}
-        aria-label="Open menu"
-      >
-        <FiMenu size={20} />
-      </button>
+{!isOpen && (
+  <button
+    type="button"
+    className="mobile-menu-trigger"
+    onClick={() => setIsOpen(true)}
+    aria-label="Open menu"
+  >
+    <FiMenu size={20} />
+  </button>
+)}
 
       <div
         className={`sidebar-overlay ${isOpen ? 'active' : ''}`}

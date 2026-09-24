@@ -62,6 +62,7 @@ import AdminAuditLogs from './pages/admin/AdminAuditLogs';
 import AdminCustomers from './pages/admin/AdminCustomers';
 import AdminCustomerDetail from './pages/admin/AdminCustomerDetail';
 import AdminPaymentSubmissions from './pages/admin/AdminPaymentSubmissions';
+import AdminProtectedRoute from './pages/admin/AdminProtectedRoute';
 
 function App() {
   return (
@@ -83,7 +84,14 @@ function App() {
                       <Route path="/admin/login" element={<AdminLogin />} />
 
                       {/* ---------- Admin (with shell) ---------- */}
-                      <Route path="/admin" element={<AdminLayout />}>
+                      <Route
+                        path="/admin"
+                        element={
+                          <AdminProtectedRoute>
+                            <AdminLayout />
+                          </AdminProtectedRoute>
+                        }
+                      >
                         <Route index element={<Navigate to="/admin/dashboard" replace />} />
                         <Route path="dashboard" element={<AdminDashboard />} />
                         <Route path="businesses" element={<AdminBusinesses />} />

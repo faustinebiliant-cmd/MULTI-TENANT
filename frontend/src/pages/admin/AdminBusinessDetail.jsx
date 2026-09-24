@@ -66,6 +66,7 @@ const AdminBusinessDetail = () => {
       await load();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to suspend');
+      setSuspendModal(false);
     } finally {
       setWorking(false);
     }
@@ -120,6 +121,7 @@ const AdminBusinessDetail = () => {
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to start impersonation');
       setWorking(false);
+      setImpersonateModal(false);
     }
   };
 
@@ -141,6 +143,7 @@ const AdminBusinessDetail = () => {
       setResetReason('');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to reset password');
+      setResetModal(null);
     } finally {
       setWorking(false);
     }

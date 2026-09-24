@@ -198,50 +198,59 @@ const updateCustomer = async (req, res) => {
         if (!branchId) return;
 
         const { id } = req.params;
-        const updates = req.body;
+        const body = req.body;
 
         if (!isValidUUID(id)) {
             return res.status(400).json({ success: false, error: 'Invalid customer ID' });
         }
 
-        if (updates.name) {
-            if (!isValidName(updates.name) || !isSafeText(updates.name)) {
+        // Whitelist: only these fields can be updated.
+        const updates = {};
+
+        if (body.name !== undefined) {
+            if (!isValidName(body.name) || !isSafeText(body.name)) {
                 return res.status(400).json({ success: false, error: 'Customer name must be 2-20 characters and contain no HTML or scripts' });
             }
-            updates.name = sanitize(updates.name);
+            updates.name = sanitize(body.name);
         }
 
-        if (updates.phone) {
-            if (!isValidPhone(updates.phone) || !isSafeText(updates.phone)) {
+        if (body.phone !== undefined) {
+            if (!isValidPhone(body.phone) || !isSafeText(body.phone)) {
                 return res.status(400).json({ success: false, error: 'Invalid phone number format' });
             }
-            updates.phone = sanitize(updates.phone);
+            updates.phone = sanitize(body.phone);
         }
 
-        if (updates.email) {
-            if (!isValidEmail(updates.email) || !isSafeText(updates.email)) {
+        if (body.email !== undefined) {
+            if (body.email && (!isValidEmail(body.email) || !isSafeText(body.email))) {
                 return res.status(400).json({ success: false, error: 'Invalid email format' });
             }
-            updates.email = sanitize(updates.email.toLowerCase());
+            updates.email = body.email ? sanitize(body.email.toLowerCase()) : '';
         }
 
-        if (updates.address) {
-            if (!isValidLength(updates.address, 0, 500) || !isSafeText(updates.address)) {
+        if (body.address !== undefined) {
+            if (body.address && (!isValidLength(body.address, 0, 500) || !isSafeText(body.address))) {
                 return res.status(400).json({ success: false, error: 'Address must be under 500 characters and contain no HTML or scripts' });
             }
-            updates.address = sanitize(updates.address);
+            updates.address = body.address ? sanitize(body.address) : '';
         }
 
-        if (updates.notes) {
-            if (!isValidLength(updates.notes, 0, 500) || !isSafeText(updates.notes)) {
+        if (body.notes !== undefined) {
+            if (body.notes && (!isValidLength(body.notes, 0, 500) || !isSafeText(body.notes))) {
                 return res.status(400).json({ success: false, error: 'Notes must be under 500 characters and contain no HTML or scripts' });
             }
-            updates.notes = sanitize(updates.notes);
+            updates.notes = body.notes ? sanitize(body.notes) : '';
         }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, error: 'Nothing to update' });
+        }
+
+        updates.updated_at = new Date();
 
         const { data, error } = await supabase
             .from('customers')
-            .update({ ...updates, updated_at: new Date() })
+            .update(updates)
             .eq('id', id)
             .eq('branch_id', branchId)
             .select()

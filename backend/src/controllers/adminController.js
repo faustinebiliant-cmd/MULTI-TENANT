@@ -152,7 +152,7 @@ const adminLogin = async (req, res) => {
                 type: 'admin'
             },
             ADMIN_JWT_SECRET,
-            { expiresIn: '8h' }
+            { expiresIn: '10m' }
         );
 
         await supabase

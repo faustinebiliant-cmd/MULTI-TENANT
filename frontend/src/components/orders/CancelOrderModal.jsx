@@ -31,6 +31,7 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
     } catch (error) {
       console.error('Cancel order error:', error);
       toast.error(error.response?.data?.error || 'Failed to cancel order');
+      onClose();
     } finally {
       setLoading(false);
     }

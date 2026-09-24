@@ -187,6 +187,10 @@ const updateExpense = async (req, res) => {
         const { id } = req.params;
         const { description, amount, category, expense_date, payment_method, notes } = req.body;
 
+        if (!isValidUUID(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid expense ID' });
+        }
+
         const { data: existing } = await supabase
             .from('expenses')
             .select('id')
@@ -201,10 +205,10 @@ const updateExpense = async (req, res) => {
         const updateData = {};
 
         if (description !== undefined) {
-            if (description && (!isValidLength(description, 3, 500) || !isSafeText(description))) {
+            if (!description || !isValidLength(description, 3, 500) || !isSafeText(description)) {
                 return res.status(400).json({ success: false, error: 'Description must be 3-500 characters and contain no HTML or scripts' });
             }
-            updateData.description = description ? sanitize(description) : '';
+            updateData.description = sanitize(description);
         }
 
         if (amount !== undefined) {
@@ -214,7 +218,12 @@ const updateExpense = async (req, res) => {
             updateData.amount = parseFloat(amount);
         }
 
-        if (category !== undefined) updateData.category = category || 'Other';
+        if (category !== undefined) {
+            if (category && (!isValidLength(category, 1, 100) || !isSafeText(category))) {
+                return res.status(400).json({ success: false, error: 'Category must be 1-100 characters and contain no HTML or scripts' });
+            }
+            updateData.category = category ? sanitize(category) : 'Other';
+        }
 
         if (notes !== undefined) {
             if (notes && (!isValidLength(notes, 0, 500) || !isSafeText(notes))) {
@@ -223,8 +232,25 @@ const updateExpense = async (req, res) => {
             updateData.notes = notes ? sanitize(notes) : '';
         }
 
-        if (expense_date !== undefined) updateData.expense_date = expense_date;
-        if (payment_method !== undefined) updateData.payment_method = payment_method;
+        if (expense_date !== undefined) {
+            const d = new Date(expense_date);
+            if (isNaN(d.getTime())) {
+                return res.status(400).json({ success: false, error: 'Invalid expense date' });
+            }
+            updateData.expense_date = expense_date;
+        }
+
+        if (payment_method !== undefined) {
+            if (payment_method && (!isValidLength(payment_method, 0, 50) || !isSafeText(payment_method))) {
+                return res.status(400).json({ success: false, error: 'Payment method must be under 50 characters and contain no HTML or scripts' });
+            }
+            updateData.payment_method = payment_method ? sanitize(payment_method) : '';
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, error: 'Nothing to update' });
+        }
+
         updateData.updated_at = new Date();
 
         const { data, error } = await supabase

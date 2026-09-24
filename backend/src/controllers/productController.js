@@ -304,39 +304,83 @@ const updateProduct = async (req, res) => {
         if (!branchId) return;
 
         const { id } = req.params;
-        const updates = req.body;
+        const body = req.body;
 
         if (!isValidUUID(id)) {
             return res.status(400).json({ success: false, error: 'Invalid product ID' });
         }
 
-        if (updates.name) {
-            if (!isValidName(updates.name) || !isSafeText(updates.name)) {
+        // Whitelist: only these fields can be updated.
+        // Anything else the client sends is ignored.
+        const updates = {};
+
+        if (body.name !== undefined) {
+            if (!isValidName(body.name) || !isSafeText(body.name)) {
                 return res.status(400).json({ success: false, error: 'Product name must be 2-20 characters and contain no HTML or scripts' });
             }
-            updates.name = sanitize(updates.name);
+            updates.name = sanitize(body.name);
         }
 
-        if (updates.description) {
-            if (!isValidLength(updates.description, 0, 1000) || !isSafeText(updates.description)) {
+        if (body.description !== undefined) {
+            if (body.description && (!isValidLength(body.description, 0, 1000) || !isSafeText(body.description))) {
                 return res.status(400).json({ success: false, error: 'Description must be under 1000 characters and contain no HTML or scripts' });
             }
-            updates.description = sanitize(updates.description);
+            updates.description = body.description ? sanitize(body.description) : '';
         }
 
-        if (updates.cost_price && !isValidAmount(updates.cost_price)) {
-            return res.status(400).json({ success: false, error: 'Invalid cost price' });
+        if (body.cost_price !== undefined) {
+            if (!isValidAmount(body.cost_price)) {
+                return res.status(400).json({ success: false, error: 'Invalid cost price' });
+            }
+            updates.cost_price = parseFloat(body.cost_price);
         }
 
-        if (updates.selling_price && !isValidAmount(updates.selling_price)) {
-            return res.status(400).json({ success: false, error: 'Invalid selling price' });
+        if (body.selling_price !== undefined) {
+            if (!isValidAmount(body.selling_price)) {
+                return res.status(400).json({ success: false, error: 'Invalid selling price' });
+            }
+            updates.selling_price = parseFloat(body.selling_price);
         }
 
-        if (updates.stock_quantity !== undefined && !isValidQuantity(updates.stock_quantity)) {
-            return res.status(400).json({ success: false, error: 'Invalid stock quantity' });
+        if (body.stock_quantity !== undefined) {
+            if (!isValidQuantity(body.stock_quantity)) {
+                return res.status(400).json({ success: false, error: 'Invalid stock quantity' });
+            }
+            updates.stock_quantity = parseInt(body.stock_quantity);
         }
 
-        if (updates.sku) updates.sku = sanitize(updates.sku);
+        if (body.low_stock_threshold !== undefined) {
+            const threshold = parseInt(body.low_stock_threshold);
+            if (isNaN(threshold) || threshold < 0 || threshold > 100000) {
+                return res.status(400).json({ success: false, error: 'Low stock threshold must be between 0 and 100000' });
+            }
+            updates.low_stock_threshold = threshold;
+        }
+
+        if (body.sku !== undefined) {
+            if (body.sku && !isValidLength(body.sku, 0, 100)) {
+                return res.status(400).json({ success: false, error: 'SKU must be under 100 characters' });
+            }
+            updates.sku = body.sku ? sanitize(body.sku) : null;
+        }
+
+        if (body.category_id !== undefined) {
+            if (body.category_id && !isValidUUID(body.category_id)) {
+                return res.status(400).json({ success: false, error: 'Invalid category ID' });
+            }
+            updates.category_id = body.category_id || null;
+        }
+
+        if (body.supplier_id !== undefined) {
+            if (body.supplier_id && !isValidUUID(body.supplier_id)) {
+                return res.status(400).json({ success: false, error: 'Invalid supplier ID' });
+            }
+            updates.supplier_id = body.supplier_id || null;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, error: 'Nothing to update' });
+        }
 
         const { data: oldProduct, error: oldError } = await supabase
             .from('products')
@@ -347,8 +391,6 @@ const updateProduct = async (req, res) => {
 
         if (oldError) throw oldError;
 
-        // If the name is being changed, check no other active product in
-        // this branch already has that name (case-insensitive).
         if (updates.name && updates.name.toLowerCase() !== oldProduct.name.toLowerCase()) {
             const { data: conflict } = await supabase
                 .from('products')
@@ -367,7 +409,6 @@ const updateProduct = async (req, res) => {
             }
         }
 
-        // If the SKU is being changed, check for conflicts on other products.
         if (updates.sku) {
             const { data: skuConflict } = await supabase
                 .from('products')
@@ -385,9 +426,11 @@ const updateProduct = async (req, res) => {
             }
         }
 
+        updates.updated_at = new Date();
+
         const { data: product, error } = await supabase
             .from('products')
-            .update({ ...updates, updated_at: new Date() })
+            .update(updates)
             .eq('id', id)
             .eq('branch_id', branchId)
             .select()
@@ -398,7 +441,6 @@ const updateProduct = async (req, res) => {
                 return res.status(404).json({ success: false, error: 'Product not found' });
             }
             if (error.code === '23505') {
-                // Unique constraint violation. Could be SKU or name.
                 const message = error.message || '';
                 if (message.includes('name') || message.includes('sku')) {
                     return res.status(400).json({
@@ -414,8 +456,8 @@ const updateProduct = async (req, res) => {
             throw error;
         }
 
-        if (updates.stock_quantity && updates.stock_quantity !== oldProduct.stock_quantity) {
-            const stockDiff = parseInt(updates.stock_quantity) - oldProduct.stock_quantity;
+        if (updates.stock_quantity !== undefined && updates.stock_quantity !== oldProduct.stock_quantity) {
+            const stockDiff = updates.stock_quantity - oldProduct.stock_quantity;
 
             await supabase
                 .from('stock_movements')

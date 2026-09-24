@@ -74,6 +74,7 @@ const AdminPaymentSubmissions = () => {
       await load(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to approve');
+      setApproveModal(null);
     } finally {
       setWorking(false);
     }
@@ -98,6 +99,7 @@ const AdminPaymentSubmissions = () => {
       await load(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to reject');
+      setRejectModal(null);
     } finally {
       setWorking(false);
     }
