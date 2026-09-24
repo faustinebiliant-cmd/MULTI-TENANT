@@ -5,6 +5,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api from '../api/client';
 import toast from 'react-hot-toast';
+import { warningToast } from '../utils/toastHelpers';
 
 const AuthContext = createContext();
 
@@ -60,7 +61,7 @@ export const AuthProvider = ({ children }) => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = setTimeout(() => {
         logout();
-        toast.warning('Logged out due to inactivity. Please login again.');
+        warningToast('Logged out due to inactivity. Please login again.');
       }, INACTIVITY_TIMEOUT);
     };
 

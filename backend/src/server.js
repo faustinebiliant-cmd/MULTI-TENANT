@@ -53,6 +53,18 @@ app.use(helmet({
         maxAge: 31536000,
         includeSubDomains: true,
         preload: true
+    },
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'blob:'],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"]
+        }
     }
 }));
 
