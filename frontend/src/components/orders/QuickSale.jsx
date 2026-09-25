@@ -203,9 +203,19 @@ const QuickSale = () => {
   };
 
   // ---------- Guard rails ----------
-  // Role check — hide the page from anyone who shouldn't be here
-  if (!roleAllowed) {
-    toast.error('Your role cannot use Quick Sale');
+  // Role check — hide the page from anyone who shouldn't be here.
+  // The toast is inside a useEffect so it runs once per mount,
+  // not once per render. React StrictMode double-renders in dev,
+  // which would otherwise queue two identical toasts.
+  const roleBlocked = !roleAllowed;
+
+  useEffect(() => {
+    if (roleBlocked) {
+      toast.error('Your role cannot use Quick Sale');
+    }
+  }, [roleBlocked]);
+
+  if (roleBlocked) {
     return <Navigate to="/dashboard" replace />;
   }
 

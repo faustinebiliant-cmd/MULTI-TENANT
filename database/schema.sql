@@ -471,6 +471,25 @@ ON public.users (role, is_deleted);
 CREATE INDEX users_created_at_idx
 ON public.users (created_at DESC);
 
+-- ------------------------------------------------------------
+-- Trigram search indexes (v1.5)
+-- Makes ILIKE '%term%' searches fast. Used by search_orders
+-- and by any other endpoint that does substring search on
+-- these columns. Without these, a search on 500,000+ orders
+-- takes 5-15 seconds and times out.
+-- ------------------------------------------------------------
+
+-- Enable the pg_trgm extension. Safe to run multiple times.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Order number search (used by Orders page search)
+CREATE INDEX IF NOT EXISTS orders_order_number_trgm_idx
+ON public.orders USING gin (order_number gin_trgm_ops);
+
+-- Customer name search (used by Orders page search)
+CREATE INDEX IF NOT EXISTS customers_name_trgm_idx
+ON public.customers USING gin (name gin_trgm_ops);
+
 
 -- ============================================================
 -- PART 4: ACCOUNT CODES AND BUSINESS CODES
@@ -1768,6 +1787,62 @@ BEGIN
 END;
 $$;
 
+-- ------------------------------------------------------------
+-- 5.22 search_orders
+-- One-query search for the Orders list. Searches by order
+-- number OR customer name. Paginated. Returns the total count
+-- alongside the page of IDs so the caller can render
+-- pagination without a second query.
+--
+-- Replaces the older two-step approach in the controller that
+-- fetched matching IDs first, then filtered by them. That
+-- approach broke at scale because the ID list was passed in
+-- the URL and exceeded HTTP header limits (~16KB) once a
+-- search matched more than ~400 orders.
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.search_orders(
+    p_branch_id uuid,
+    p_term text,
+    p_status varchar DEFAULT NULL,
+    p_payment_status varchar DEFAULT NULL,
+    p_start_date timestamp with time zone DEFAULT NULL,
+    p_end_date timestamp with time zone DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE(
+    id uuid,
+    total_count bigint
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH matched AS (
+        SELECT
+            o.id,
+            o.created_at,
+            COUNT(*) OVER() AS total_count
+        FROM orders o
+        LEFT JOIN customers c ON c.id = o.customer_id
+        WHERE o.branch_id = p_branch_id
+          AND (
+              o.order_number ILIKE '%' || p_term || '%'
+              OR c.name ILIKE '%' || p_term || '%'
+          )
+          AND (p_status IS NULL OR o.order_status = p_status)
+          AND (p_payment_status IS NULL OR o.payment_status = p_payment_status)
+          AND (p_start_date IS NULL OR o.created_at >= p_start_date)
+          AND (p_end_date IS NULL OR o.created_at <= p_end_date)
+        ORDER BY o.created_at DESC
+        LIMIT p_limit
+        OFFSET p_offset
+    )
+    SELECT m.id, m.total_count FROM matched m;
+END;
+$$;
+
 
 -- ============================================================
 -- PART 6: PLATFORM ADMIN
@@ -2010,11 +2085,9 @@ FOR SELECT USING (
 CREATE POLICY users_write ON public.users
 FOR ALL USING (
     public.is_service_role()
-    OR id = public.current_user_id()
     OR public.owns_business(business_id)
 ) WITH CHECK (
     public.is_service_role()
-    OR id = public.current_user_id()
     OR public.owns_business(business_id)
 );
 
@@ -2190,12 +2263,16 @@ FOR SELECT USING (
 CREATE POLICY activity_logs_write ON public.activity_logs
 FOR ALL USING (
     public.is_service_role()
-    OR branch_id IS NULL AND user_id = public.current_user_id()
-    OR branch_id IS NOT NULL AND public.can_access_branch(branch_id)
+    OR (user_id = public.current_user_id() AND (
+        branch_id IS NULL
+        OR (branch_id IS NOT NULL AND public.can_access_branch(branch_id))
+    ))
 ) WITH CHECK (
     public.is_service_role()
-    OR branch_id IS NULL AND user_id = public.current_user_id()
-    OR branch_id IS NOT NULL AND public.can_access_branch(branch_id)
+    OR (user_id = public.current_user_id() AND (
+        branch_id IS NULL
+        OR (branch_id IS NOT NULL AND public.can_access_branch(branch_id))
+    ))
 );
 
 CREATE POLICY platform_admins_service_only ON public.platform_admins

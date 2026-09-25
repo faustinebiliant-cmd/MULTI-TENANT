@@ -46,41 +46,77 @@ const getAllOrders = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid payment status filter' });
         }
 
-        let matchingIdsFromSearch = null;
-        if (search && search.trim()) {
-            const term = search.trim().replace(/[%_,()'"]/g, '');
-            if (term) {
-                const { data: byNumber, error: errA } = await supabase
-                    .from('orders')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .ilike('order_number', `%${term}%`);
+        const startISO = startDate ? new Date(startDate).toISOString() : null;
+        const endISO = endDate ? (() => { const d = new Date(endDate); d.setHours(23, 59, 59, 999); return d.toISOString(); })() : null;
 
-                if (errA) throw errA;
+        const cleanSearch = search && search.trim()
+            ? search.trim().replace(/[%_,()'"]/g, '')
+            : null;
 
-                const { data: byCustomer, error: errB } = await supabase
-                    .from('orders')
-                    .select('id, customers:customer_id!inner (name)')
-                    .eq('branch_id', branchId)
-                    .ilike('customers.name', `%${term}%`);
+        const offset = (pageNum - 1) * limitNum;
 
-                if (errB) throw errB;
+        // Case A: search present. Use the RPC to avoid URL-length limits.
+        if (cleanSearch) {
+            const { data: idRows, error: rpcError } = await supabase.rpc('search_orders', {
+                p_branch_id: branchId,
+                p_term: cleanSearch,
+                p_status: status || null,
+                p_payment_status: payment_status || null,
+                p_start_date: startISO,
+                p_end_date: endISO,
+                p_limit: limitNum,
+                p_offset: offset
+            });
 
-                const ids = new Set();
-                (byNumber || []).forEach(r => ids.add(r.id));
-                (byCustomer || []).forEach(r => ids.add(r.id));
-                matchingIdsFromSearch = Array.from(ids);
+            if (rpcError) throw rpcError;
 
-                if (matchingIdsFromSearch.length === 0) {
-                    return res.status(200).json({
-                        success: true,
-                        data: [],
-                        pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
-                    });
-                }
+            const rows = idRows || [];
+            if (rows.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    data: [],
+                    pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
+                });
             }
+
+            const ids = rows.map(r => r.id);
+            const totalCount = Number(rows[0].total_count) || 0;
+
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    customers:customer_id (name, phone),
+                    created_by_user:created_by (full_name),
+                    payment_recorded_by_user:payment_recorded_by (full_name),
+                    confirmed_by_user:confirmed_by (full_name)
+                `)
+                .in('id', ids)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const formattedOrders = (orders || []).map(order => ({
+                ...order,
+                customer_name: order.customers?.name || null,
+                created_by_name: order.created_by_user?.full_name || order.created_by_name || null,
+                payment_recorded_by_name: order.payment_recorded_by_user?.full_name || order.payment_recorded_by_name || null,
+                confirmed_by_name: order.confirmed_by_user?.full_name || order.confirmed_by_name || null
+            }));
+
+            return res.status(200).json({
+                success: true,
+                data: formattedOrders,
+                pagination: {
+                    total: totalCount,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(totalCount / limitNum)
+                }
+            });
         }
 
+        // Case B: no search. Standard paginated list.
         let dataQuery = supabase
             .from('orders')
             .select(`
@@ -94,15 +130,8 @@ const getAllOrders = async (req, res) => {
 
         if (status) dataQuery = dataQuery.eq('order_status', status);
         if (payment_status) dataQuery = dataQuery.eq('payment_status', payment_status);
-        if (startDate) dataQuery = dataQuery.gte('created_at', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            dataQuery = dataQuery.lte('created_at', end.toISOString());
-        }
-        if (matchingIdsFromSearch !== null) {
-            dataQuery = dataQuery.in('id', matchingIdsFromSearch);
-        }
+        if (startISO) dataQuery = dataQuery.gte('created_at', startISO);
+        if (endISO) dataQuery = dataQuery.lte('created_at', endISO);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
@@ -118,15 +147,8 @@ const getAllOrders = async (req, res) => {
 
         if (status) countQuery = countQuery.eq('order_status', status);
         if (payment_status) countQuery = countQuery.eq('payment_status', payment_status);
-        if (startDate) countQuery = countQuery.gte('created_at', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            countQuery = countQuery.lte('created_at', end.toISOString());
-        }
-        if (matchingIdsFromSearch !== null) {
-            countQuery = countQuery.in('id', matchingIdsFromSearch);
-        }
+        if (startISO) countQuery = countQuery.gte('created_at', startISO);
+        if (endISO) countQuery = countQuery.lte('created_at', endISO);
 
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
@@ -140,12 +162,16 @@ const getAllOrders = async (req, res) => {
         }));
 
         const total = totalCount || 0;
-        const pages = Math.ceil(total / limitNum);
 
         return res.status(200).json({
             success: true,
             data: formattedOrders,
-            pagination: { total, page: pageNum, limit: limitNum, pages }
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum)
+            }
         });
 
     } catch (error) {
@@ -337,7 +363,14 @@ const updateOrderStatus = async (req, res) => {
             .update({ order_status: status, updated_at: new Date() })
             .eq('id', id)
             .eq('branch_id', branchId)
-            .select()
+            .select(`
+                *,
+                customers:customer_id (id, name, phone, email, address),
+                created_by_user:created_by (id, full_name),
+                payment_recorded_by_user:payment_recorded_by (id, full_name),
+                confirmed_by_user:confirmed_by (id, full_name),
+                order_items (*)
+            `)
             .single();
 
         if (error) {
@@ -802,7 +835,7 @@ const createQuickSale = async (req, res) => {
 
         // Quick Sale requires full payment (no partials, no unpaid).
         // Partial payments must go through the Advanced flow.
-        if (Math.abs(paymentAmount - total_amount) > 0.01) {
+        if (paymentAmount < total_amount - 0.01) {
             return res.status(400).json({
                 success: false,
                 error: `Quick Sale requires full payment. Order total is ${total_amount.toFixed(2)}.`

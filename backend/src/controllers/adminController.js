@@ -3,7 +3,7 @@
 // Super-admin endpoints. Every action is audit-logged.
 // ============================================================
 
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabase = require('../config/supabase');
@@ -428,10 +428,30 @@ const listAllBusinesses = async (req, res) => {
                 supabase.from('users').select('id', { count: 'exact', head: true }).eq('business_id', b.id).eq('is_deleted', false)
             ]);
 
+            // Orders are attached to branches, not to businesses.
+            // Fetch this business's branch IDs, then count orders
+            // across those branches.
+            const { data: branchRows } = await supabase
+                .from('branches')
+                .select('id')
+                .eq('business_id', b.id);
+
+            const branchIds = (branchRows || []).map(r => r.id);
+
+            let orderCount = 0;
+            if (branchIds.length > 0) {
+                const { count: orders } = await supabase
+                    .from('orders')
+                    .select('id', { count: 'exact', head: true })
+                    .in('branch_id', branchIds);
+                orderCount = orders || 0;
+            }
+
             return {
                 ...b,
                 branch_count: branches.count || 0,
                 staff_count: staff.count || 0,
+                order_count: orderCount,
                 subscription: buildSubscriptionInfo(b, pendingSet.has(b.id))
             };
         }));
@@ -455,7 +475,6 @@ const listAllBusinesses = async (req, res) => {
         });
     }
 };
-
 // ============================================================
 // GET /api/admin/businesses/:id
 // Full detail view of one business.

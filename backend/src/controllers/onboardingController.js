@@ -4,7 +4,7 @@
 // and that business's first branch in one atomic operation.
 // ============================================================
 
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 const {

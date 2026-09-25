@@ -162,7 +162,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Logout
-  const logout = () => {
+  const logout = async () => {
+    // Fire-and-forget audit call. Does not await.
+    // Uses fetch directly (not the axios client) so a 401
+    // does not trigger the response interceptor and redirect.
+    // keepalive lets the request finish even if the tab closes.
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+        fetch(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          keepalive: true
+        }).catch(() => {
+          // Ignore network errors. Logout must not block on this.
+        });
+      }
+    } catch {
+      // Ignore. Local state is cleared below regardless.
+    }
+
+    // Clear local state immediately, exactly as before.
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;

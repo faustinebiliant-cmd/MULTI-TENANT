@@ -73,52 +73,6 @@ const authenticateAdmin = async (req, res, next) => {
 
         req.admin = admin;
 
-        // ---------------------------------------------------------
-        // Impersonation token?
-        // If the JWT carries an impersonation_session_id, verify it:
-        //   * exists
-        //   * not ended
-        //   * not expired
-        //   * belongs to this admin
-        // ---------------------------------------------------------
-        if (decoded.impersonation_session_id) {
-            const { data: session, error: sessErr } = await supabase
-                .from('impersonation_sessions')
-                .select('*')
-                .eq('id', decoded.impersonation_session_id)
-                .is('ended_at', null)
-                .single();
-
-            if (sessErr || !session) {
-                return res.status(401).json({
-                    success: false,
-                    error: 'Impersonation session not found or already ended'
-                });
-            }
-
-            if (session.admin_id !== admin.id) {
-                return res.status(403).json({
-                    success: false,
-                    error: 'Impersonation session belongs to another admin'
-                });
-            }
-
-            if (new Date(session.expires_at) < new Date()) {
-                // Mark it ended if we notice it's expired
-                await supabase
-                    .from('impersonation_sessions')
-                    .update({ ended_at: new Date(), ended_by: 'expiry' })
-                    .eq('id', session.id);
-
-                return res.status(401).json({
-                    success: false,
-                    error: 'Impersonation session expired'
-                });
-            }
-
-            req.impersonation = session;
-        }
-
         next();
     } catch (error) {
         console.error('Admin auth middleware error:', error);

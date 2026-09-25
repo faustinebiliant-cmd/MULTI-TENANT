@@ -4,7 +4,7 @@
 // ============================================================
 
 const supabase = require('../config/supabase');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const {
     isValidRole,
     isValidEmail,

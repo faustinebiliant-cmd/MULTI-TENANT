@@ -2,7 +2,7 @@
 // OSWAGO ELECTRICAL EQUIPMENT - Auth Controller
 // ============================================================
 
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 const {
@@ -385,6 +385,9 @@ const changePassword = async (req, res) => {
 // ============================================================
 const logout = async (req, res) => {
     try {
+        // The route now requires authenticate, so req.user should
+        // always be defined. But guard anyway so a malformed token
+        // does not crash this path.
         if (req.user) {
             await supabase
                 .from('activity_logs')
@@ -393,7 +396,7 @@ const logout = async (req, res) => {
                     user_id: req.user.id,
                     user_name: req.user.full_name,
                     action: 'Logout',
-                    ip_address: req.ip || req.connection.remoteAddress
+                    ip_address: req.ip || req.connection?.remoteAddress || 'unknown'
                 });
         }
 
@@ -404,9 +407,11 @@ const logout = async (req, res) => {
 
     } catch (error) {
         console.error('Logout error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'An error occurred during logout'
+        // Logout should always succeed from the client's perspective,
+        // even if the audit write fails.
+        return res.status(200).json({
+            success: true,
+            message: 'Logged out successfully'
         });
     }
 };

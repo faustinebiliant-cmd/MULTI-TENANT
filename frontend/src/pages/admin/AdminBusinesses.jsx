@@ -110,6 +110,7 @@ const AdminBusinesses = () => {
                 <th>Owner</th>
                 <th>Branches</th>
                 <th>Staff</th>
+                <th>Orders</th>
                 <th>Status</th>
                 <th>Subscription</th>
                 <th>Joined</th>
@@ -118,9 +119,9 @@ const AdminBusinesses = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="9"><Loader message="Loading businesses..." /></td></tr>
+                <tr><td colSpan="10"><Loader message="Loading businesses..." /></td></tr>
               ) : list.length === 0 ? (
-                <tr><td colSpan="9" className="admin-table-empty">No businesses found</td></tr>
+                <tr><td colSpan="10" className="admin-table-empty">No businesses found</td></tr>
               ) : list.map(b => {
                 const sub = b.subscription;
                 const tone = getSubscriptionTone(sub);
@@ -131,6 +132,7 @@ const AdminBusinesses = () => {
                     <td>{b.owner?.email || '—'}</td>
                     <td>{b.branch_count ?? 0}</td>
                     <td>{b.staff_count ?? 0}</td>
+                    <td>{b.order_count ?? 0}</td>
                     <td>
                       <span className={`admin-badge ${b.is_active ? 'admin-badge--success' : 'admin-badge--danger'}`}>
                         {b.is_active ? 'Active' : 'Suspended'}
