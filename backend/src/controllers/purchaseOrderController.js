@@ -37,70 +37,94 @@ const getAllPurchaseOrders = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid status filter' });
         }
 
-        let matchingPoIdsByNumber = null;
-        let matchingSupplierIdsFromSearch = null;
+        const startISO = startDate ? new Date(startDate).toISOString() : null;
+        const endISO = endDate
+            ? (() => { const d = new Date(endDate); d.setHours(23, 59, 59, 999); return d.toISOString(); })()
+            : null;
 
-        if (search && search.trim()) {
-            const term = search.trim().replace(/[%_,()'"]/g, '');
+        const cleanSearch = search && search.trim()
+            ? search.trim().replace(/[%_,()'"]/g, '')
+            : null;
 
-            if (term) {
-                const { data: byNumber } = await supabase
-                    .from('purchase_orders')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .ilike('po_number', `%${term}%`);
+        const offset = (pageNum - 1) * limitNum;
 
-                matchingPoIdsByNumber = (byNumber || []).map(r => r.id);
+        // Case A: search present. Use the RPC to avoid URL-length limits.
+        if (cleanSearch) {
+            const { data: idRows, error: rpcError } = await supabase.rpc('search_purchase_orders', {
+                p_branch_id: branchId,
+                p_term: cleanSearch,
+                p_status: status || null,
+                p_start_date: startISO,
+                p_end_date: endISO,
+                p_limit: limitNum,
+                p_offset: offset
+            });
 
-                const { data: suppliers } = await supabase
-                    .from('suppliers')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .ilike('name', `%${term}%`);
+            if (rpcError) throw rpcError;
 
-                matchingSupplierIdsFromSearch = (suppliers || []).map(s => s.id);
-
-                if (matchingPoIdsByNumber.length === 0 && matchingSupplierIdsFromSearch.length === 0) {
-                    return res.status(200).json({
-                        success: true, data: [],
-                        pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
-                    });
-                }
-            }
-        }
-
-        let dataQuery = supabase.from('purchase_orders').select('*').eq('branch_id', branchId);
-
-        if (status) dataQuery = dataQuery.eq('status', status);
-        if (startDate) dataQuery = dataQuery.gte('created_at', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            dataQuery = dataQuery.lte('created_at', end.toISOString());
-        }
-
-        if (matchingPoIdsByNumber !== null || matchingSupplierIdsFromSearch !== null) {
-            const ids = new Set();
-            (matchingPoIdsByNumber || []).forEach(id => ids.add(id));
-
-            if (matchingSupplierIdsFromSearch && matchingSupplierIdsFromSearch.length > 0) {
-                const { data: posBySupplier } = await supabase
-                    .from('purchase_orders')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .in('supplier_id', matchingSupplierIdsFromSearch);
-                (posBySupplier || []).forEach(r => ids.add(r.id));
-            }
-
-            const allIds = Array.from(ids);
-            if (allIds.length === 0) {
+            const rows = idRows || [];
+            if (rows.length === 0) {
                 return res.status(200).json({
-                    success: true, data: [],
+                    success: true,
+                    data: [],
                     pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
                 });
             }
-            dataQuery = dataQuery.in('id', allIds);
+
+            const ids = rows.map(r => r.id);
+            const totalCount = Number(rows[0].total_count) || 0;
+
+            const { data: pos, error } = await supabase
+                .from('purchase_orders')
+                .select('*')
+                .in('id', ids)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            // Enrich with supplier names
+            const supplierIds = [...new Set((pos || []).map(po => po.supplier_id).filter(id => id))];
+            let supplierMap = {};
+
+            if (supplierIds.length > 0) {
+                const { data: suppliers } = await supabase
+                    .from('suppliers')
+                    .select('id, name')
+                    .eq('branch_id', branchId)
+                    .in('id', supplierIds);
+
+                if (suppliers) {
+                    supplierMap = suppliers.reduce((acc, s) => { acc[s.id] = s.name; return acc; }, {});
+                }
+            }
+
+            const formatted = (pos || []).map(po => ({
+                ...po,
+                supplier_name: supplierMap[po.supplier_id] || null,
+                created_by_name: po.created_by_name || 'System'
+            }));
+
+            return res.status(200).json({
+                success: true,
+                data: formatted,
+                pagination: {
+                    total: totalCount,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(totalCount / limitNum)
+                }
+            });
         }
+
+        // Case B: no search. Standard paginated list.
+        let dataQuery = supabase
+            .from('purchase_orders')
+            .select('*')
+            .eq('branch_id', branchId);
+
+        if (status) dataQuery = dataQuery.eq('status', status);
+        if (startISO) dataQuery = dataQuery.gte('created_at', startISO);
+        if (endISO) dataQuery = dataQuery.lte('created_at', endISO);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
@@ -109,32 +133,19 @@ const getAllPurchaseOrders = async (req, res) => {
         const { data: pos, error } = await dataQuery;
         if (error) throw error;
 
-        let countQuery = supabase.from('purchase_orders').select('id', { count: 'exact', head: true }).eq('branch_id', branchId);
+        let countQuery = supabase
+            .from('purchase_orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('branch_id', branchId);
+
         if (status) countQuery = countQuery.eq('status', status);
-        if (startDate) countQuery = countQuery.gte('created_at', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            countQuery = countQuery.lte('created_at', end.toISOString());
-        }
-        if (matchingPoIdsByNumber !== null || matchingSupplierIdsFromSearch !== null) {
-            const ids = new Set();
-            (matchingPoIdsByNumber || []).forEach(id => ids.add(id));
-            if (matchingSupplierIdsFromSearch && matchingSupplierIdsFromSearch.length > 0) {
-                const { data: posBySupplier } = await supabase
-                    .from('purchase_orders')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .in('supplier_id', matchingSupplierIdsFromSearch);
-                (posBySupplier || []).forEach(r => ids.add(r.id));
-            }
-            countQuery = countQuery.in('id', Array.from(ids));
-        }
+        if (startISO) countQuery = countQuery.gte('created_at', startISO);
+        if (endISO) countQuery = countQuery.lte('created_at', endISO);
 
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        const supplierIds = [...new Set(pos.map(po => po.supplier_id).filter(id => id))];
+        const supplierIds = [...new Set((pos || []).map(po => po.supplier_id).filter(id => id))];
         let supplierMap = {};
 
         if (supplierIds.length > 0) {
@@ -149,18 +160,23 @@ const getAllPurchaseOrders = async (req, res) => {
             }
         }
 
-        const formatted = pos.map(po => ({
+        const formatted = (pos || []).map(po => ({
             ...po,
             supplier_name: supplierMap[po.supplier_id] || null,
             created_by_name: po.created_by_name || 'System'
         }));
 
         const total = totalCount || 0;
-        const pages = Math.ceil(total / limitNum);
 
         return res.status(200).json({
-            success: true, data: formatted,
-            pagination: { total, page: pageNum, limit: limitNum, pages }
+            success: true,
+            data: formatted,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum)
+            }
         });
 
     } catch (error) {

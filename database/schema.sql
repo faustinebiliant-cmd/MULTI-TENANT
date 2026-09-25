@@ -473,10 +473,7 @@ ON public.users (created_at DESC);
 
 -- ------------------------------------------------------------
 -- Trigram search indexes (v1.5)
--- Makes ILIKE '%term%' searches fast. Used by search_orders
--- and by any other endpoint that does substring search on
--- these columns. Without these, a search on 500,000+ orders
--- takes 5-15 seconds and times out.
+-- Makes ILIKE '%term%' searches fast.
 -- ------------------------------------------------------------
 
 -- Enable the pg_trgm extension. Safe to run multiple times.
@@ -490,6 +487,22 @@ ON public.orders USING gin (order_number gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS customers_name_trgm_idx
 ON public.customers USING gin (name gin_trgm_ops);
 
+-- Customer phone and email search (used by Customers page search)
+CREATE INDEX IF NOT EXISTS customers_phone_trgm_idx
+ON public.customers USING gin (phone gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS customers_email_trgm_idx
+ON public.customers USING gin (email gin_trgm_ops);
+
+-- Product search (name, sku, description)
+CREATE INDEX IF NOT EXISTS products_name_trgm_idx
+ON public.products USING gin (name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS products_sku_trgm_idx
+ON public.products USING gin (sku gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS products_description_trgm_idx
+ON public.products USING gin (description gin_trgm_ops);
 
 -- ============================================================
 -- PART 4: ACCOUNT CODES AND BUSINESS CODES
@@ -1836,6 +1849,113 @@ BEGIN
           AND (p_start_date IS NULL OR o.created_at >= p_start_date)
           AND (p_end_date IS NULL OR o.created_at <= p_end_date)
         ORDER BY o.created_at DESC
+        LIMIT p_limit
+        OFFSET p_offset
+    )
+    SELECT m.id, m.total_count FROM matched m;
+END;
+$$;
+
+-- ------------------------------------------------------------
+-- 5.23 search_payments
+-- One-query search for the Payments list. Searches by order
+-- number OR customer name. Paginated. Returns the total count
+-- alongside the page of IDs.
+--
+-- Same pattern as search_orders. Replaces the older two-step
+-- approach that built a URL with all matching order IDs and
+-- broke at scale.
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.search_payments(
+    p_branch_id uuid,
+    p_term text,
+    p_method varchar DEFAULT NULL,
+    p_status varchar DEFAULT NULL,
+    p_start_date timestamp with time zone DEFAULT NULL,
+    p_end_date timestamp with time zone DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE(
+    id uuid,
+    total_count bigint
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH matched AS (
+        SELECT
+            p.id,
+            p.payment_date,
+            COUNT(*) OVER() AS total_count
+        FROM payments p
+        LEFT JOIN orders o ON o.id = p.order_id
+        LEFT JOIN customers c ON c.id = o.customer_id
+        WHERE p.branch_id = p_branch_id
+          AND (
+              o.order_number ILIKE '%' || p_term || '%'
+              OR c.name ILIKE '%' || p_term || '%'
+          )
+          AND (p_method IS NULL OR p.method = p_method)
+          AND (
+              p_status IS NULL
+              OR (p_status = 'voided' AND p.status = 'voided')
+              OR (p_status = 'completed' AND (p.status IS NULL OR p.status <> 'voided'))
+          )
+          AND (p_start_date IS NULL OR p.payment_date >= p_start_date)
+          AND (p_end_date IS NULL OR p.payment_date <= p_end_date)
+        ORDER BY p.payment_date DESC
+        LIMIT p_limit
+        OFFSET p_offset
+    )
+    SELECT m.id, m.total_count FROM matched m;
+END;
+$$;
+
+-- ------------------------------------------------------------
+-- 5.24 search_purchase_orders
+-- One-query search for the Purchase Orders list. Searches by
+-- PO number OR supplier name. Paginated. Returns the total
+-- count alongside the page of IDs.
+--
+-- Same pattern as search_orders and search_payments.
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.search_purchase_orders(
+    p_branch_id uuid,
+    p_term text,
+    p_status varchar DEFAULT NULL,
+    p_start_date timestamp with time zone DEFAULT NULL,
+    p_end_date timestamp with time zone DEFAULT NULL,
+    p_limit integer DEFAULT 50,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE(
+    id uuid,
+    total_count bigint
+)
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH matched AS (
+        SELECT
+            po.id,
+            po.created_at,
+            COUNT(*) OVER() AS total_count
+        FROM purchase_orders po
+        LEFT JOIN suppliers s ON s.id = po.supplier_id
+        WHERE po.branch_id = p_branch_id
+          AND (
+              po.po_number ILIKE '%' || p_term || '%'
+              OR s.name ILIKE '%' || p_term || '%'
+          )
+          AND (p_status IS NULL OR po.status = p_status)
+          AND (p_start_date IS NULL OR po.created_at >= p_start_date)
+          AND (p_end_date IS NULL OR po.created_at <= p_end_date)
+        ORDER BY po.created_at DESC
         LIMIT p_limit
         OFFSET p_offset
     )

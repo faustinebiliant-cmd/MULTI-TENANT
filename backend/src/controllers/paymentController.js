@@ -41,41 +41,80 @@ const getAllPayments = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid status filter' });
         }
 
-        let matchingOrderIds = null;
-        if (search && search.trim()) {
-            const term = search.trim().replace(/[%_,()'"]/g, '');
-            if (term) {
-                const { data: byNumber, error: errA } = await supabase
-                    .from('orders')
-                    .select('id')
-                    .eq('branch_id', branchId)
-                    .ilike('order_number', `%${term}%`);
+        const startISO = startDate ? new Date(startDate).toISOString() : null;
+        const endISO = endDate
+            ? (() => { const d = new Date(endDate); d.setHours(23, 59, 59, 999); return d.toISOString(); })()
+            : null;
 
-                if (errA) throw errA;
+        const cleanSearch = search && search.trim()
+            ? search.trim().replace(/[%_,()'"]/g, '')
+            : null;
 
-                const { data: byCustomer, error: errB } = await supabase
-                    .from('orders')
-                    .select('id, customers:customer_id!inner (name)')
-                    .eq('branch_id', branchId)
-                    .ilike('customers.name', `%${term}%`);
+        const offset = (pageNum - 1) * limitNum;
 
-                if (errB) throw errB;
+        // Case A: search present. Use the RPC to avoid URL-length limits.
+        if (cleanSearch) {
+            const { data: idRows, error: rpcError } = await supabase.rpc('search_payments', {
+                p_branch_id: branchId,
+                p_term: cleanSearch,
+                p_method: method || null,
+                p_status: status || null,
+                p_start_date: startISO,
+                p_end_date: endISO,
+                p_limit: limitNum,
+                p_offset: offset
+            });
 
-                const ids = new Set();
-                (byNumber || []).forEach(r => ids.add(r.id));
-                (byCustomer || []).forEach(r => ids.add(r.id));
-                matchingOrderIds = Array.from(ids);
+            if (rpcError) throw rpcError;
 
-                if (matchingOrderIds.length === 0) {
-                    return res.status(200).json({
-                        success: true,
-                        data: [],
-                        pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
-                    });
-                }
+            const rows = idRows || [];
+            if (rows.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    data: [],
+                    pagination: { total: 0, page: pageNum, limit: limitNum, pages: 0 }
+                });
             }
+
+            const ids = rows.map(r => r.id);
+            const totalCount = Number(rows[0].total_count) || 0;
+
+            const { data: payments, error } = await supabase
+                .from('payments')
+                .select(`
+                    *,
+                    orders:order_id (
+                        order_number, customer_id, payment_status, total_amount, paid_amount,
+                        customers:customer_id (name)
+                    )
+                `)
+                .in('id', ids)
+                .order('payment_date', { ascending: false });
+
+            if (error) throw error;
+
+            const formatted = (payments || []).map(payment => ({
+                ...payment,
+                order_number: payment.orders?.order_number || null,
+                customer_name: payment.orders?.customers?.name || null,
+                order_payment_status: payment.orders?.payment_status || 'unpaid',
+                order_total: payment.orders?.total_amount || 0,
+                order_paid: payment.orders?.paid_amount || 0
+            }));
+
+            return res.status(200).json({
+                success: true,
+                data: formatted,
+                pagination: {
+                    total: totalCount,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(totalCount / limitNum)
+                }
+            });
         }
 
+        // Case B: no search. Standard paginated list.
         let dataQuery = supabase
             .from('payments')
             .select(`
@@ -90,19 +129,14 @@ const getAllPayments = async (req, res) => {
         if (method) dataQuery = dataQuery.eq('method', method);
         if (status === 'voided') dataQuery = dataQuery.eq('status', 'voided');
         if (status === 'completed') dataQuery = dataQuery.neq('status', 'voided');
-        if (startDate) dataQuery = dataQuery.gte('payment_date', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            dataQuery = dataQuery.lte('payment_date', end.toISOString());
-        }
-        if (matchingOrderIds !== null) dataQuery = dataQuery.in('order_id', matchingOrderIds);
+        if (startISO) dataQuery = dataQuery.gte('payment_date', startISO);
+        if (endISO) dataQuery = dataQuery.lte('payment_date', endISO);
 
         const from = (pageNum - 1) * limitNum;
         const to = from + limitNum - 1;
         dataQuery = dataQuery.order('payment_date', { ascending: false }).range(from, to);
 
-        const { data, error } = await dataQuery;
+        const { data: payments, error } = await dataQuery;
         if (error) throw error;
 
         let countQuery = supabase
@@ -113,18 +147,13 @@ const getAllPayments = async (req, res) => {
         if (method) countQuery = countQuery.eq('method', method);
         if (status === 'voided') countQuery = countQuery.eq('status', 'voided');
         if (status === 'completed') countQuery = countQuery.neq('status', 'voided');
-        if (startDate) countQuery = countQuery.gte('payment_date', new Date(startDate).toISOString());
-        if (endDate) {
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            countQuery = countQuery.lte('payment_date', end.toISOString());
-        }
-        if (matchingOrderIds !== null) countQuery = countQuery.in('order_id', matchingOrderIds);
+        if (startISO) countQuery = countQuery.gte('payment_date', startISO);
+        if (endISO) countQuery = countQuery.lte('payment_date', endISO);
 
         const { count: totalCount, error: countError } = await countQuery;
         if (countError) throw countError;
 
-        const formatted = data.map(payment => ({
+        const formatted = (payments || []).map(payment => ({
             ...payment,
             order_number: payment.orders?.order_number || null,
             customer_name: payment.orders?.customers?.name || null,
@@ -134,12 +163,16 @@ const getAllPayments = async (req, res) => {
         }));
 
         const total = totalCount || 0;
-        const pages = Math.ceil(total / limitNum);
 
         return res.status(200).json({
             success: true,
             data: formatted,
-            pagination: { total, page: pageNum, limit: limitNum, pages }
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum)
+            }
         });
 
     } catch (error) {
