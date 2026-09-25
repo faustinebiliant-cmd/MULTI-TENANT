@@ -8,11 +8,9 @@ const supabase = require('../config/supabase');
 const { parsePeriodEAT, formatDateEAT, formatDateTimeForExcel } = require('../utils/tz');
 const { requireBranchId } = require('../utils/branchScope');
 
-// Platform name — used as a fallback if the business has no display name.
 const PLATFORM_NAME = 'Oswagotech';
 const PLATFORM_SLUG = 'oswagotech';
 
-// Brand colours
 const BRAND_BLUE = 'FF1A56DB';
 const BRAND_DARK = 'FF0F172A';
 const WHITE = 'FFFFFFFF';
@@ -20,11 +18,53 @@ const LIGHT_GRAY = 'FFF4F6F9';
 const GRAY_TEXT = 'FF64748B';
 const CURRENCY_FORMAT = '#,##0.00';
 
+// PostgREST caps a single row-fetch at 1,000 rows by default.
+// Every fetcher below loops in CHUNK_SIZE pages until exhausted.
+const CHUNK_SIZE = 1000;
+
+// .in('id', [...]) URLs also have a limit (~16KB). 200 UUIDs
+// per call is a safe margin.
+const ID_CHUNK_SIZE = 200;
+
+// ============================================================
+// Generic helpers
+// ============================================================
+
+// Loops a row-fetching query until exhausted.
+// Caller passes a function that takes (from, to) and returns
+// a Supabase query with .range(from, to) already applied.
+const fetchAllChunked = async (buildQuery) => {
+  const all = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await buildQuery(offset, offset + CHUNK_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < CHUNK_SIZE) break;
+    offset += CHUNK_SIZE;
+  }
+  return all;
+};
+
+// Fetches rows by a set of IDs, chunking the .in() clause.
+// idColumn defaults to 'id'.
+const fetchByIds = async ({ table, idColumn = 'id', ids, select = '*', branchId = null }) => {
+  if (!ids || ids.length === 0) return [];
+  const results = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + ID_CHUNK_SIZE);
+    let q = supabase.from(table).select(select).in(idColumn, chunk);
+    if (branchId) q = q.eq('branch_id', branchId);
+    const { data, error } = await q;
+    if (error) throw error;
+    if (data) results.push(...data);
+  }
+  return results;
+};
+
 // ============================================================
 // Business name lookup
-// Every export belongs to a specific branch. The Excel header
-// and the filename should show the SHOP's name, not the
-// platform's name. This helper fetches it once per export call.
 // ============================================================
 
 const getBusinessName = async (branchId) => {
@@ -122,47 +162,135 @@ const formatPeriodLabel = (start, end) => {
 };
 
 // ============================================================
-// Data fetchers (all branch-scoped)
+// Data fetchers (all branch-scoped, all chunked)
 // ============================================================
 
 const fetchOrders = async (branchId, startISO, endISO, includeCancelled = false) => {
-  let query = supabase
-    .from('orders')
-    .select(`
-      id, order_number, order_status, payment_status,
-      subtotal, tax_amount, total_amount, paid_amount, created_at,
-      cancellation_reason, cancelled_at, cancelled_by_name,
-      customers:customer_id (name, phone),
-      order_items (id, product_id, product_name, quantity, unit_price, subtotal, cost_price)
-    `)
-    .eq('branch_id', branchId)
-    .gte('created_at', startISO)
-    .lte('created_at', endISO);
+  return fetchAllChunked((from, to) => {
+    let q = supabase
+      .from('orders')
+      .select(`
+        id, order_number, order_status, payment_status,
+        subtotal, tax_amount, total_amount, paid_amount, created_at,
+        cancellation_reason, cancelled_at, cancelled_by_name,
+        customers:customer_id (name, phone),
+        order_items (id, product_id, product_name, quantity, unit_price, subtotal, cost_price)
+      `)
+      .eq('branch_id', branchId)
+      .gte('created_at', startISO)
+      .lte('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
-  if (!includeCancelled) {
-    query = query.neq('order_status', 'cancelled');
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
+    if (!includeCancelled) {
+      q = q.neq('order_status', 'cancelled');
+    }
+    return q;
+  });
 };
 
 const fetchPayments = async (branchId, startISO, endISO, includeVoided = false) => {
-  let query = supabase
-    .from('payments')
-    .select('*')
-    .eq('branch_id', branchId)
-    .gte('payment_date', startISO)
-    .lte('payment_date', endISO);
+  return fetchAllChunked((from, to) => {
+    let q = supabase
+      .from('payments')
+      .select('*')
+      .eq('branch_id', branchId)
+      .gte('payment_date', startISO)
+      .lte('payment_date', endISO)
+      .order('payment_date', { ascending: false })
+      .range(from, to);
 
-  if (!includeVoided) {
-    query = query.neq('status', 'voided');
-  }
+    if (!includeVoided) {
+      q = q.neq('status', 'voided');
+    }
+    return q;
+  });
+};
 
-  const { data, error } = await query.order('payment_date', { ascending: false });
-  if (error) throw error;
-  return data || [];
+const fetchExpenses = async (branchId, startISO, endISO) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('expenses')
+      .select('*')
+      .eq('branch_id', branchId)
+      .gte('created_at', startISO)
+      .lte('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+  );
+};
+
+const fetchExpensesByDate = async (branchId, startDay, endDay) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('expenses')
+      .select('*')
+      .eq('branch_id', branchId)
+      .gte('expense_date', startDay)
+      .lte('expense_date', endDay)
+      .order('expense_date', { ascending: false })
+      .range(from, to)
+  );
+};
+
+const fetchProducts = async (branchId) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('products')
+      .select(`*, categories:category_id (name), suppliers:supplier_id (name)`)
+      .eq('branch_id', branchId)
+      .eq('is_active', true)
+      .order('name')
+      .range(from, to)
+  );
+};
+
+const fetchCustomers = async (branchId) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('customers')
+      .select('*')
+      .eq('branch_id', branchId)
+      .order('name')
+      .range(from, to)
+  );
+};
+
+const fetchSuppliers = async (branchId) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('suppliers')
+      .select('*')
+      .eq('branch_id', branchId)
+      .order('name')
+      .range(from, to)
+  );
+};
+
+const fetchPurchaseOrders = async (branchId, startISO, endISO) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('purchase_orders')
+      .select('*')
+      .eq('branch_id', branchId)
+      .gte('created_at', startISO)
+      .lte('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+  );
+};
+
+const fetchStockMovements = async (branchId, startISO, endISO) => {
+  return fetchAllChunked((from, to) =>
+    supabase
+      .from('stock_movements')
+      .select('*')
+      .eq('branch_id', branchId)
+      .gte('created_at', startISO)
+      .lte('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+  );
 };
 
 const filterRealOrders = (orders) => orders.filter(o => o.order_status !== 'cancelled');
@@ -175,17 +303,13 @@ const resolveOrderNumberMap = async (branchId, orders, payments) => {
   const missingIds = [...new Set(payments.map(p => p.order_id).filter(id => id && !map[id]))];
   if (missingIds.length === 0) return map;
 
-  const CHUNK = 200;
-  for (let i = 0; i < missingIds.length; i += CHUNK) {
-    const chunk = missingIds.slice(i, i + CHUNK);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('id, order_number')
-      .eq('branch_id', branchId)
-      .in('id', chunk);
-    if (error) throw error;
-    (data || []).forEach(o => { map[o.id] = o.order_number; });
-  }
+  const rows = await fetchByIds({
+    table: 'orders',
+    ids: missingIds,
+    select: 'id, order_number',
+    branchId
+  });
+  rows.forEach(o => { map[o.id] = o.order_number; });
 
   return map;
 };
@@ -201,13 +325,14 @@ const fetchVATRatioMapForPayments = async (branchId, orders, payments) => {
   const ids = [...new Set(payments.map(p => p.order_id).filter(Boolean))];
   if (ids.length === 0) return map;
 
-  const { data } = await supabase
-    .from('orders')
-    .select('id, total_amount, tax_amount')
-    .eq('branch_id', branchId)
-    .in('id', ids);
+  const rows = await fetchByIds({
+    table: 'orders',
+    ids,
+    select: 'id, total_amount, tax_amount',
+    branchId
+  });
 
-  (data || []).forEach(o => {
+  rows.forEach(o => {
     const t = parseFloat(o.total_amount) || 0;
     const v = parseFloat(o.tax_amount) || 0;
     if (t > 0 && v > 0 && !map[o.id]) map[o.id] = v / t;
@@ -249,7 +374,7 @@ const computeVATCollectedFromOrders = (orders) => {
 };
 
 // ============================================================
-// Sheet writers
+// Sheet writers (unchanged)
 // ============================================================
 
 const writeOrdersSheet = (wb, orders) => {
@@ -656,16 +781,7 @@ const exportExpensesReport = async (req, res) => {
     const startDay = formatDateEAT(start);
     const endDay = formatDateEAT(end);
 
-    const { data: expenses, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .eq('branch_id', branchId)
-      .gte('expense_date', startDay)
-      .lte('expense_date', endDay)
-      .order('expense_date', { ascending: false });
-    if (error) throw error;
-
-    const list = expenses || [];
+    const list = await fetchExpensesByDate(branchId, startDay, endDay);
     const total = list.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
     const byCat = {};
@@ -748,15 +864,7 @@ const exportProductsReport = async (req, res) => {
     const businessName = await getBusinessName(branchId);
     const businessSlug = slugify(businessName);
 
-    const { data: products, error } = await supabase
-      .from('products')
-      .select(`*, categories:category_id (name), suppliers:supplier_id (name)`)
-      .eq('branch_id', branchId)
-      .eq('is_active', true)
-      .order('name');
-    if (error) throw error;
-
-    const list = products || [];
+    const list = await fetchProducts(branchId);
     let totalCostValue = 0, totalSellingValue = 0;
     list.forEach(p => {
       totalCostValue += (parseFloat(p.cost_price) || 0) * (parseInt(p.stock_quantity) || 0);
@@ -805,24 +913,18 @@ const exportStockMovementsReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const { data: movements, error } = await supabase
-      .from('stock_movements')
-      .select('*')
-      .eq('branch_id', branchId)
-      .gte('created_at', startISO)
-      .lte('created_at', endISO)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const movements = await fetchStockMovements(branchId, startISO, endISO);
 
-    const productIds = [...new Set((movements || []).map(m => m.product_id).filter(Boolean))];
+    const productIds = [...new Set(movements.map(m => m.product_id).filter(Boolean))];
     let productMap = {};
     if (productIds.length > 0) {
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, name')
-        .eq('branch_id', branchId)
-        .in('id', productIds);
-      (products || []).forEach(p => productMap[p.id] = p.name);
+      const prods = await fetchByIds({
+        table: 'products',
+        ids: productIds,
+        select: 'id, name',
+        branchId
+      });
+      prods.forEach(p => { productMap[p.id] = p.name; });
     }
 
     const wb = new ExcelJS.Workbook();
@@ -841,7 +943,7 @@ const exportStockMovementsReport = async (req, res) => {
     applyHeaderStyle(detail.getRow(1));
     detail.views = [{ state: 'frozen', ySplit: 1 }];
 
-    (movements || []).forEach(m => {
+    movements.forEach(m => {
       detail.addRow({
         created_at: m.created_at ? formatDateTimeForExcel(m.created_at) : '',
         product_name: productMap[m.product_id] || '(unknown product)',
@@ -870,14 +972,7 @@ const exportCustomersReport = async (req, res) => {
 
     const businessSlug = slugify(await getBusinessName(branchId));
 
-    const { data: customers, error } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('branch_id', branchId)
-      .order('name');
-    if (error) throw error;
-
-    const list = customers || [];
+    const list = await fetchCustomers(branchId);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = PLATFORM_NAME;
@@ -937,14 +1032,7 @@ const exportSuppliersReport = async (req, res) => {
 
     const businessSlug = slugify(await getBusinessName(branchId));
 
-    const { data: suppliers, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .eq('branch_id', branchId)
-      .order('name');
-    if (error) throw error;
-
-    const list = suppliers || [];
+    const list = await fetchSuppliers(branchId);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = PLATFORM_NAME;
@@ -997,36 +1085,30 @@ const exportPurchaseOrdersReport = async (req, res) => {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    const { data: pos, error } = await supabase
-      .from('purchase_orders')
-      .select('*')
-      .eq('branch_id', branchId)
-      .gte('created_at', startISO)
-      .lte('created_at', endISO)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-
-    const list = pos || [];
+    const list = await fetchPurchaseOrders(branchId, startISO, endISO);
 
     const supplierIds = [...new Set(list.map(p => p.supplier_id).filter(Boolean))];
     let supplierMap = {};
     if (supplierIds.length > 0) {
-      const { data: suppliers } = await supabase
-        .from('suppliers')
-        .select('id, name')
-        .eq('branch_id', branchId)
-        .in('id', supplierIds);
-      (suppliers || []).forEach(s => supplierMap[s.id] = s.name);
+      const sups = await fetchByIds({
+        table: 'suppliers',
+        ids: supplierIds,
+        select: 'id, name',
+        branchId
+      });
+      sups.forEach(s => { supplierMap[s.id] = s.name; });
     }
 
     const poIds = list.map(p => p.id);
     let itemsByPO = {};
     if (poIds.length > 0) {
-      const { data: items } = await supabase
-        .from('purchase_order_items')
-        .select('*')
-        .in('purchase_order_id', poIds);
-      (items || []).forEach(i => {
+      const items = await fetchByIds({
+        table: 'purchase_order_items',
+        idColumn: 'purchase_order_id',
+        ids: poIds,
+        select: '*'
+      });
+      items.forEach(i => {
         if (!itemsByPO[i.purchase_order_id]) itemsByPO[i.purchase_order_id] = [];
         itemsByPO[i.purchase_order_id].push(i);
       });
@@ -1133,14 +1215,9 @@ const exportProfitReport = async (req, res) => {
       });
     });
 
-    const { data: expenses } = await supabase
-      .from('expenses')
-      .select('*')
-      .eq('branch_id', branchId)
-      .gte('created_at', startISO)
-      .lte('created_at', endISO);
+    const expenses = await fetchExpenses(branchId, startISO, endISO);
 
-    const totalExpenses = (expenses || []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
     const grossProfit = totalRevenue - totalCost;
     const netProfit = grossProfit - totalExpenses;
     const vatCollected = computeVATCollectedFromOrders(orders);
@@ -1309,34 +1386,35 @@ const exportFullReport = async (req, res) => {
     const { start, end } = parsePeriod(req.query);
     const startISO = start.toISOString();
     const endISO = end.toISOString();
-
-    const [allOrders, allPayments, productSalesRes, outstandingRes] = await Promise.all([
-      fetchOrders(branchId, startISO, endISO, true),
-      fetchPayments(branchId, startISO, endISO, true),
-      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
-      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId })
-    ]);
-    if (productSalesRes.error) throw productSalesRes.error;
-    if (outstandingRes.error) throw outstandingRes.error;
-
     const startDay = formatDateEAT(start);
     const endDay = formatDateEAT(end);
 
     const [
-      { data: products },
-      { data: expenses },
-      { data: customers },
-      { data: suppliers },
-      { data: pos },
-      { data: movements }
+      allOrders,
+      allPayments,
+      productSalesRes,
+      outstandingRes,
+      products,
+      expenses,
+      customers,
+      suppliers,
+      pos,
+      movements
     ] = await Promise.all([
-      supabase.from('products').select(`*, categories:category_id (name), suppliers:supplier_id (name)`).eq('branch_id', branchId).eq('is_active', true).order('name'),
-      supabase.from('expenses').select('*').eq('branch_id', branchId).gte('expense_date', startDay).lte('expense_date', endDay).order('expense_date', { ascending: false }),
-      supabase.from('customers').select('*').eq('branch_id', branchId).order('name'),
-      supabase.from('suppliers').select('*').eq('branch_id', branchId).order('name'),
-      supabase.from('purchase_orders').select('*').eq('branch_id', branchId).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false }),
-      supabase.from('stock_movements').select('*').eq('branch_id', branchId).gte('created_at', startISO).lte('created_at', endISO).order('created_at', { ascending: false })
+      fetchOrders(branchId, startISO, endISO, true),
+      fetchPayments(branchId, startISO, endISO, true),
+      supabase.rpc('sum_product_sales', { start_date: startISO, end_date: endISO, exclude_cancelled: true, p_branch_id: branchId }),
+      supabase.rpc('outstanding_today', { start_date: startISO, end_date: endISO, p_branch_id: branchId }),
+      fetchProducts(branchId),
+      fetchExpensesByDate(branchId, startDay, endDay),
+      fetchCustomers(branchId),
+      fetchSuppliers(branchId),
+      fetchPurchaseOrders(branchId, startISO, endISO),
+      fetchStockMovements(branchId, startISO, endISO)
     ]);
+
+    if (productSalesRes.error) throw productSalesRes.error;
+    if (outstandingRes.error) throw outstandingRes.error;
 
     const realOrders = filterRealOrders(allOrders);
     const realPayments = filterRealPayments(allPayments);
@@ -1348,7 +1426,7 @@ const exportFullReport = async (req, res) => {
     const totalVAT = realOrders.reduce((s, o) => s + (parseFloat(o.tax_amount) || 0), 0);
     const totalWithVAT = realOrders.reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
     const totalItems = realOrders.reduce((s, o) => s + (o.order_items || []).reduce((a, i) => a + (parseInt(i.quantity) || 0), 0), 0);
-    const totalExpenses = (expenses || []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
     let totalCost = 0;
     realOrders.forEach(o => {
@@ -1364,28 +1442,42 @@ const exportFullReport = async (req, res) => {
     const payTotals = computePaymentTotals(realPayments, vatMap);
     const orderNumberMap = await resolveOrderNumberMap(branchId, allOrders, allPayments);
 
-    const productIds = [...new Set((movements || []).map(m => m.product_id).filter(Boolean))];
+    const productIds = [...new Set(movements.map(m => m.product_id).filter(Boolean))];
     let productNameMap = {};
     if (productIds.length > 0) {
-      const { data: prods } = await supabase.from('products').select('id, name').eq('branch_id', branchId).in('id', productIds);
-      (prods || []).forEach(p => productNameMap[p.id] = p.name);
+      const prods = await fetchByIds({
+        table: 'products',
+        ids: productIds,
+        select: 'id, name',
+        branchId
+      });
+      prods.forEach(p => { productNameMap[p.id] = p.name; });
     }
 
-    const supplierIds = [...new Set((pos || []).map(p => p.supplier_id).filter(Boolean))];
+    const supplierIds = [...new Set(pos.map(p => p.supplier_id).filter(Boolean))];
     let supplierMap = {};
     if (supplierIds.length > 0) {
-      const { data: sups } = await supabase.from('suppliers').select('id, name').eq('branch_id', branchId).in('id', supplierIds);
-      (sups || []).forEach(s => supplierMap[s.id] = s.name);
+      const sups = await fetchByIds({
+        table: 'suppliers',
+        ids: supplierIds,
+        select: 'id, name',
+        branchId
+      });
+      sups.forEach(s => { supplierMap[s.id] = s.name; });
     }
 
-    const poIds = (pos || []).map(p => p.id);
+    const poIds = pos.map(p => p.id);
     let poItems = [];
     if (poIds.length > 0) {
-      const { data: items } = await supabase.from('purchase_order_items').select('*').in('purchase_order_id', poIds);
-      poItems = items || [];
+      poItems = await fetchByIds({
+        table: 'purchase_order_items',
+        idColumn: 'purchase_order_id',
+        ids: poIds,
+        select: '*'
+      });
     }
     const poNumMap = {};
-    (pos || []).forEach(p => poNumMap[p.id] = p.po_number);
+    pos.forEach(p => poNumMap[p.id] = p.po_number);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = PLATFORM_NAME;
@@ -1422,15 +1514,15 @@ const exportFullReport = async (req, res) => {
     np.font = { bold: true };
     sum.addRow([]);
     addSectionHeader(sum, 'OTHER COUNTS');
-    sum.addRow(['Total Customers', '', (customers || []).length]);
-    sum.addRow(['Total Suppliers', '', (suppliers || []).length]);
-    sum.addRow(['Active Products', '', (products || []).length]);
-    sum.addRow(['Purchase Orders', '', (pos || []).length]);
+    sum.addRow(['Total Customers', '', customers.length]);
+    sum.addRow(['Total Suppliers', '', suppliers.length]);
+    sum.addRow(['Active Products', '', products.length]);
+    sum.addRow(['Purchase Orders', '', pos.length]);
 
     writeOrdersSheet(wb, allOrders);
     writeOrderItemsSheet(wb, realOrders);
     writePaymentsSheet(wb, allPayments, orderNumberMap, true);
-    writeProductsSheet(wb, products || [], true);
+    writeProductsSheet(wb, products, true);
     writeProductSalesSheet(wb, productSales);
 
     const sm = wb.addWorksheet('Stock Movements');
@@ -1444,7 +1536,7 @@ const exportFullReport = async (req, res) => {
     ];
     applyHeaderStyle(sm.getRow(1));
     sm.views = [{ state: 'frozen', ySplit: 1 }];
-    (movements || []).forEach(m => {
+    movements.forEach(m => {
       sm.addRow({
         created_at: m.created_at ? formatDateTimeForExcel(m.created_at) : '',
         product_name: productNameMap[m.product_id] || '',
@@ -1465,7 +1557,7 @@ const exportFullReport = async (req, res) => {
     ];
     applyHeaderStyle(custSheet.getRow(1));
     custSheet.views = [{ state: 'frozen', ySplit: 1 }];
-    (customers || []).forEach(c => {
+    customers.forEach(c => {
       custSheet.addRow({
         name: c.name,
         phone: c.phone || '',
@@ -1485,7 +1577,7 @@ const exportFullReport = async (req, res) => {
     ];
     applyHeaderStyle(supSheet.getRow(1));
     supSheet.views = [{ state: 'frozen', ySplit: 1 }];
-    (suppliers || []).forEach(s => {
+    suppliers.forEach(s => {
       supSheet.addRow({ name: s.name, contact_person: s.contact_person || '', phone: s.phone || '', email: s.email || '' });
     });
 
@@ -1499,7 +1591,7 @@ const exportFullReport = async (req, res) => {
     ];
     applyHeaderStyle(poSheet.getRow(1));
     poSheet.views = [{ state: 'frozen', ySplit: 1 }];
-    (pos || []).forEach(p => {
+    pos.forEach(p => {
       poSheet.addRow({
         po_number: p.po_number,
         supplier_name: supplierMap[p.supplier_id] || '',
@@ -1543,7 +1635,7 @@ const exportFullReport = async (req, res) => {
     ];
     applyHeaderStyle(expSheet.getRow(1));
     expSheet.views = [{ state: 'frozen', ySplit: 1 }];
-    (expenses || []).forEach(e => {
+    expenses.forEach(e => {
       expSheet.addRow({
         expense_date: e.expense_date || '',
         description: e.description || '',

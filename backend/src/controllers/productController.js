@@ -602,20 +602,32 @@ const getLowStockProducts = async (req, res) => {
         const branchId = await requireBranchId(req, res);
         if (!branchId) return;
 
-        const { data: products, error } = await supabase
+        // Cap the response. Dashboards show a handful; anything more
+        // is noise.
+        const limitNum = Math.min(parseInt(req.query.limit) || 50, 200);
+
+        const { data: products, error, count } = await supabase
             .from('products')
-            .select('id, name, stock_quantity, low_stock_threshold')
+            .select('id, name, stock_quantity, low_stock_threshold', { count: 'exact' })
             .eq('branch_id', branchId)
             .eq('is_active', true)
-            .order('stock_quantity');
+            .order('stock_quantity', { ascending: true })
+            .limit(limitNum);
 
         if (error) throw error;
 
+        // Postgres cannot compare two columns in a WHERE clause via
+        // PostgREST easily, so we filter here. But now we are only
+        // filtering at most `limitNum` rows, not the whole table.
         const lowStock = (products || []).filter(
             p => (p.stock_quantity || 0) <= (p.low_stock_threshold || 5)
         );
 
-        return res.status(200).json({ success: true, count: lowStock.length, data: lowStock });
+        return res.status(200).json({
+            success: true,
+            count: lowStock.length,
+            data: lowStock
+        });
 
     } catch (error) {
         console.error('Get low stock products error:', error);

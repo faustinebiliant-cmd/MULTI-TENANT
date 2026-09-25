@@ -76,7 +76,7 @@ const KNOWN_ACTIONS = [
 // ============================================================
 const getActivityLogs = async (req, res) => {
     try {
-        let { action, user_id, branch_id, startDate, endDate, limit = 100, page = 1 } = req.query;
+        let { action, user_id, branch_id, startDate, endDate, search, limit = 100, page = 1 } = req.query;
 
         // Scope guard: staff are locked to their own branch from JWT.
         // Boss can filter by branch via ?branch_id=... but only within
@@ -171,6 +171,11 @@ const getActivityLogs = async (req, res) => {
             }
         }
 
+        // Sanitize the search term
+        const cleanSearch = search && search.trim()
+            ? search.trim().replace(/[%_,()'"]/g, '')
+            : null;
+
         // Validate pagination
         const limitNum = parseInt(limit);
         if (isNaN(limitNum) || limitNum < 1 || limitNum > 200) {
@@ -216,6 +221,11 @@ const getActivityLogs = async (req, res) => {
             query = query.eq('branch_id', filterBranchId);
         }
 
+        // Search: user name, action, or order number
+        if (cleanSearch) {
+            query = query.or(`user_name.ilike.%${cleanSearch}%,action.ilike.%${cleanSearch}%,order_number.ilike.%${cleanSearch}%`);
+        }
+
         // Additional filters
         if (action && action !== 'all') query = query.eq('action', action);
         if (user_id && user_id !== 'all') query = query.eq('user_id', user_id);
@@ -241,6 +251,9 @@ const getActivityLogs = async (req, res) => {
             .in('branch_id', allowedBranchIds);
 
         if (filterBranchId) countQuery = countQuery.eq('branch_id', filterBranchId);
+        if (cleanSearch) {
+            countQuery = countQuery.or(`user_name.ilike.%${cleanSearch}%,action.ilike.%${cleanSearch}%,order_number.ilike.%${cleanSearch}%`);
+        }
         if (action && action !== 'all') countQuery = countQuery.eq('action', action);
         if (user_id && user_id !== 'all') countQuery = countQuery.eq('user_id', user_id);
         if (startDate) countQuery = countQuery.gte('created_at', new Date(startDate).toISOString());

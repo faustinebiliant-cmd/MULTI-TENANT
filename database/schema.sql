@@ -504,6 +504,54 @@ ON public.products USING gin (sku gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS products_description_trgm_idx
 ON public.products USING gin (description gin_trgm_ops);
 
+-- Audit log search (user_name, order_number)
+CREATE INDEX IF NOT EXISTS activity_logs_user_name_trgm_idx
+ON public.activity_logs USING gin (user_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS activity_logs_order_number_trgm_idx
+ON public.activity_logs USING gin (order_number gin_trgm_ops);
+
+-- Supplier search
+CREATE INDEX IF NOT EXISTS suppliers_name_trgm_idx
+ON public.suppliers USING gin (name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS suppliers_contact_person_trgm_idx
+ON public.suppliers USING gin (contact_person gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS suppliers_phone_trgm_idx
+ON public.suppliers USING gin (phone gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS suppliers_email_trgm_idx
+ON public.suppliers USING gin (email gin_trgm_ops);
+
+-- Expense search
+CREATE INDEX IF NOT EXISTS expenses_description_trgm_idx
+ON public.expenses USING gin (description gin_trgm_ops);
+
+-- Admin businesses search
+CREATE INDEX IF NOT EXISTS businesses_name_trgm_idx
+ON public.businesses USING gin (name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS businesses_business_code_trgm_idx
+ON public.businesses USING gin (business_code gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS businesses_email_trgm_idx
+ON public.businesses USING gin (email gin_trgm_ops);
+
+-- Admin customers search
+CREATE INDEX IF NOT EXISTS users_full_name_trgm_idx
+ON public.users USING gin (full_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS users_email_trgm_idx
+ON public.users USING gin (email gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS users_account_code_trgm_idx
+ON public.users USING gin (account_code gin_trgm_ops);
+
+-- Aggregates filtered by date range and status
+CREATE INDEX IF NOT EXISTS orders_branch_created_status_idx
+ON public.orders (branch_id, created_at DESC, order_status);
+
 -- ============================================================
 -- PART 4: ACCOUNT CODES AND BUSINESS CODES
 -- ============================================================
