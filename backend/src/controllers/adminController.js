@@ -93,6 +93,39 @@ const buildSubscriptionInfo = (business, hasPending = false) => {
 };
 
 // ============================================================
+// Chunked .in() helper
+// PostgREST puts the .in() list in the URL. URLs have a length
+// limit (~16KB in practice, less in some proxies). Each UUID is
+// 36 chars + 1 comma = ~37 bytes. 200 IDs = ~7.4KB, safely under.
+// This splits any ID list into groups of 200 and fetches each
+// group in a separate query, then combines the rows.
+// Used by listAllBusinesses and listAllCustomers.
+// ============================================================
+const ID_CHUNK_SIZE = 200;
+
+const fetchByIdsChunked = async ({ table, column, ids, select = '*', extraFilters = null }) => {
+    if (!ids || ids.length === 0) return [];
+
+    const results = [];
+
+    for (let i = 0; i < ids.length; i += ID_CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + ID_CHUNK_SIZE);
+
+        let query = supabase.from(table).select(select).in(column, chunk);
+
+        if (extraFilters) {
+            query = extraFilters(query);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) results.push(...data);
+    }
+
+    return results;
+};
+
+// ============================================================
 // POST /api/admin/login
 // Public. Exchanges email + password for an admin JWT.
 // ============================================================
@@ -328,6 +361,12 @@ const getMetrics = async (req, res) => {
 // List all businesses with summary stats.
 // Supports subscription_filter: all | trial | active | expired |
 // suspended | payment_pending
+//
+// Enrichment strategy (avoids N+1):
+//   Old: 4 queries per business row (branch count, staff count,
+//        branch IDs, order count) = 100 queries for 25 rows.
+//   New: 3 batched queries total for the whole page, regardless
+//        of row count. Grouped in JS by business_id.
 // ============================================================
 const listAllBusinesses = async (req, res) => {
     try {
@@ -409,51 +448,89 @@ const listAllBusinesses = async (req, res) => {
 
         if (error) throw error;
 
-        // Which of these businesses have pending submissions?
+        const businessIds = (businesses || []).map(b => b.id);
+
+        // ------------------------------------------------------------
+        // Batched enrichment — 3 queries for the whole page.
+        // ------------------------------------------------------------
+
+        // 1. Branches for all businesses on this page.
+        //    Gives us both the branch IDs (for the order count below)
+        //    and the per-business branch count.
+        const branchRows = await fetchByIdsChunked({
+            table: 'branches',
+            column: 'business_id',
+            ids: businessIds,
+            select: 'id, business_id'
+        });
+
+        const branchesByBusiness = {};
+        const allBranchIds = [];
+        branchRows.forEach(br => {
+            if (!branchesByBusiness[br.business_id]) branchesByBusiness[br.business_id] = [];
+            branchesByBusiness[br.business_id].push(br.id);
+            allBranchIds.push(br.id);
+        });
+
+        // 2. Staff for all businesses on this page.
+        const staffRows = await fetchByIdsChunked({
+            table: 'users',
+            column: 'business_id',
+            ids: businessIds,
+            select: 'id, business_id',
+            extraFilters: (q) => q.eq('is_deleted', false)
+        });
+
+        const staffByBusiness = {};
+        staffRows.forEach(u => {
+            if (!staffByBusiness[u.business_id]) staffByBusiness[u.business_id] = 0;
+            staffByBusiness[u.business_id] += 1;
+        });
+
+        // 3. Orders for all branch IDs collected above.
+        //    Count per branch, then sum per business in JS.
+        const orderRows = await fetchByIdsChunked({
+            table: 'orders',
+            column: 'branch_id',
+            ids: allBranchIds,
+            select: 'id, branch_id'
+        });
+
+        const ordersByBranch = {};
+        orderRows.forEach(o => {
+            if (!ordersByBranch[o.branch_id]) ordersByBranch[o.branch_id] = 0;
+            ordersByBranch[o.branch_id] += 1;
+        });
+
+        const ordersByBusiness = {};
+        Object.entries(branchesByBusiness).forEach(([bizId, branchIds]) => {
+            ordersByBusiness[bizId] = branchIds.reduce(
+                (sum, brId) => sum + (ordersByBranch[brId] || 0),
+                0
+            );
+        });
+
+        // 4. Pending submissions for this page's businesses.
         let pendingSet = new Set();
-        if ((businesses || []).length > 0) {
-            const ids = businesses.map(b => b.id);
+        if (businessIds.length > 0) {
             const { data: pendingRows } = await supabase
                 .from('payment_submissions')
                 .select('business_id')
                 .eq('status', 'pending')
-                .in('business_id', ids);
+                .in('business_id', businessIds);
 
             pendingSet = new Set((pendingRows || []).map(r => r.business_id));
         }
 
-        const enriched = await Promise.all((businesses || []).map(async (b) => {
-            const [branches, staff] = await Promise.all([
-                supabase.from('branches').select('id', { count: 'exact', head: true }).eq('business_id', b.id),
-                supabase.from('users').select('id', { count: 'exact', head: true }).eq('business_id', b.id).eq('is_deleted', false)
-            ]);
-
-            // Orders are attached to branches, not to businesses.
-            // Fetch this business's branch IDs, then count orders
-            // across those branches.
-            const { data: branchRows } = await supabase
-                .from('branches')
-                .select('id')
-                .eq('business_id', b.id);
-
-            const branchIds = (branchRows || []).map(r => r.id);
-
-            let orderCount = 0;
-            if (branchIds.length > 0) {
-                const { count: orders } = await supabase
-                    .from('orders')
-                    .select('id', { count: 'exact', head: true })
-                    .in('branch_id', branchIds);
-                orderCount = orders || 0;
-            }
-
-            return {
-                ...b,
-                branch_count: branches.count || 0,
-                staff_count: staff.count || 0,
-                order_count: orderCount,
-                subscription: buildSubscriptionInfo(b, pendingSet.has(b.id))
-            };
+        // ------------------------------------------------------------
+        // Stitch everything into the response.
+        // ------------------------------------------------------------
+        const enriched = (businesses || []).map(b => ({
+            ...b,
+            branch_count: (branchesByBusiness[b.id] || []).length,
+            staff_count: staffByBusiness[b.id] || 0,
+            order_count: ordersByBusiness[b.id] || 0,
+            subscription: buildSubscriptionInfo(b, pendingSet.has(b.id))
         }));
 
         return res.status(200).json({
@@ -475,6 +552,7 @@ const listAllBusinesses = async (req, res) => {
         });
     }
 };
+
 // ============================================================
 // GET /api/admin/businesses/:id
 // Full detail view of one business.
@@ -988,6 +1066,11 @@ const listAuditLogs = async (req, res) => {
 // GET /api/admin/customers
 // List all Bosses with aggregate stats across their businesses.
 // Includes a subscription summary per Boss.
+//
+// Enrichment strategy (avoids N+1):
+//   Old: 3 queries per boss row (businesses, branches, staff)
+//        = 75 queries for 25 rows.
+//   New: 3 batched queries total for the whole page.
 // ============================================================
 const listAllCustomers = async (req, res) => {
     try {
@@ -1029,42 +1112,83 @@ const listAllCustomers = async (req, res) => {
 
         if (error) throw error;
 
-        const enriched = await Promise.all((bosses || []).map(async (boss) => {
-            const { data: bizRows } = await supabase
-                .from('businesses')
-                .select('id, is_active, subscription_status')
-                .eq('owner_id', boss.id);
+        const bossIds = (bosses || []).map(b => b.id);
 
-            const businessIds = (bizRows || []).map(b => b.id);
-            const activeCount = (bizRows || []).filter(b => b.is_active).length;
+        // ------------------------------------------------------------
+        // Batched enrichment — 3 queries for the whole page.
+        // ------------------------------------------------------------
+
+        // 1. Businesses owned by all bosses on this page.
+        //    Gives us business count, active count, subscription summary,
+        //    and the business IDs needed for the next steps.
+        const businessRows = await fetchByIdsChunked({
+            table: 'businesses',
+            column: 'owner_id',
+            ids: bossIds,
+            select: 'id, owner_id, is_active, subscription_status'
+        });
+
+        const businessesByBoss = {};
+        const allBusinessIds = [];
+        businessRows.forEach(b => {
+            if (!businessesByBoss[b.owner_id]) businessesByBoss[b.owner_id] = [];
+            businessesByBoss[b.owner_id].push(b);
+            allBusinessIds.push(b.id);
+        });
+
+        // 2. Branches for all those businesses.
+        const branchRows = await fetchByIdsChunked({
+            table: 'branches',
+            column: 'business_id',
+            ids: allBusinessIds,
+            select: 'id, business_id'
+        });
+
+        const branchesByBusiness = {};
+        branchRows.forEach(br => {
+            if (!branchesByBusiness[br.business_id]) branchesByBusiness[br.business_id] = 0;
+            branchesByBusiness[br.business_id] += 1;
+        });
+
+        // 3. Staff for all those businesses.
+        const staffRows = await fetchByIdsChunked({
+            table: 'users',
+            column: 'business_id',
+            ids: allBusinessIds,
+            select: 'id, business_id',
+            extraFilters: (q) => q.neq('role', 'boss').eq('is_deleted', false)
+        });
+
+        const staffByBusiness = {};
+        staffRows.forEach(u => {
+            if (!staffByBusiness[u.business_id]) staffByBusiness[u.business_id] = 0;
+            staffByBusiness[u.business_id] += 1;
+        });
+
+        // ------------------------------------------------------------
+        // Stitch everything into the response.
+        // ------------------------------------------------------------
+        const enriched = (bosses || []).map(boss => {
+            const bossBusinesses = businessesByBoss[boss.id] || [];
+
+            const activeCount = bossBusinesses.filter(b => b.is_active).length;
 
             const subscriptionSummary = {
-                trial: (bizRows || []).filter(b => b.subscription_status === 'trial').length,
-                active: (bizRows || []).filter(b => b.subscription_status === 'active').length,
-                expired: (bizRows || []).filter(b => b.subscription_status === 'expired').length,
-                suspended: (bizRows || []).filter(b => b.subscription_status === 'suspended').length
+                trial: bossBusinesses.filter(b => b.subscription_status === 'trial').length,
+                active: bossBusinesses.filter(b => b.subscription_status === 'active').length,
+                expired: bossBusinesses.filter(b => b.subscription_status === 'expired').length,
+                suspended: bossBusinesses.filter(b => b.subscription_status === 'suspended').length
             };
 
-            let branchCount = 0;
-            let staffCount = 0;
+            const branchCount = bossBusinesses.reduce(
+                (sum, b) => sum + (branchesByBusiness[b.id] || 0),
+                0
+            );
 
-            if (businessIds.length > 0) {
-                const { data: branchRows } = await supabase
-                    .from('branches')
-                    .select('id')
-                    .in('business_id', businessIds);
-
-                branchCount = (branchRows || []).length;
-
-                const { count: staff } = await supabase
-                    .from('users')
-                    .select('id', { count: 'exact', head: true })
-                    .neq('role', 'boss')
-                    .in('business_id', businessIds)
-                    .eq('is_deleted', false);
-
-                staffCount = staff || 0;
-            }
+            const staffCount = bossBusinesses.reduce(
+                (sum, b) => sum + (staffByBusiness[b.id] || 0),
+                0
+            );
 
             return {
                 id: boss.id,
@@ -1074,13 +1198,13 @@ const listAllCustomers = async (req, res) => {
                 account_code: boss.account_code,
                 is_active: boss.is_active,
                 created_at: boss.created_at,
-                business_count: businessIds.length,
+                business_count: bossBusinesses.length,
                 active_business_count: activeCount,
                 branch_count: branchCount,
                 staff_count: staffCount,
                 subscriptions: subscriptionSummary
             };
-        }));
+        });
 
         return res.status(200).json({
             success: true,
