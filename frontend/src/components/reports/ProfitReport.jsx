@@ -1,10 +1,9 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Profit Report
-// Realized profit: only counts profit on money received.
-// VAT is shown as memo, not part of profit.
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FiTrendingUp, FiDollarSign, FiTrendingDown, FiFileText, FiPercent
 } from 'react-icons/fi';
@@ -16,27 +15,27 @@ import toast from 'react-hot-toast';
 const currentYear = new Date().getFullYear();
 
 const periodOptions = [
-  { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-  { value: 'custom', label: 'Custom' }
+  { value: 'today', labelKey: 'reports.common.periods.today' },
+  { value: 'week', labelKey: 'reports.common.periods.week' },
+  { value: 'month', labelKey: 'reports.common.periods.month' },
+  { value: 'year', labelKey: 'reports.common.periods.year' },
+  { value: 'custom', labelKey: 'reports.common.periods.custom' }
 ];
 
 const months = [
-  { value: 'all', label: 'All Months' },
-  { value: '1', label: 'January' },
-  { value: '2', label: 'February' },
-  { value: '3', label: 'March' },
-  { value: '4', label: 'April' },
-  { value: '5', label: 'May' },
-  { value: '6', label: 'June' },
-  { value: '7', label: 'July' },
-  { value: '8', label: 'August' },
-  { value: '9', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' }
+  { value: 'all', labelKey: 'reports.common.months.all' },
+  { value: '1', labelKey: 'reports.common.months.1' },
+  { value: '2', labelKey: 'reports.common.months.2' },
+  { value: '3', labelKey: 'reports.common.months.3' },
+  { value: '4', labelKey: 'reports.common.months.4' },
+  { value: '5', labelKey: 'reports.common.months.5' },
+  { value: '6', labelKey: 'reports.common.months.6' },
+  { value: '7', labelKey: 'reports.common.months.7' },
+  { value: '8', labelKey: 'reports.common.months.8' },
+  { value: '9', labelKey: 'reports.common.months.9' },
+  { value: '10', labelKey: 'reports.common.months.10' },
+  { value: '11', labelKey: 'reports.common.months.11' },
+  { value: '12', labelKey: 'reports.common.months.12' }
 ];
 
 const availableYears = [];
@@ -45,6 +44,7 @@ for (let y = 2020; y <= currentYear; y++) {
 }
 
 const ProfitReport = () => {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState('today');
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState('all');
@@ -83,7 +83,7 @@ const ProfitReport = () => {
       setData(response.data);
     } catch (error) {
       console.error('Error fetching profit report:', error);
-      toast.error('Failed to load profit report');
+      toast.error(t('reports.common.download_failed'));
     } finally {
       setLoading(false);
     }
@@ -94,17 +94,17 @@ const ProfitReport = () => {
       setPeriod('custom');
       fetchReport();
     } else {
-      toast.error('Please select both start and end dates');
+      toast.error(t('reports.common.select_dates_error'));
     }
   };
 
-  if (loading) return <Loader message="Loading profit report..." />;
+  if (loading) return <Loader message={t('reports.common.loading')} />;
 
   if (!data) {
     return (
       <div className="empty-state">
-        <h3>No data available</h3>
-        <p>No sales found for this period</p>
+        <h3>{t('reports.common.no_data')}</h3>
+        <p>{t('reports.common.no_data_hint')}</p>
       </div>
     );
   }
@@ -115,12 +115,11 @@ const ProfitReport = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Profit Report</h1>
-          <p>Realized profit on money received, VAT excluded</p>
+          <h1>{t('reports.profit.title')}</h1>
+          <p>{t('reports.profit.subtitle')}</p>
         </div>
       </div>
 
-      {/* Period selector — same as Sales Report */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="report-tabs">
           {periodOptions.map((opt) => (
@@ -129,7 +128,7 @@ const ProfitReport = () => {
               className={`report-tab ${period === opt.value ? 'active' : ''}`}
               onClick={() => setPeriod(opt.value)}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
@@ -156,7 +155,7 @@ const ProfitReport = () => {
               style={{ width: '150px' }}
             >
               {months.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>{t(m.labelKey)}</option>
               ))}
             </select>
           )}
@@ -170,7 +169,9 @@ const ProfitReport = () => {
                 className="form-control"
                 style={{ width: '160px' }}
               />
-              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>to</span>
+              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>
+                {t('reports.common.date_range_to')}
+              </span>
               <input
                 type="date"
                 value={endDate}
@@ -179,14 +180,13 @@ const ProfitReport = () => {
                 style={{ width: '160px' }}
               />
               <button onClick={handleApplyCustom} className="btn btn-primary btn-sm">
-                Apply
+                {t('reports.common.apply')}
               </button>
             </>
           )}
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="stats-grid-4">
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: 'var(--tone-purple-bg)', color: 'var(--tone-purple-text)' }}>
@@ -194,7 +194,7 @@ const ProfitReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalProfit || 0)}</h3>
-            <p>Realized Profit</p>
+            <p>{t('reports.profit.realized_profit_title')}</p>
           </div>
         </div>
 
@@ -204,7 +204,7 @@ const ProfitReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalRevenuePaid || 0)}</h3>
-            <p>Business Money (excl. VAT)</p>
+            <p>{t('reports.profit.business_money_title')}</p>
           </div>
         </div>
 
@@ -214,7 +214,7 @@ const ProfitReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalExpenses || 0)}</h3>
-            <p>Expenses</p>
+            <p>{t('reports.profit.expenses_title')}</p>
           </div>
         </div>
 
@@ -226,39 +226,42 @@ const ProfitReport = () => {
             <h3 style={{ color: summary.netProfit >= 0 ? '#059669' : '#dc2626' }}>
               {formatCurrency(summary.netProfit || 0)}
             </h3>
-            <p>Net Profit (after expenses)</p>
+            <p>{t('reports.profit.net_profit_title')}</p>
           </div>
         </div>
       </div>
 
-      {/* P&L Breakdown */}
       <div className="card" style={{ marginTop: '20px' }}>
-        <h3>Profit &amp; Loss Breakdown</h3>
+        <h3>{t('reports.profit.breakdown_title')}</h3>
 
         <div className="detail-row">
-          <span className="detail-label">Business Money Received (excl. VAT)</span>
+          <span className="detail-label">{t('reports.profit.business_received_label')}</span>
           <span className="detail-value">{formatCurrency(summary.totalRevenuePaid || 0)}</span>
         </div>
         <div className="detail-row">
-          <span className="detail-label">Cost of Goods Sold (paid portion)</span>
+          <span className="detail-label">{t('reports.profit.cost_paid_label')}</span>
           <span className="detail-value" style={{ color: '#ef4444' }}>
             - {formatCurrency(summary.totalCostPaid || 0)}
           </span>
         </div>
         <div className="detail-row" style={{ borderTop: '2px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
-          <span className="detail-label" style={{ fontWeight: 700 }}>Realized Profit</span>
+          <span className="detail-label" style={{ fontWeight: 700 }}>
+            {t('reports.profit.realized_profit_label')}
+          </span>
           <span className="detail-value" style={{ fontWeight: 700, color: summary.totalProfit >= 0 ? '#10b981' : '#ef4444' }}>
             {formatCurrency(summary.totalProfit || 0)}
           </span>
         </div>
         <div className="detail-row">
-          <span className="detail-label">Operating Expenses</span>
+          <span className="detail-label">{t('reports.profit.operating_expenses_label')}</span>
           <span className="detail-value" style={{ color: '#ef4444' }}>
             - {formatCurrency(summary.totalExpenses || 0)}
           </span>
         </div>
         <div className="detail-row" style={{ borderTop: '2px solid #0f172a', paddingTop: '12px', marginTop: '8px' }}>
-          <span className="detail-label" style={{ fontWeight: 700, fontSize: '16px' }}>Net Profit</span>
+          <span className="detail-label" style={{ fontWeight: 700, fontSize: '16px' }}>
+            {t('reports.profit.net_profit_label')}
+          </span>
           <span className="detail-value" style={{
             fontWeight: 700,
             fontSize: '16px',
@@ -268,50 +271,48 @@ const ProfitReport = () => {
           </span>
         </div>
         <div className="detail-row">
-          <span className="detail-label">Margin</span>
+          <span className="detail-label">{t('reports.profit.margin_label')}</span>
           <span className="detail-value">
             {(summary.margin || 0).toFixed(2)}%
           </span>
         </div>
       </div>
 
-      {/* VAT memo — visible, but not part of profit */}
       <div className="card vat-memo-card" style={{ marginTop: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <FiPercent size={18} color="var(--tone-amber-text)" />
           <div>
             <div className="vat-memo-title">
-              VAT Collected (not part of profit)
+              {t('reports.profit.vat_memo_title')}
             </div>
             <div className="vat-memo-amount">
               {formatCurrency(summary.totalVATPaid || 0)}
             </div>
             <div className="vat-memo-note">
-              This amount belongs to the government and must be remitted. It is not included in the profit calculation above.
+              {t('reports.profit.vat_memo_note')}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Top products */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3>Top Products by Profit</h3>
+          <h3>{t('reports.profit.top_products_title')}</h3>
         </div>
         {productProfit.length === 0 ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-            No product sales for this period
+            {t('reports.profit.no_product_sales')}
           </p>
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>Qty Sold</th>
-                  <th>Revenue (full)</th>
-                  <th>Cost (full)</th>
-                  <th>Profit (full)</th>
+                  <th>{t('reports.profit.top_columns.product')}</th>
+                  <th>{t('reports.profit.top_columns.quantity_sold')}</th>
+                  <th>{t('reports.profit.top_columns.revenue')}</th>
+                  <th>{t('reports.profit.top_columns.cost')}</th>
+                  <th>{t('reports.profit.top_columns.profit')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -334,29 +335,27 @@ const ProfitReport = () => {
           </div>
         )}
         <small style={{ display: 'block', marginTop: '10px', color: 'var(--gray)', fontSize: '12px' }}>
-          Note: product breakdown shows profit potential on full order values. The
-          summary above reflects profit on money actually received.
+          {t('reports.profit.top_hint')}
         </small>
       </div>
 
-      {/* Expenses */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3>Expenses in This Period ({expenses.length})</h3>
+          <h3>{t('reports.profit.expenses_in_period', { count: expenses.length })}</h3>
         </div>
         {expenses.length === 0 ? (
           <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-            No expenses recorded
+            {t('reports.profit.no_expenses')}
           </p>
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Category</th>
-                  <th>Amount</th>
+                  <th>{t('reports.profit.expense_columns.date')}</th>
+                  <th>{t('reports.profit.expense_columns.description')}</th>
+                  <th>{t('reports.profit.expense_columns.category')}</th>
+                  <th>{t('reports.profit.expense_columns.amount')}</th>
                 </tr>
               </thead>
               <tbody>

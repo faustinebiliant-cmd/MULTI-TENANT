@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiPlus, FiSearch, FiX, FiCalendar,
   FiChevronLeft, FiChevronRight, FiChevronDown, FiChevronUp
@@ -16,6 +17,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const POList = () => {
+  const { t } = useTranslation();
   const [pos, setPos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -43,11 +45,11 @@ const POList = () => {
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
     } catch (error) {
       console.error('Error fetching POs:', error);
-      toast.error('Failed to load purchase orders');
+      toast.error(t('purchase_orders.form.messages.load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, filter, startDate, endDate]);
+  }, [debouncedSearch, filter, startDate, endDate, t]);
 
   useEffect(() => {
     fetchPOs(1);
@@ -70,7 +72,7 @@ const POList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading purchase orders...</p>
+        <p>{t('purchase_orders.list.loading')}</p>
       </div>
     );
   }
@@ -79,11 +81,11 @@ const POList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Purchase Orders</h1>
-          <p>Manage supplier purchase orders</p>
+          <h1>{t('purchase_orders.list.title')}</h1>
+          <p>{t('purchase_orders.list.subtitle')}</p>
         </div>
         <Link to="/purchase-orders/new" className="btn btn-primary">
-          <FiPlus size={18} /> Create PO
+          <FiPlus size={18} /> {t('purchase_orders.list.create_button')}
         </Link>
       </div>
 
@@ -93,7 +95,7 @@ const POList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search POs by number or supplier..."
+              placeholder={t('purchase_orders.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -106,10 +108,10 @@ const POList = () => {
             className="form-control"
             style={{ width: '150px', fontSize: '13px' }}
           >
-            <option value="all">All POs</option>
-            <option value="pending">Pending</option>
-            <option value="received">Received</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{t('purchase_orders.list.all_pos')}</option>
+            <option value="pending">{t('purchase_orders.status.pending')}</option>
+            <option value="received">{t('purchase_orders.status.received')}</option>
+            <option value="cancelled">{t('purchase_orders.status.cancelled')}</option>
           </select>
 
           <button
@@ -118,7 +120,7 @@ const POList = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <FiCalendar size={16} />
-            {showFilters ? 'Hide Dates' : 'Show Dates'}
+            {showFilters ? t('purchase_orders.list.hide_dates') : t('purchase_orders.list.show_dates')}
             {showFilters ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
           </button>
 
@@ -128,12 +130,12 @@ const POList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear All
+              <FiX size={14} /> {t('purchase_orders.list.clear_all')}
             </button>
           )}
 
           <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#64748b', whiteSpace: 'nowrap' }}>
-            Showing <strong>{pos.length}</strong> of <strong>{pagination.total}</strong>
+            {t('purchase_orders.list.showing', { shown: pos.length, total: pagination.total })}
           </div>
         </div>
 
@@ -148,7 +150,7 @@ const POList = () => {
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
-              Date Range:
+              {t('purchase_orders.list.show_dates')}:
             </span>
             <input
               type="date"
@@ -171,7 +173,7 @@ const POList = () => {
                 className="btn btn-sm btn-secondary"
                 style={{ color: '#64748b' }}
               >
-                <FiX size={14} /> Clear
+                <FiX size={14} /> {t('purchase_orders.list.clear_dates')}
               </button>
             )}
           </div>
@@ -182,23 +184,23 @@ const POList = () => {
         <table>
           <thead>
             <tr>
-              <th>PO Number</th>
-              <th>Supplier</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Actions</th>
+              <th>{t('purchase_orders.list.columns.po_number')}</th>
+              <th>{t('purchase_orders.list.columns.supplier')}</th>
+              <th>{t('purchase_orders.list.columns.total')}</th>
+              <th>{t('purchase_orders.list.columns.status')}</th>
+              <th>{t('purchase_orders.list.columns.date')}</th>
+              <th>{t('purchase_orders.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {pos.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No purchase orders found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('purchase_orders.list.no_pos')}</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
-                      ? 'Try adjusting or clearing your filters.'
-                      : 'Create your first PO.'}
+                      ? t('purchase_orders.list.no_pos_filtered')
+                      : t('purchase_orders.list.no_pos_empty')}
                   </p>
                 </td>
               </tr>
@@ -210,13 +212,13 @@ const POList = () => {
                   <td>{formatCurrency(po.total_amount)}</td>
                   <td>
                     <span className={`badge badge-${po.status}`}>
-                      {po.status?.toUpperCase() || 'PENDING'}
+                      {t('purchase_orders.status.' + (po.status || 'pending'))}
                     </span>
                   </td>
                   <td>{formatDate(po.created_at)}</td>
                   <td>
                     <Link to={`/purchase-orders/${po.id}`} className="btn btn-sm btn-secondary">
-                      View
+                      {t('common.view')}
                     </Link>
                   </td>
                 </tr>
@@ -236,7 +238,7 @@ const POList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

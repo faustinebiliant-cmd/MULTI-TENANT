@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiSearch, FiX, FiChevronLeft, FiChevronRight,
   FiCalendar, FiChevronDown, FiChevronUp
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const PaymentList = () => {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -46,11 +48,11 @@ const PaymentList = () => {
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
     } catch (error) {
       console.error('Error fetching payments:', error);
-      toast.error('Failed to load payments');
+      toast.error(t('payments.list.loading'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, method, statusFilter, startDate, endDate]);
+  }, [debouncedSearch, method, statusFilter, startDate, endDate, t]);
 
   useEffect(() => {
     fetchPayments(1);
@@ -70,23 +72,17 @@ const PaymentList = () => {
   const hasActiveFilters =
     search || method !== 'all' || statusFilter !== 'all' || startDate || endDate;
 
-  const getMethodLabel = (m) => {
-    const labels = { cash: 'Cash', mpesa: 'M-Pesa', tigo_pesa: 'Tigo Pesa' };
-    return labels[m] || m;
-  };
-
   const getPaymentStatus = (payment) => {
     if ((payment.status || '').toLowerCase() === 'voided') {
-      return { text: 'Voided', color: '#6b7280' };
+      return { text: t('payments.list.status.voided'), color: '#6b7280' };
     }
     const orderStatus = payment.order_payment_status || 'unpaid';
-    if (orderStatus === 'paid') return { text: 'Completed', color: '#10b981' };
-    if (orderStatus === 'partial') return { text: 'Partial', color: '#f59e0b' };
-    if (orderStatus === 'unpaid') return { text: 'Unpaid', color: '#ef4444' };
-    return { text: 'Completed', color: '#10b981' };
+    if (orderStatus === 'paid') return { text: t('payments.list.status.completed'), color: '#10b981' };
+    if (orderStatus === 'partial') return { text: t('status.partial'), color: '#f59e0b' };
+    if (orderStatus === 'unpaid') return { text: t('status.unpaid'), color: '#ef4444' };
+    return { text: t('payments.list.status.completed'), color: '#10b981' };
   };
 
-  // Page total excludes voided rows so the number matches what you actually received
   const pageTotal = payments
     .filter((p) => (p.status || '').toLowerCase() !== 'voided')
     .reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -96,15 +92,15 @@ const PaymentList = () => {
     .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   if (loading && payments.length === 0) {
-    return <Loader message="Loading payments..." />;
+    return <Loader message={t('payments.list.loading')} />;
   }
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1>Payments</h1>
-          <p>View all payment transactions</p>
+          <h1>{t('payments.list.title')}</h1>
+          <p>{t('payments.list.subtitle')}</p>
         </div>
       </div>
 
@@ -114,7 +110,7 @@ const PaymentList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search payments by order number or customer..."
+              placeholder={t('payments.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -127,10 +123,10 @@ const PaymentList = () => {
             className="form-control"
             style={{ width: '140px', fontSize: '13px' }}
           >
-            <option value="all">All Methods</option>
-            <option value="cash">Cash</option>
-            <option value="mpesa">M-Pesa</option>
-            <option value="tigo_pesa">Tigo Pesa</option>
+            <option value="all">{t('payments.list.all_methods')}</option>
+            <option value="cash">{t('payments.list.methods.cash')}</option>
+            <option value="mpesa">{t('payments.list.methods.mpesa')}</option>
+            <option value="tigo_pesa">{t('payments.list.methods.tigo_pesa')}</option>
           </select>
 
           <select
@@ -139,9 +135,9 @@ const PaymentList = () => {
             className="form-control"
             style={{ width: '150px', fontSize: '13px' }}
           >
-            <option value="all">All Statuses</option>
-            <option value="completed">Completed</option>
-            <option value="voided">Voided</option>
+            <option value="all">{t('payments.list.all_statuses')}</option>
+            <option value="completed">{t('payments.list.status.completed')}</option>
+            <option value="voided">{t('payments.list.status.voided')}</option>
           </select>
 
           <button
@@ -150,7 +146,7 @@ const PaymentList = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <FiCalendar size={16} />
-            {showFilters ? 'Hide Dates' : 'Show Dates'}
+            {showFilters ? t('payments.list.hide_dates') : t('payments.list.show_dates')}
             {showFilters ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
           </button>
 
@@ -165,7 +161,7 @@ const PaymentList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear All
+              <FiX size={14} /> {t('payments.list.clear_all')}
             </button>
           )}
         </div>
@@ -181,7 +177,7 @@ const PaymentList = () => {
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
-              Date Range:
+              {t('payments.list.show_dates')}:
             </span>
             <input
               type="date"
@@ -204,7 +200,7 @@ const PaymentList = () => {
                 className="btn btn-sm btn-secondary"
                 style={{ color: '#64748b' }}
               >
-                <FiX size={14} /> Clear
+                <FiX size={14} /> {t('common.cancel')}
               </button>
             )}
           </div>
@@ -215,23 +211,23 @@ const PaymentList = () => {
         <table>
           <thead>
             <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>Status</th>
-              <th>Date</th>
+              <th>{t('payments.list.columns.order')}</th>
+              <th>{t('payments.list.columns.customer')}</th>
+              <th>{t('payments.list.columns.amount')}</th>
+              <th>{t('payments.list.columns.method')}</th>
+              <th>{t('payments.list.columns.status')}</th>
+              <th>{t('payments.list.columns.date')}</th>
             </tr>
           </thead>
           <tbody>
             {payments.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No payments found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('payments.list.no_payments')}</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
-                      ? 'Try adjusting or clearing your filters.'
-                      : 'Payments will appear here once recorded.'}
+                      ? t('payments.list.no_payments_filtered')
+                      : t('payments.list.no_payments_empty')}
                   </p>
                 </td>
               </tr>
@@ -254,7 +250,7 @@ const PaymentList = () => {
                     }}>
                       {formatCurrency(payment.amount)}
                     </td>
-                    <td>{getMethodLabel(payment.method)}</td>
+                    <td>{t('payments.list.methods.' + payment.method)}</td>
                     <td>
                       <span style={{
                         color: statusInfo.color,
@@ -284,7 +280,7 @@ const PaymentList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"
@@ -305,20 +301,20 @@ const PaymentList = () => {
         }}>
           <div className="flex-between" style={{ fontSize: '13px', color: '#64748b' }}>
             <div>
-              Showing <strong>{payments.length}</strong> of <strong>{pagination.total}</strong> payments
-              {pagination.pages > 1 && ` (page ${pagination.page} of ${pagination.pages})`}
+              {t('payments.list.summary.showing', { shown: payments.length, total: pagination.total })}
+              {pagination.pages > 1 && ` ${t('payments.list.summary.page_indicator', { page: pagination.page, pages: pagination.pages })}`}
             </div>
             <div style={{ display: 'flex', gap: '20px' }}>
               {pageVoidedTotal > 0 && (
                 <div>
-                  Voided:{' '}
+                  {t('payments.list.summary.voided_label')}{' '}
                   <strong style={{ color: '#6b7280', textDecoration: 'line-through' }}>
                     {formatCurrency(pageVoidedTotal)}
                   </strong>
                 </div>
               )}
               <div>
-                Page total:{' '}
+                {t('payments.list.summary.page_total_label')}{' '}
                 <strong style={{ color: '#10b981' }}>
                   {formatCurrency(pageTotal)}
                 </strong>

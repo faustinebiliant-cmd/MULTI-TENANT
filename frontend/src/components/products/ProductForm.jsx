@@ -4,10 +4,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
 
 const ProductForm = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -46,9 +48,6 @@ const ProductForm = () => {
     fetchCategories();
   }, []);
 
-  // Live duplicate-name check. Fires 400ms after the user stops typing.
-  // Only used for the "new product" flow — editing an existing product
-  // skips this because the backend already excludes the product itself.
   useEffect(() => {
     if (isEdit) return;
     const name = formData.name.trim();
@@ -68,7 +67,6 @@ const ProductForm = () => {
         const match = list.find(p => p.name.toLowerCase() === name.toLowerCase());
         setNameConflict(match || null);
       } catch (err) {
-        // Silent — this is a hint, not a hard gate
         setNameConflict(null);
       }
     }, 400);
@@ -94,13 +92,13 @@ const ProductForm = () => {
         });
       } catch (error) {
         console.error('Error fetching product:', error);
-        toast.error('Failed to load product');
+        toast.error(t('products.form.messages.load_failed'));
       } finally {
         setLoading(false);
       }
     };
     fetchProduct();
-  }, [isEdit, id]);
+  }, [isEdit, id, t]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -110,15 +108,15 @@ const ProductForm = () => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      toast.error('Product name is required');
+      toast.error(t('products.form.messages.name_required'));
       return;
     }
     if (!formData.cost_price || parseFloat(formData.cost_price) <= 0) {
-      toast.error('Please enter a valid cost price');
+      toast.error(t('products.form.messages.cost_required'));
       return;
     }
     if (!formData.selling_price || parseFloat(formData.selling_price) <= 0) {
-      toast.error('Please enter a valid selling price');
+      toast.error(t('products.form.messages.selling_required'));
       return;
     }
 
@@ -140,16 +138,16 @@ const ProductForm = () => {
 
       if (isEdit) {
         await api.updateProduct(id, productData);
-        toast.success('Product updated successfully');
+        toast.success(t('products.form.messages.updated'));
       } else {
         await api.createProduct(productData);
-        toast.success('Product added successfully');
+        toast.success(t('products.form.messages.added'));
       }
 
       navigate('/products');
     } catch (error) {
       console.error('Error saving product:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to save product';
+      const errorMessage = error.response?.data?.error || t('products.form.messages.save_failed');
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -160,7 +158,7 @@ const ProductForm = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading product...</p>
+        <p>{t('products.form.loading')}</p>
       </div>
     );
   }
@@ -168,43 +166,43 @@ const ProductForm = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>{isEdit ? 'Edit Product' : 'Add Product'}</h1>
-        <p>Fill in the product details below</p>
+        <h1>{isEdit ? t('products.form.title_edit') : t('products.form.title_add')}</h1>
+        <p>{isEdit ? t('products.form.subtitle_edit') : t('products.form.subtitle_add')}</p>
       </div>
 
       <div className="card" style={{ maxWidth: '600px' }}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Product Name *</label>
+            <label>{t('products.form.labels.name')}</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="e.g., Cable 2.5mm"
+              placeholder={t('products.form.placeholders.name')}
               required
               style={nameConflict ? { borderColor: '#ef4444' } : undefined}
             />
             {nameConflict && (
               <small style={{ color: '#dc2626', display: 'block', marginTop: '4px' }}>
-                A product named "{nameConflict.name}" already exists in this branch.
+                {t('products.form.name_conflict', { name: nameConflict.name })}
               </small>
             )}
           </div>
 
           <div className="form-group">
-            <label>Description</label>
+            <label>{t('products.form.labels.description')}</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="Product description..."
+              placeholder={t('products.form.placeholders.description')}
               rows="3"
             />
           </div>
 
           <div className="form-group">
-            <label>Category</label>
+            <label>{t('products.form.labels.category')}</label>
             <select
               name="category_id"
               value={formData.category_id}
@@ -212,10 +210,10 @@ const ProductForm = () => {
               disabled={noCategories}
             >
               {noCategories ? (
-                <option value="">No categories yet — add one first</option>
+                <option value="">{t('products.form.no_categories')}</option>
               ) : (
                 <>
-                  <option value="">Select a category</option>
+                  <option value="">{t('products.form.category_select')}</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
@@ -224,33 +222,33 @@ const ProductForm = () => {
             </select>
             {noCategories && (
               <small style={{ color: '#b45309', display: 'block', marginTop: '4px' }}>
-                This branch has no categories yet. Go to the Categories page and add one, then come back.
+                {t('products.form.no_categories_hint')}
               </small>
             )}
           </div>
 
           <div className="grid-2">
             <div className="form-group">
-              <label>Cost Price (TZS) *</label>
+              <label>{t('products.form.labels.cost_price')}</label>
               <input
                 type="number"
                 name="cost_price"
                 value={formData.cost_price}
                 onChange={handleChange}
-                placeholder="0"
+                placeholder={t('products.form.placeholders.cost_price')}
                 required
                 min="0"
                 step="100"
               />
             </div>
             <div className="form-group">
-              <label>Selling Price (TZS) *</label>
+              <label>{t('products.form.labels.selling_price')}</label>
               <input
                 type="number"
                 name="selling_price"
                 value={formData.selling_price}
                 onChange={handleChange}
-                placeholder="0"
+                placeholder={t('products.form.placeholders.selling_price')}
                 required
                 min="0"
                 step="100"
@@ -260,24 +258,24 @@ const ProductForm = () => {
 
           <div className="grid-2">
             <div className="form-group">
-              <label>Stock Quantity</label>
+              <label>{t('products.form.labels.stock_quantity')}</label>
               <input
                 type="number"
                 name="stock_quantity"
                 value={formData.stock_quantity}
                 onChange={handleChange}
-                placeholder="0"
+                placeholder={t('products.form.placeholders.stock_quantity')}
                 min="0"
               />
             </div>
             <div className="form-group">
-              <label>Low Stock Threshold</label>
+              <label>{t('products.form.labels.low_stock_threshold')}</label>
               <input
                 type="number"
                 name="low_stock_threshold"
                 value={formData.low_stock_threshold}
                 onChange={handleChange}
-                placeholder="5"
+                placeholder={t('products.form.placeholders.low_stock_threshold')}
                 min="0"
               />
             </div>
@@ -289,10 +287,12 @@ const ProductForm = () => {
               className="btn btn-primary"
               disabled={loading || (!isEdit && nameConflict) || noCategories}
             >
-              {loading ? 'Saving...' : (isEdit ? 'Update Product' : 'Add Product')}
+              {loading
+                ? t('products.form.buttons.saving')
+                : (isEdit ? t('products.form.buttons.submit_edit') : t('products.form.buttons.submit_add'))}
             </button>
             <button type="button" className="btn btn-secondary" onClick={() => navigate('/products')}>
-              Cancel
+              {t('products.form.buttons.cancel')}
             </button>
           </div>
         </form>

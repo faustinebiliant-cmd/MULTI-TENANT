@@ -1,16 +1,16 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Trial Banner
-// Small strip at the top of the app. Boss only.
-// No dismiss — always visible until the business is active.
 // ============================================================
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiClock } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import SubscribeModal from './SubscribeModal';
 
 const TrialBanner = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const {
     subscription_status,
@@ -30,29 +30,25 @@ const TrialBanner = () => {
     await refresh();
   };
 
-  // Nothing to show yet, or not the Boss.
   if (!loaded || !user?.is_boss) return null;
 
-  // Paid — hide completely.
   if (subscription_status === 'active') return null;
 
-  // Suspended — always visible.
   if (subscription_status === 'suspended') {
     return (
       <div style={styles.suspended}>
-        <span>Your account is suspended. Please contact support.</span>
+        <span>{t('subscription.trial_banner.suspended_line')}</span>
       </div>
     );
   }
 
-  // Trial or expired — pick the color from days_remaining.
   const expired = days_remaining <= 0 || subscription_status === 'expired';
   const warning = !expired && days_remaining <= 7;
   const tone = expired ? styles.expired : warning ? styles.warning : styles.trial;
 
   const label = expired
-    ? 'Your free trial has ended'
-    : `Free trial: ${days_remaining} day${days_remaining === 1 ? '' : 's'} remaining`;
+    ? t('subscription.trial_banner.expired_label')
+    : t('subscription.trial_banner.days_remaining', { count: days_remaining });
 
   return (
     <>
@@ -64,10 +60,12 @@ const TrialBanner = () => {
 
         <span style={styles.right}>
           {has_pending_submission ? (
-            <span style={styles.pendingText}>Payment under review</span>
+            <span style={styles.pendingText}>
+              {t('subscription.trial_banner.payment_under_review')}
+            </span>
           ) : (
             <button type="button" style={styles.subscribeBtn} onClick={handleOpenModal}>
-              Subscribe
+              {t('subscription.trial_banner.subscribe_button')}
             </button>
           )}
         </span>

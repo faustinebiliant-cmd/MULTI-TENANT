@@ -1,12 +1,10 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Sidebar
-// Brand shows the active business name and the business code
-// (e.g. BSN-0001) for support and payment reference.
-// Mobile drawer includes business + branch switchers.
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBranch } from '../../contexts/BranchContext';
@@ -16,6 +14,7 @@ import { getMenuGroups } from '../../utils/navConfig';
 import Switchers from './Switchers';
 
 const Sidebar = () => {
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const { activeBusiness } = useBranch();
   const { quickSaleEnabled } = useShop();
@@ -27,12 +26,10 @@ const Sidebar = () => {
   const role = user.role || '';
   const menuGroups = getMenuGroups(role, quickSaleEnabled);
 
-  // Close the drawer automatically whenever the route changes (mobile)
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
 
-  // Lock background scroll while the drawer is open on mobile
   useEffect(() => {
     document.body.classList.toggle('no-scroll', isOpen);
     return () => document.body.classList.remove('no-scroll');
@@ -46,25 +43,23 @@ const Sidebar = () => {
   const initials = getInitials(user.full_name);
   const roleDisplay = role ? role.replace('_', ' ') : 'Staff';
 
-  // Line 1: the business name the user registered
-  // Line 2: the business code, used as the M-Pesa payment reference
-  const brandName = activeBusiness?.name || user.full_name || '—';
+  const brandName = activeBusiness?.name || user.full_name || '-';
   const accountLabel = activeBusiness?.business_code
     ? `businessID: ${activeBusiness.business_code}`
-    : '—';
+    : '-';
 
   return (
     <>
-{!isOpen && (
-  <button
-    type="button"
-    className="mobile-menu-trigger"
-    onClick={() => setIsOpen(true)}
-    aria-label="Open menu"
-  >
-    <FiMenu size={20} />
-  </button>
-)}
+      {!isOpen && (
+        <button
+          type="button"
+          className="mobile-menu-trigger"
+          onClick={() => setIsOpen(true)}
+          aria-label="Open menu"
+        >
+          <FiMenu size={20} />
+        </button>
+      )}
 
       <div
         className={`sidebar-overlay ${isOpen ? 'active' : ''}`}
@@ -88,9 +83,6 @@ const Sidebar = () => {
           </button>
         </div>
 
-        {/* Business + branch switchers — visible only inside the
-            mobile drawer. Hidden on desktop via CSS so the header
-            remains the single place to switch on larger screens. */}
         <Switchers variant="sidebar" />
 
         <nav className="sidebar-nav">
@@ -99,8 +91,8 @@ const Sidebar = () => {
             if (visibleItems.length === 0) return null;
 
             return (
-              <div className="sidebar-group" key={group.label}>
-                <span className="sidebar-group-label">{group.label}</span>
+              <div className="sidebar-group" key={group.labelKey}>
+                <span className="sidebar-group-label">{t(group.labelKey)}</span>
                 {visibleItems.map((item) => (
                   <NavLink
                     key={item.path}
@@ -112,7 +104,7 @@ const Sidebar = () => {
                     <span className="sidebar-link-icon">
                       <item.icon size={18} />
                     </span>
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                   </NavLink>
                 ))}
               </div>
@@ -130,7 +122,7 @@ const Sidebar = () => {
           </div>
           <button onClick={handleLogout} className="sidebar-logout">
             <FiLogOut size={18} />
-            <span>Logout</span>
+            <span>{t('nav.logout')}</span>
           </button>
         </div>
       </div>

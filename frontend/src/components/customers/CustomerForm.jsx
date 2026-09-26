@@ -4,10 +4,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
 
 const CustomerForm = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -37,14 +39,14 @@ const CustomerForm = () => {
         });
       } catch (error) {
         console.error('Error fetching customer:', error);
-        toast.error('Failed to load customer');
+        toast.error(t('customers.form.messages.load_failed'));
         navigate('/customers');
       } finally {
         setLoading(false);
       }
     };
     fetchCustomer();
-  }, [isEdit, id, navigate]);
+  }, [isEdit, id, navigate, t]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -65,16 +67,16 @@ const CustomerForm = () => {
 
       if (isEdit) {
         await api.updateCustomer(id, customerData);
-        toast.success('Customer updated successfully');
+        toast.success(t('customers.form.messages.updated'));
       } else {
         await api.createCustomer(customerData);
-        toast.success('Customer added successfully');
+        toast.success(t('customers.form.messages.added'));
       }
 
       navigate('/customers');
     } catch (error) {
       console.error('Error saving customer:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to save customer';
+      const errorMessage = error.response?.data?.error || t('customers.form.messages.save_failed');
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -85,7 +87,7 @@ const CustomerForm = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading customer...</p>
+        <p>{t('customers.form.loading')}</p>
       </div>
     );
   }
@@ -93,79 +95,81 @@ const CustomerForm = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>{isEdit ? 'Edit Customer' : 'Add Customer'}</h1>
-        <p>Fill in the customer details below</p>
+        <h1>{isEdit ? t('customers.form.title_edit') : t('customers.form.title_add')}</h1>
+        <p>{t('customers.form.subtitle')}</p>
       </div>
 
       <div className="card" style={{ maxWidth: '600px' }}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Full Name *</label>
+            <label>{t('customers.form.labels.name')}</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Enter customer name"
+              placeholder={t('customers.form.placeholders.name')}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Phone Number *</label>
+            <label>{t('customers.form.labels.phone')}</label>
             <input
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="+255 712 345 678"
+              placeholder={t('customers.form.placeholders.phone')}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Email (Optional)</label>
+            <label>{t('customers.form.labels.email')}</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="customer@example.com"
+              placeholder={t('customers.form.placeholders.email')}
             />
           </div>
 
           <div className="form-group">
-            <label>Address (Optional)</label>
+            <label>{t('customers.form.labels.address')}</label>
             <textarea
               name="address"
               value={formData.address}
               onChange={handleChange}
-              placeholder="Enter customer address..."
+              placeholder={t('customers.form.placeholders.address')}
               rows="2"
             />
           </div>
 
           <div className="form-group">
-            <label>Notes (Optional)</label>
+            <label>{t('customers.form.labels.notes')}</label>
             <textarea
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Any notes about this customer..."
+              placeholder={t('customers.form.placeholders.notes')}
               rows="2"
             />
           </div>
 
           <div className="flex" style={{ gap: '10px', marginTop: '20px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Saving...' : (isEdit ? 'Update Customer' : 'Add Customer')}
+              {loading
+                ? t('customers.form.buttons.saving')
+                : (isEdit ? t('customers.form.buttons.submit_edit') : t('customers.form.buttons.submit_add'))}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => navigate('/customers')}
             >
-              Cancel
+              {t('customers.form.buttons.cancel')}
             </button>
           </div>
         </form>

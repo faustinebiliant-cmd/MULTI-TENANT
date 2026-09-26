@@ -3,11 +3,13 @@
 // ============================================================
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiX } from 'react-icons/fi';
 import api from '../../api/client';
 import toast from 'react-hot-toast';
 
 const StockAdjustment = ({ product, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [type, setType] = useState('add');
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
@@ -17,12 +19,12 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
     e.preventDefault();
 
     if (!quantity || quantity <= 0) {
-      toast.error('Please enter a valid quantity');
+      toast.error(t('products.stock.messages.invalid_quantity'));
       return;
     }
 
     if (!reason.trim()) {
-      toast.error('Please enter a reason for adjustment');
+      toast.error(t('products.stock.messages.reason_required'));
       return;
     }
 
@@ -35,12 +37,12 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
         type
       });
 
-      toast.success(`Stock ${type === 'add' ? 'added' : 'removed'} successfully`);
+      toast.success(type === 'add' ? t('products.stock.messages.added') : t('products.stock.messages.removed'));
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Error adjusting stock:', error);
-      toast.error(error.response?.data?.error || 'Failed to adjust stock');
+      toast.error(error.response?.data?.error || t('products.stock.messages.failed'));
     } finally {
       setLoading(false);
     }
@@ -50,8 +52,8 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="flex-between" style={{ marginBottom: '16px' }}>
-          <h2>Adjust Stock</h2>
-          <button onClick={onClose} className="btn btn-sm btn-secondary">
+          <h2>{t('products.stock.title')}</h2>
+          <button onClick={onClose} className="btn btn-sm btn-secondary" aria-label={t('common.close')}>
             <FiX size={18} />
           </button>
         </div>
@@ -62,14 +64,20 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
           background: '#f8fafc',
           borderRadius: '8px'
         }}>
-          <p><strong>Product:</strong> {product.name}</p>
-          <p><strong>Current Stock:</strong> {product.stock_quantity} units</p>
-          <p><strong>Low Stock Threshold:</strong> {product.low_stock_threshold || 5} units</p>
+          <p><strong>{t('products.stock.product_label')}</strong> {product.name}</p>
+          <p>
+            <strong>{t('products.stock.current_stock_label')}</strong>{' '}
+            {t('products.stock.units', { count: product.stock_quantity })}
+          </p>
+          <p>
+            <strong>{t('products.stock.threshold_label')}</strong>{' '}
+            {t('products.stock.units', { count: product.low_stock_threshold || 5 })}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Adjustment Type *</label>
+            <label>{t('products.stock.type_label')}</label>
             <div className="flex" style={{ gap: '10px' }}>
               <button
                 type="button"
@@ -77,7 +85,7 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
                 onClick={() => setType('add')}
                 style={{ flex: 1 }}
               >
-                Add Stock
+                {t('products.stock.type_add')}
               </button>
               <button
                 type="button"
@@ -85,13 +93,13 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
                 onClick={() => setType('remove')}
                 style={{ flex: 1 }}
               >
-                Remove Stock
+                {t('products.stock.type_remove')}
               </button>
             </div>
           </div>
 
           <div className="form-group">
-            <label>Quantity *</label>
+            <label>{t('products.stock.quantity_label')}</label>
             <input
               type="number"
               value={quantity}
@@ -103,12 +111,12 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
           </div>
 
           <div className="form-group">
-            <label>Reason *</label>
+            <label>{t('products.stock.reason_label')}</label>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g., New shipment received, Damaged items"
+              placeholder={t('products.stock.reason_placeholder')}
               className="form-control"
               required
             />
@@ -116,10 +124,12 @@ const StockAdjustment = ({ product, onClose, onSuccess }) => {
 
           <div className="flex" style={{ gap: '10px', marginTop: '20px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Processing...' : `Confirm ${type === 'add' ? 'Add' : 'Remove'}`}
+              {loading
+                ? t('products.stock.processing')
+                : (type === 'add' ? t('products.stock.confirm_add') : t('products.stock.confirm_remove'))}
             </button>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
+              {t('products.stock.cancel_button')}
             </button>
           </div>
         </form>

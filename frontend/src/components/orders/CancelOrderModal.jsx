@@ -3,12 +3,14 @@
 // ============================================================
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiX, FiAlertTriangle } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const CancelOrderModal = ({ order, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,19 +20,19 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
     e.preventDefault();
 
     if (!isValid) {
-      toast.error('Reason must be between 3 and 100 characters');
+      toast.error(t('cancel_modal.messages.reason_length'));
       return;
     }
 
     setLoading(true);
     try {
       await api.cancelOrder(order.id, reason.trim());
-      toast.success('Order cancelled successfully');
+      toast.success(t('cancel_modal.messages.success'));
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Cancel order error:', error);
-      toast.error(error.response?.data?.error || 'Failed to cancel order');
+      toast.error(error.response?.data?.error || t('cancel_modal.messages.failed'));
       onClose();
     } finally {
       setLoading(false);
@@ -44,17 +46,16 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="flex-between" style={{ marginBottom: '16px' }}>
           <div>
-            <h2 style={{ margin: 0 }}>Cancel Order</h2>
+            <h2 style={{ margin: 0 }}>{t('cancel_modal.title')}</h2>
             <p style={{ fontSize: '13px', color: 'var(--gray)', marginTop: '2px' }}>
               {order.order_number}
             </p>
           </div>
-          <button onClick={onClose} className="btn btn-sm btn-secondary" aria-label="Close">
+          <button onClick={onClose} className="btn btn-sm btn-secondary" aria-label={t('common.close')}>
             <FiX size={18} />
           </button>
         </div>
 
-        {/* Warning */}
         <div style={{
           padding: '12px 14px',
           background: '#fef2f2',
@@ -67,31 +68,30 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
         }}>
           <FiAlertTriangle size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div style={{ fontSize: '13px', color: '#991b1b', lineHeight: 1.5 }}>
-            <strong>This action cannot be undone.</strong>
+            <strong>{t('cancel_modal.warning_title')}</strong>
             <br />
-            Cancelling this order will:
+            {t('cancel_modal.warning_intro')}
             <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
-              <li>Restore stock for all items</li>
-              <li>Remove it from sales and VAT totals</li>
-              <li>Reverse the customer's stats</li>
-              {hasPayment && <li><strong>Delete all recorded payments</strong></li>}
+              <li>{t('cancel_modal.warning_restore_stock')}</li>
+              <li>{t('cancel_modal.warning_remove_totals')}</li>
+              <li>{t('cancel_modal.warning_reverse_customer')}</li>
+              {hasPayment && <li><strong>{t('cancel_modal.warning_delete_payments')}</strong></li>}
             </ul>
           </div>
         </div>
 
-        {/* Summary */}
         <div className="payment-summary-card" style={{ marginBottom: '16px' }}>
           <div className="payment-summary-row">
-            <span>Customer</span>
-            <strong>{order.customers?.name || order.customer_name || 'Walk-in'}</strong>
+            <span>{t('cancel_modal.summary.customer')}</span>
+            <strong>{order.customers?.name || order.customer_name || t('cancel_modal.walk_in')}</strong>
           </div>
           <div className="payment-summary-row">
-            <span>Order Total</span>
+            <span>{t('cancel_modal.summary.order_total')}</span>
             <strong>{formatCurrency(parseFloat(order.total_amount) || 0)}</strong>
           </div>
           {hasPayment && (
             <div className="payment-summary-row">
-              <span>Already Paid</span>
+              <span>{t('cancel_modal.summary.already_paid')}</span>
               <strong style={{ color: 'var(--success)' }}>
                 {formatCurrency(parseFloat(order.paid_amount) || 0)}
               </strong>
@@ -101,18 +101,18 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Cancellation Reason *</label>
+            <label>{t('cancel_modal.reason_label')}</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Why is this order being cancelled?"
+              placeholder={t('cancel_modal.reason_placeholder')}
               rows="3"
               maxLength={100}
               required
               autoFocus
             />
             <small style={{ color: 'var(--gray)', display: 'block', marginTop: '4px' }}>
-              {reason.length} / 100 characters (minimum 3)
+              {t('cancel_modal.reason_hint', { count: reason.length })}
             </small>
           </div>
 
@@ -123,10 +123,10 @@ const CancelOrderModal = ({ order, onClose, onSuccess }) => {
               disabled={loading || !isValid}
               style={{ flex: 1 }}
             >
-              {loading ? 'Cancelling...' : 'Confirm Cancellation'}
+              {loading ? t('cancel_modal.cancelling') : t('cancel_modal.confirm_button')}
             </button>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Keep Order
+              {t('cancel_modal.keep_button')}
             </button>
           </div>
         </form>

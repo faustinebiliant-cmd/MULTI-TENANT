@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiPlus, FiTrash2, FiUser, FiPhone, FiMail, FiMapPin } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
@@ -17,9 +18,9 @@ const CUSTOMER_TYPES = {
 };
 
 const OrderForm = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [searchProduct, setSearchProduct] = useState('');
 
   const [order, setOrder] = useState({
     customer_id: '',
@@ -36,6 +37,7 @@ const OrderForm = () => {
   });
 
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const [lastPickedProduct, setLastPickedProduct] = useState(null);
 
   const [vatEnabled, setVatEnabled] = useState(false);
   const [vatRate, setVatRate] = useState(18);
@@ -59,7 +61,6 @@ const OrderForm = () => {
     fetchSettings();
   }, []);
 
-  // Backend search for products
   const fetchProductOptions = useCallback(async (term) => {
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -69,7 +70,6 @@ const OrderForm = () => {
     return response.data || [];
   }, []);
 
-  // Backend search for customers
   const fetchCustomerOptions = useCallback(async (term) => {
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -86,7 +86,6 @@ const OrderForm = () => {
       return;
     }
     setOrder({ ...order, customer_id: customerId, customer_type: CUSTOMER_TYPES.EXISTING });
-    // Details will be resolved when picked; store minimal data
     setSelectedCustomerDetails({ id: customerId });
   };
 
@@ -117,7 +116,7 @@ const OrderForm = () => {
   const createCustomerFromWalkIn = async () => {
     try {
       if (walkInData.phone && !isValidPhone(walkInData.phone)) {
-        toast.error('Please enter a valid phone number (e.g., 0712345678)');
+        toast.error(t('orders.form.messages.invalid_phone'));
         return null;
       }
 
@@ -141,39 +140,33 @@ const OrderForm = () => {
         notes: 'Created during order'
       };
 
-      // Check for existing by phone (backend search)
       if (customerData.phone && customerData.phone !== '0000000000') {
         const existing = await fetchCustomerOptions(customerData.phone);
         const match = existing.find(c => c.phone === customerData.phone);
         if (match) {
-          toast.success('Existing customer matched by phone');
+          toast.success(t('orders.form.messages.existing_customer_matched'));
           return match;
         }
       }
 
       const response = await api.createCustomer(customerData);
-      toast.success('Customer created successfully');
+      toast.success(t('orders.form.messages.customer_created'));
       return response.data || response;
     } catch (error) {
       console.error('Error creating customer:', error);
-      toast.error(error.response?.data?.error || 'Failed to create customer');
+      toast.error(error.response?.data?.error || t('orders.form.messages.customer_create_failed'));
       return null;
     }
   };
 
   const handleProductSelect = (productId, product) => {
     if (!productId) return;
-    // product is not passed by SearchableSelect directly; we re-fetch
-    // Actually we store the picked product in a ref via a callback.
-    // Simpler: keep last picked product in state.
     setLastPickedProduct(product || null);
   };
 
-  const [lastPickedProduct, setLastPickedProduct] = useState(null);
-
   const addItem = () => {
     if (!lastPickedProduct) {
-      toast.error('Please select a product');
+      toast.error(t('orders.form.messages.select_product'));
       return;
     }
 
@@ -208,7 +201,7 @@ const OrderForm = () => {
 
     setLastPickedProduct(null);
     setSelectedQuantity(1);
-    toast.success('Product added to order');
+    toast.success(t('orders.form.messages.added_to_order'));
   };
 
   const removeItem = (index) => {
@@ -232,7 +225,7 @@ const OrderForm = () => {
 
   const validateOrder = async () => {
     if (order.items.length === 0) {
-      toast.error('Please add at least one product');
+      toast.error(t('orders.form.messages.add_one_item'));
       return false;
     }
 
@@ -242,13 +235,13 @@ const OrderForm = () => {
         order.customer_type === CUSTOMER_TYPES.QUICK_CREATE) {
       const newCustomer = await createCustomerFromWalkIn();
       if (!newCustomer) {
-        toast.error('Please fill in customer details');
+        toast.error(t('orders.form.messages.fill_customer_details'));
         return false;
       }
       customerId = newCustomer.id;
       setOrder(prev => ({ ...prev, customer_id: customerId }));
     } else if (!customerId) {
-      toast.error('Please select or create a customer');
+      toast.error(t('orders.form.messages.select_or_create'));
       return false;
     }
 
@@ -279,11 +272,11 @@ const OrderForm = () => {
       };
 
       await api.createOrder(orderData);
-      toast.success('Order created successfully');
+      toast.success(t('orders.form.messages.order_created'));
       navigate('/orders');
     } catch (error) {
       console.error('Error creating order:', error);
-      toast.error(error.response?.data?.error || 'Failed to create order');
+      toast.error(error.response?.data?.error || t('orders.form.messages.create_failed'));
     } finally {
       setLoading(false);
     }
@@ -300,34 +293,33 @@ const OrderForm = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>Create Order</h1>
-        <p>Create a new customer order</p>
+        <h1>{t('orders.form.title')}</h1>
+        <p>{t('orders.form.subtitle')}</p>
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Customer */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <div className="form-group">
-            <label>Customer Type</label>
+            <label>{t('orders.form.customer_type_label')}</label>
             <select
               value={order.customer_type}
               onChange={handleCustomerTypeChange}
               className="form-control"
             >
-              <option value={CUSTOMER_TYPES.EXISTING}>Existing Customer</option>
-              <option value={CUSTOMER_TYPES.WALK_IN}>Walk-in Customer</option>
-              <option value={CUSTOMER_TYPES.QUICK_CREATE}>Quick Create Customer</option>
+              <option value={CUSTOMER_TYPES.EXISTING}>{t('orders.form.customer_type_existing')}</option>
+              <option value={CUSTOMER_TYPES.WALK_IN}>{t('orders.form.customer_type_walkin')}</option>
+              <option value={CUSTOMER_TYPES.QUICK_CREATE}>{t('orders.form.customer_type_quick')}</option>
             </select>
           </div>
 
           {order.customer_type === CUSTOMER_TYPES.EXISTING && (
             <div className="form-group">
-              <label>Customer *</label>
+              <label>{t('orders.form.customer_label')}</label>
               <SearchableSelect
                 value={order.customer_id}
                 onChange={handleCustomerSelect}
-                placeholder="Search and select customer..."
-                searchPlaceholder="Type customer name, phone, or email..."
+                placeholder={t('orders.form.customer_search_placeholder')}
+                searchPlaceholder={t('orders.form.customer_search_hint')}
                 fetchOptions={fetchCustomerOptions}
                 getOptionLabel={(c) => c.name}
                 getOptionValue={(c) => c.id}
@@ -346,7 +338,7 @@ const OrderForm = () => {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <FiUser size={16} />
-                <strong>Customer selected</strong>
+                <strong>{t('orders.form.customer_selected')}</strong>
               </div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>
                 {selectedCustomerDetails.id && `ID: ${selectedCustomerDetails.id.slice(0, 8)}...`}
@@ -365,10 +357,10 @@ const OrderForm = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <FiUser size={16} />
                 <strong>
-                  {isQuickCreate ? 'Quick Create Customer' : 'Walk-in Customer Details'}
+                  {isQuickCreate ? t('orders.form.quick_create_title') : t('orders.form.walkin_details_title')}
                 </strong>
                 <span style={{ fontSize: '12px', color: '#92400e', marginLeft: '8px' }}>
-                  {isQuickCreate ? '(Enter phone number to create customer)' : '(Optional)'}
+                  {isQuickCreate ? t('orders.form.quick_create_hint') : t('orders.form.optional_hint')}
                 </span>
               </div>
 
@@ -376,14 +368,14 @@ const OrderForm = () => {
                 <div className="form-group" style={{ marginBottom: '0' }}>
                   <label style={{ fontSize: '12px', fontWeight: '600' }}>
                     <FiPhone size={14} style={{ marginRight: '4px' }} />
-                    Phone Number
+                    {t('orders.form.phone_label')}
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={walkInData.phone}
                     onChange={handleWalkInChange}
-                    placeholder="0712 345 678"
+                    placeholder={t('orders.form.phone_placeholder')}
                     className="form-control"
                     style={{ fontSize: '14px' }}
                   />
@@ -392,15 +384,15 @@ const OrderForm = () => {
                 <div className="form-group" style={{ marginBottom: '0' }}>
                   <label style={{ fontSize: '12px', fontWeight: '600' }}>
                     <FiUser size={14} style={{ marginRight: '4px' }} />
-                    Customer Name
-                    <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: '400' }}> (auto-generated)</span>
+                    {t('orders.form.name_label')}
+                    <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: '400' }}> {t('orders.form.name_auto_hint')}</span>
                   </label>
                   <input
                     type="text"
                     name="name"
                     value={walkInData.name}
                     onChange={handleWalkInChange}
-                    placeholder="Auto-generated from phone"
+                    placeholder={t('orders.form.name_placeholder')}
                     className="form-control"
                     style={{ fontSize: '14px' }}
                   />
@@ -409,14 +401,14 @@ const OrderForm = () => {
                 <div className="form-group" style={{ marginBottom: '0' }}>
                   <label style={{ fontSize: '12px', fontWeight: '600' }}>
                     <FiMail size={14} style={{ marginRight: '4px' }} />
-                    Email (Optional)
+                    {t('orders.form.email_label')}
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={walkInData.email}
                     onChange={handleWalkInChange}
-                    placeholder="customer@example.com"
+                    placeholder={t('orders.form.email_placeholder')}
                     className="form-control"
                     style={{ fontSize: '14px' }}
                   />
@@ -425,14 +417,14 @@ const OrderForm = () => {
                 <div className="form-group" style={{ marginBottom: '0' }}>
                   <label style={{ fontSize: '12px', fontWeight: '600' }}>
                     <FiMapPin size={14} style={{ marginRight: '4px' }} />
-                    Address (Optional)
+                    {t('orders.form.address_label')}
                   </label>
                   <input
                     type="text"
                     name="address"
                     value={walkInData.address}
                     onChange={handleWalkInChange}
-                    placeholder="Customer address"
+                    placeholder={t('orders.form.address_placeholder')}
                     className="form-control"
                     style={{ fontSize: '14px' }}
                   />
@@ -441,30 +433,29 @@ const OrderForm = () => {
 
               {walkInData.phone && !isValidPhone(walkInData.phone) && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#dc2626' }}>
-                  Please enter a valid phone number (e.g., 0712345678)
+                  {t('orders.form.invalid_phone_hint')}
                 </div>
               )}
 
               {isQuickCreate && !walkInData.phone && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#92400e' }}>
-                  Please enter a phone number to create customer
+                  {t('orders.form.phone_required_hint')}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Product selection */}
         <div className="card" style={{ marginBottom: '20px' }}>
           <div className="form-group">
-            <label>Add Products</label>
+            <label>{t('orders.form.add_products_label')}</label>
             <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <div style={{ flex: 2, minWidth: '240px' }}>
                 <SearchableSelect
                   value={lastPickedProduct?.id || ''}
                   onChange={(productId, meta) => handleProductSelect(productId, meta)}
-                  placeholder="Search and select a product..."
-                  searchPlaceholder="Type product name or SKU..."
+                  placeholder={t('orders.form.product_search_placeholder')}
+                  searchPlaceholder={t('orders.form.product_search_hint')}
                   fetchOptions={async (term) => {
                     const results = await fetchProductOptions(term);
                     return results;
@@ -483,29 +474,28 @@ const OrderForm = () => {
                 style={{ width: '80px' }}
               />
               <button type="button" onClick={addItem} className="btn btn-primary">
-                <FiPlus size={18} /> Add
+                <FiPlus size={18} /> {t('orders.form.add_button')}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Order items */}
         <div className="card">
-          <h3>Order Items</h3>
+          <h3>{t('orders.form.order_items_title')}</h3>
           {order.items.length === 0 ? (
             <div className="empty-state">
-              <p>No items added yet</p>
+              <p>{t('orders.form.no_items')}</p>
             </div>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th>Subtotal</th>
-                    <th>Actions</th>
+                    <th>{t('orders.form.item_columns.product')}</th>
+                    <th>{t('orders.form.item_columns.quantity')}</th>
+                    <th>{t('orders.form.item_columns.unit_price')}</th>
+                    <th>{t('orders.form.item_columns.subtotal')}</th>
+                    <th>{t('orders.form.item_columns.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -542,13 +532,13 @@ const OrderForm = () => {
 
           <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #e5e7eb' }}>
             <div className="flex-between" style={{ marginBottom: '8px' }}>
-              <span style={{ color: '#6b7280' }}>Subtotal</span>
+              <span style={{ color: '#6b7280' }}>{t('orders.form.totals.subtotal')}</span>
               <strong>{formatCurrency(subtotal)}</strong>
             </div>
 
             {vatEnabled && (
               <div className="flex-between" style={{ marginBottom: '8px' }}>
-                <span style={{ color: '#f59e0b' }}>VAT ({vatRate}%)</span>
+                <span style={{ color: '#f59e0b' }}>{t('orders.form.totals.vat')} ({vatRate}%)</span>
                 <strong style={{ color: '#f59e0b' }}>{formatCurrency(tax)}</strong>
               </div>
             )}
@@ -558,7 +548,7 @@ const OrderForm = () => {
               paddingTop: '8px',
               borderTop: '1px solid #e5e7eb'
             }}>
-              <h3 style={{ margin: 0 }}>Total</h3>
+              <h3 style={{ margin: 0 }}>{t('orders.form.totals.total')}</h3>
               <h3 style={{ color: '#1a56db', margin: 0 }}>{formatCurrency(total)}</h3>
             </div>
 
@@ -571,14 +561,13 @@ const OrderForm = () => {
           </div>
         </div>
 
-        {/* Notes + Submit */}
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="form-group">
-            <label>Notes (Optional)</label>
+            <label>{t('orders.form.notes_label')}</label>
             <textarea
               value={order.notes}
               onChange={(e) => setOrder({ ...order, notes: e.target.value })}
-              placeholder="Any special instructions or notes..."
+              placeholder={t('orders.form.notes_placeholder')}
               rows="2"
               className="form-control"
             />
@@ -586,14 +575,14 @@ const OrderForm = () => {
 
           <div className="flex" style={{ gap: '10px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Creating...' : `Create Order - ${formatCurrency(total)}`}
+              {loading ? t('orders.form.creating') : t('orders.form.submit_button', { amount: formatCurrency(total) })}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => navigate('/orders')}
             >
-              Cancel
+              {t('orders.form.cancel_button')}
             </button>
           </div>
         </div>

@@ -1,0 +1,1775 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "loading": "Loading...",
+    "yes": "Yes",
+    "no": "No",
+    "view": "View",
+    "page": "Page",
+    "of": "of",
+    "actions": "Actions"
+  },
+  "auth": {
+    "brand": "Oswagotech",
+    "subtitle": "Management System",
+    "email_label": "Email Address",
+    "email_placeholder": "Enter your email",
+    "password_label": "Password",
+    "password_placeholder": "Enter your password",
+    "login_button": "Login",
+    "login_loading": "Logging in...",
+    "no_account": "Don't have an account?",
+    "create_account": "Create one",
+    "have_account": "Already have an account?",
+    "log_in_link": "Log in",
+    "powered_by": "Powered by",
+    "attempts_counter": "Attempts: {{current}}/{{max}}",
+    "errors": {
+      "invalid_email": "Please enter a valid email address",
+      "short_password": "Password must be at least 6 characters",
+      "too_many_attempts_one": "Too many attempts. Please wait {{count}} minute.",
+      "too_many_attempts_other": "Too many attempts. Please wait {{count}} minutes.",
+      "locked_out": "Too many failed attempts. Please wait 15 minutes.",
+      "locked_wait_one": "Account temporarily locked. Please wait {{count}} minute.",
+      "locked_wait_other": "Account temporarily locked. Please wait {{count}} minutes.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "nav": {
+    "groups": {
+      "overview": "Overview",
+      "sales": "Sales",
+      "inventory": "Inventory",
+      "management": "Management"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "quick_sale": "Quick Sale",
+      "new_order": "New Order",
+      "orders": "Orders",
+      "customers": "Customers",
+      "payments": "Payments",
+      "products": "Products",
+      "categories": "Categories",
+      "suppliers": "Suppliers",
+      "purchase_orders": "Purchase Orders",
+      "expenses": "Expenses",
+      "reports": "Reports",
+      "extract_reports": "Extract Reports",
+      "audit_log": "Audit Log",
+      "staff": "Staff",
+      "settings": "Settings"
+    },
+    "logout": "Logout"
+  },
+  "header": {
+    "switch_business": "Switch business",
+    "switch_branch": "Switch branch"
+  },
+  "language": {
+    "english": "English",
+    "swahili": "Kiswahili"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back. Here is your Business overview.",
+    "loading": "Loading dashboard..."
+  },
+  "stats": {
+    "today_sales": "Today's Sales",
+    "today_profit": "Today's Profit",
+    "business_money_received": "Business Money Received",
+    "vat_collected": "VAT Collected",
+    "outstanding_credit": "Outstanding Credit",
+    "low_stock_items": "Low Stock Items"
+  },
+  "recent_orders": {
+    "title": "Recent Orders",
+    "view_all": "View All",
+    "no_orders": "No recent orders",
+    "columns": {
+      "order_number": "Order #",
+      "customer": "Customer",
+      "amount": "Amount",
+      "status": "Status",
+      "payment": "Payment",
+      "date": "Date"
+    }
+  },
+  "low_stock": {
+    "title": "Low Stock Alerts",
+    "all_stocked": "All items well stocked",
+    "no_items": "No low stock items found.",
+    "columns": {
+      "product": "Product",
+      "current_stock": "Current Stock",
+      "threshold": "Threshold",
+      "status": "Status"
+    },
+    "badge": "Low Stock",
+    "view_all": "View All Products"
+  },
+  "status": {
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "partial": "Partial",
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled"
+  },
+  "orders": {
+    "list": {
+      "title": "Orders",
+      "subtitle": "Manage all customer orders",
+      "search_placeholder": "Search orders by number or customer...",
+      "all_statuses": "All Status",
+      "all_payments": "All Payments",
+      "show_dates": "Show Dates",
+      "hide_dates": "Hide Dates",
+      "clear_all": "Clear All",
+      "new_order": "New Order",
+      "orders_badge": "{{count}} orders",
+      "orders_badge_one": "{{count}} order",
+      "orders_badge_other": "{{count}} orders",
+      "page_total": "Page total: {{amount}}",
+      "customers_badge": "{{count}} customers",
+      "customers_badge_one": "{{count}} customer",
+      "customers_badge_other": "{{count}} customers",
+      "no_orders": "No orders found",
+      "no_orders_filtered": "Try adjusting or clearing your filters.",
+      "no_orders_empty": "Create your first order.",
+      "loading": "Loading orders...",
+      "columns": {
+        "order": "Order",
+        "customer": "Customer",
+        "amount": "Amount",
+        "status": "Status",
+        "payment": "Payment",
+        "date": "Date",
+        "actions": "Actions"
+      },
+      "walk_in": "Walk-in"
+    },
+    "detail": {
+      "loading": "Loading order...",
+      "not_found": "Order not found",
+      "back_to_orders": "Back to Orders",
+      "back": "Back",
+      "order_number": "Order #{{number}}",
+      "created_on": "Created on {{date}}",
+      "payment_complete_badge": "Payment Complete",
+      "record_payment": "Record Payment",
+      "confirm_order": "Confirm Order",
+      "mark_delivered": "Mark Delivered",
+      "cancel_order": "Cancel Order",
+      "view_receipt": "View Receipt",
+      "cancelled_badge": "CANCELLED",
+      "cancelled_reason": "Reason: {{reason}}",
+      "progress": {
+        "pending": "Pending",
+        "confirmed": "Confirmed",
+        "delivered": "Delivered"
+      },
+      "order_info_title": "Order Information",
+      "payment_summary_title": "Payment Summary",
+      "labels": {
+        "order_number": "Order Number",
+        "customer": "Customer",
+        "status": "Status",
+        "payment_status": "Payment Status",
+        "created_by": "Created By",
+        "notes": "Notes",
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "order_total": "Order Total",
+        "paid_amount": "Paid Amount",
+        "balance_due": "Balance Due",
+        "payment_recorded_by": "Payment Recorded By",
+        "payment_recorded_at": "Payment Recorded At"
+      },
+      "audit_trail_title": "Audit Trail",
+      "audit": {
+        "created_by": "Created By",
+        "created_at": "Created At",
+        "confirmed_by": "Confirmed By",
+        "confirmed_at": "Confirmed At",
+        "cancelled_by": "Cancelled By",
+        "cancelled_at": "Cancelled At",
+        "cancellation_reason": "Cancellation Reason",
+        "no_activity": "No further activity yet."
+      },
+      "items_title": "Order Items",
+      "item_columns": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "unit_price": "Unit Price",
+        "subtotal": "Subtotal"
+      },
+      "no_items": "No items found",
+      "confirm_dialogs": {
+        "confirm_order_title": "Confirm Order",
+        "confirm_order_message": "Mark this order as confirmed? This should be done when payment is complete.",
+        "confirm_order_button": "Confirm",
+        "delivered_title": "Mark Delivered",
+        "delivered_message": "Mark this order as delivered? The customer has received the goods.",
+        "delivered_button": "Mark Delivered"
+      }
+    },
+    "form": {
+      "title": "Create Order",
+      "subtitle": "Create a new customer order",
+      "customer_type_label": "Customer Type",
+      "customer_type_existing": "Existing Customer",
+      "customer_type_walkin": "Walk-in Customer",
+      "customer_type_quick": "Quick Create Customer",
+      "customer_label": "Customer *",
+      "customer_search_placeholder": "Search and select customer...",
+      "customer_search_hint": "Type customer name, phone, or email...",
+      "customer_selected": "Customer selected",
+      "walkin_details_title": "Walk-in Customer Details",
+      "quick_create_title": "Quick Create Customer",
+      "quick_create_hint": "(Enter phone number to create customer)",
+      "optional_hint": "(Optional)",
+      "phone_label": "Phone Number",
+      "phone_placeholder": "0712 345 678",
+      "name_label": "Customer Name",
+      "name_auto_hint": "(auto-generated)",
+      "name_placeholder": "Auto-generated from phone",
+      "email_label": "Email (Optional)",
+      "email_placeholder": "customer@example.com",
+      "address_label": "Address (Optional)",
+      "address_placeholder": "Customer address",
+      "invalid_phone_hint": "Please enter a valid phone number (e.g., 0712345678)",
+      "phone_required_hint": "Please enter a phone number to create customer",
+      "add_products_label": "Add Products",
+      "product_search_placeholder": "Search and select a product...",
+      "product_search_hint": "Type product name or SKU...",
+      "add_button": "Add",
+      "order_items_title": "Order Items",
+      "no_items": "No items added yet",
+      "item_columns": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "unit_price": "Unit Price",
+        "subtotal": "Subtotal",
+        "actions": "Actions"
+      },
+      "totals": {
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "total": "Total"
+      },
+      "notes_label": "Notes (Optional)",
+      "notes_placeholder": "Any special instructions or notes...",
+      "creating": "Creating...",
+      "submit_button": "Create Order - {{amount}}",
+      "cancel_button": "Cancel",
+      "messages": {
+        "select_product": "Please select a product",
+        "added_to_order": "Product added to order",
+        "add_one_item": "Please add at least one product",
+        "existing_customer_matched": "Existing customer matched by phone",
+        "customer_created": "Customer created successfully",
+        "invalid_phone": "Please enter a valid phone number (e.g., 0712345678)",
+        "fill_customer_details": "Please fill in customer details",
+        "select_or_create": "Please select or create a customer",
+        "order_created": "Order created successfully",
+        "create_failed": "Failed to create order",
+        "customer_create_failed": "Failed to create customer"
+      }
+    }
+  },
+  "quick_sale": {
+    "title": "Quick Sale",
+    "subtitle": "One screen. Sell, take payment, done.",
+    "cancel_button": "Cancel",
+    "add_product_label": "Add Product",
+    "product_search_placeholder": "Search product by name or SKU...",
+    "product_search_hint": "Type to search...",
+    "add_button": "Add",
+    "cart_title": "Cart",
+    "cart_items_badge": "{{count}} items",
+    "cart_items_badge_one": "{{count}} item",
+    "cart_items_badge_other": "{{count}} items",
+    "cart_empty": "No items yet",
+    "cart_empty_hint": "Search above to add products",
+    "cart_columns": {
+      "product": "Product",
+      "qty": "Qty",
+      "price": "Price",
+      "subtotal": "Subtotal"
+    },
+    "payment_title": "Payment",
+    "method_label": "Method",
+    "methods": {
+      "cash": "Cash",
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa"
+    },
+    "reference_label": "Reference Number *",
+    "reference_placeholder": "e.g. 8HJK1234XY",
+    "customer_title": "Customer (optional)",
+    "save_customer": "Save customer details",
+    "save_customer_hint": "Leave unchecked for a walk-in sale.",
+    "customer_name_label": "Customer Name *",
+    "customer_name_placeholder": "e.g. John Mwangi",
+    "customer_phone_label": "Phone Number *",
+    "customer_phone_placeholder": "0712 345 678",
+    "total_title": "Total",
+    "totals": {
+      "subtotal": "Subtotal",
+      "vat": "VAT ({{rate}}%)",
+      "total": "Total"
+    },
+    "notes_label": "Notes (optional)",
+    "notes_placeholder": "Any notes for this sale...",
+    "complete_button": "Complete Sale - {{amount}}",
+    "processing": "Processing...",
+    "disabled_title": "Quick Sale is disabled",
+    "disabled_message": "Your business owner has turned off Quick Sale. You can still create orders through the standard flow.",
+    "go_to_new_order": "Go to New Order",
+    "messages": {
+      "select_product": "Please select a product",
+      "add_one_item": "Add at least one product",
+      "reference_required": "Reference number is required for mobile money",
+      "customer_name_required": "Customer name is required",
+      "customer_phone_required": "Customer phone is required",
+      "sale_completed": "Sale completed",
+      "sale_failed": "Failed to complete sale",
+      "role_blocked": "Your role cannot use Quick Sale"
+    }
+  },
+  "cancel_modal": {
+    "title": "Cancel Order",
+    "warning_title": "This action cannot be undone.",
+    "warning_intro": "Cancelling this order will:",
+    "warning_restore_stock": "Restore stock for all items",
+    "warning_remove_totals": "Remove it from sales and VAT totals",
+    "warning_reverse_customer": "Reverse the customer's stats",
+    "warning_delete_payments": "Delete all recorded payments",
+    "summary": {
+      "customer": "Customer",
+      "order_total": "Order Total",
+      "already_paid": "Already Paid"
+    },
+    "reason_label": "Cancellation Reason *",
+    "reason_placeholder": "Why is this order being cancelled?",
+    "reason_hint": "{{count}} / 100 characters (minimum 3)",
+    "confirm_button": "Confirm Cancellation",
+    "keep_button": "Keep Order",
+    "cancelling": "Cancelling...",
+    "walk_in": "Walk-in",
+    "messages": {
+      "reason_length": "Reason must be between 3 and 100 characters",
+      "success": "Order cancelled successfully",
+      "failed": "Failed to cancel order"
+    }
+  },
+  "receipt": {
+    "cancelled_badge": "CANCELLED",
+    "cancelled_reason": "Reason: {{reason}}",
+    "cancelled_by_line": "Cancelled by {{name}} on {{date}}",
+    "order_info": {
+      "order_number": "Order #:",
+      "date": "Date:",
+      "customer": "Customer:",
+      "status": "Status:"
+    },
+    "item_columns": {
+      "item": "Item",
+      "qty": "Qty",
+      "price": "Price",
+      "total": "Total"
+    },
+    "no_items": "No items found",
+    "cancelled_totals": {
+      "original_subtotal": "Original Subtotal",
+      "original_vat": "Original VAT",
+      "current_total": "Current Total",
+      "paid": "Paid"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "vat": "VAT",
+      "vat_rate": "VAT ({{rate}}%)",
+      "total": "Total",
+      "paid": "Paid",
+      "balance_due": "Balance Due",
+      "payment_status": "Payment Status"
+    },
+    "footer": {
+      "cancelled_line1": "Order cancelled - no payment is due",
+      "cancelled_line2": "Keep this receipt for your records",
+      "thanks": "Thank you for shopping with us.",
+      "return_policy": "Items sold are not returnable unless defective"
+    },
+    "buttons": {
+      "print": "Print Receipt",
+      "download": "Download",
+      "close": "Close"
+    },
+    "messages": {
+      "download_failed": "Failed to download receipt"
+    }
+  },
+  "payment_modal": {
+    "title": "Record Payment",
+    "order_ref": "Order #{{number}} · {{customer}}",
+    "fully_paid": "Fully Paid",
+    "balance_due": "Balance Due",
+    "summary": {
+      "total": "Total",
+      "vat": "VAT",
+      "paid": "Paid"
+    },
+    "method_label": "Payment Method",
+    "methods": {
+      "cash": "Cash",
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa"
+    },
+    "amount_label": "Amount",
+    "quick_amounts": {
+      "half": "Half - {{amount}}",
+      "full": "Full - {{amount}}"
+    },
+    "reference_label": "Reference Number",
+    "reference_placeholder": "Enter M-Pesa/Tigo reference number",
+    "buttons": {
+      "cancel": "Cancel",
+      "record": "Record {{amount}}",
+      "recording": "Recording...",
+      "close": "Close"
+    },
+    "messages": {
+      "invalid_amount": "Please enter a valid amount",
+      "exceeds_balance": "Amount cannot exceed remaining balance",
+      "reference_required": "Please enter the reference number",
+      "success": "Payment of {{amount}} recorded",
+      "failed": "Failed to record payment"
+    }
+  },
+  "products": {
+    "list": {
+      "title": "Products",
+      "subtitle": "Manage your electrical equipment inventory",
+      "add_button": "Add Product",
+      "search_placeholder": "Search products by name, SKU, or description...",
+      "all_categories": "All Categories",
+      "clear_button": "Clear",
+      "showing": "Showing {{shown}} of {{total}}",
+      "totals": {
+        "inventory_value": "{{scope}} Inventory Value (Selling)",
+        "cost_value": "{{scope}} Cost Value",
+        "profit_potential": "{{scope}} Potential Profit",
+        "filtered": "Filtered",
+        "total": "Total"
+      },
+      "columns": {
+        "name": "Product Name",
+        "category": "Category",
+        "cost_price": "Cost Price",
+        "selling_price": "Selling Price",
+        "stock": "Stock",
+        "total_value": "Total Value",
+        "actions": "Actions"
+      },
+      "no_products": "No products found",
+      "no_products_filtered": "Try adjusting or clearing your filters.",
+      "no_products_empty": "Add your first product.",
+      "loading": "Loading products..."
+    },
+    "detail": {
+      "title": "Product Detail",
+      "loading": "Loading product...",
+      "not_found": "Product not found",
+      "back_to_products": "Back to Products",
+      "back": "Back",
+      "no_description": "No description provided",
+      "details_title": "Product Details",
+      "pricing_title": "Pricing",
+      "inventory_title": "Inventory",
+      "actions_title": "Actions",
+      "labels": {
+        "name": "Name",
+        "description": "Description",
+        "category": "Category",
+        "sku": "SKU",
+        "supplier": "Supplier",
+        "cost_price": "Cost Price",
+        "selling_price": "Selling Price",
+        "profit_margin": "Profit Margin",
+        "current_stock": "Current Stock",
+        "low_stock_threshold": "Low Stock Threshold",
+        "status": "Status"
+      },
+      "units": "{{count}} units",
+      "units_one": "{{count}} unit",
+      "units_other": "{{count}} units",
+      "badge_low_stock": "Low Stock",
+      "badge_in_stock": "In Stock",
+      "adjust_stock_button": "Adjust Stock",
+      "edit_button": "Edit Product",
+      "delete_button": "Delete Product",
+      "delete_confirm_title": "Delete Product",
+      "delete_confirm_message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+      "messages": {
+        "deleted": "Product deleted successfully",
+        "delete_failed": "Failed to delete product",
+        "not_found": "Product not found"
+      }
+    },
+    "form": {
+      "title_add": "Add Product",
+      "title_edit": "Edit Product",
+      "subtitle_add": "Fill in the product details below",
+      "subtitle_edit": "Update product details",
+      "loading": "Loading product...",
+      "labels": {
+        "name": "Product Name *",
+        "description": "Description",
+        "category": "Category",
+        "cost_price": "Cost Price (TZS) *",
+        "selling_price": "Selling Price (TZS) *",
+        "stock_quantity": "Stock Quantity",
+        "low_stock_threshold": "Low Stock Threshold"
+      },
+      "placeholders": {
+        "name": "e.g., Cable 2.5mm",
+        "description": "Product description...",
+        "cost_price": "0",
+        "selling_price": "0",
+        "stock_quantity": "0",
+        "low_stock_threshold": "5"
+      },
+      "category_select": "Select a category",
+      "no_categories": "No categories yet - add one first",
+      "no_categories_hint": "This branch has no categories yet. Go to the Categories page and add one, then come back.",
+      "name_conflict": "A product named \"{{name}}\" already exists in this branch.",
+      "buttons": {
+        "submit_add": "Add Product",
+        "submit_edit": "Update Product",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "name_required": "Product name is required",
+        "cost_required": "Please enter a valid cost price",
+        "selling_required": "Please enter a valid selling price",
+        "added": "Product added successfully",
+        "updated": "Product updated successfully",
+        "save_failed": "Failed to save product",
+        "load_failed": "Failed to load product"
+      }
+    },
+    "stock": {
+      "title": "Adjust Stock",
+      "product_label": "Product:",
+      "current_stock_label": "Current Stock:",
+      "threshold_label": "Low Stock Threshold:",
+      "type_label": "Adjustment Type *",
+      "type_add": "Add Stock",
+      "type_remove": "Remove Stock",
+      "quantity_label": "Quantity *",
+      "reason_label": "Reason *",
+      "reason_placeholder": "e.g., New shipment received, Damaged items",
+      "confirm_add": "Confirm Add",
+      "confirm_remove": "Confirm Remove",
+      "processing": "Processing...",
+      "cancel_button": "Cancel",
+      "units": "{{count}} units",
+      "units_one": "{{count}} unit",
+      "units_other": "{{count}} units",
+      "messages": {
+        "invalid_quantity": "Please enter a valid quantity",
+        "reason_required": "Please enter a reason for adjustment",
+        "added": "Stock added successfully",
+        "removed": "Stock removed successfully",
+        "failed": "Failed to adjust stock"
+      }
+    }
+  },
+  "customers": {
+    "list": {
+      "title": "Customers",
+      "subtitle": "Manage your customer database",
+      "add_button": "Add Customer",
+      "search_placeholder": "Search customers by name, phone, or email...",
+      "clear_button": "Clear",
+      "showing": "Showing {{shown}} of {{total}}",
+      "columns": {
+        "name": "Name",
+        "phone": "Phone",
+        "email": "Email",
+        "orders": "Orders",
+        "total_spent": "Total Spent",
+        "actions": "Actions"
+      },
+      "no_customers": "No customers found",
+      "no_customers_filtered": "Try adjusting or clearing your search.",
+      "no_customers_empty": "Add your first customer.",
+      "loading": "Loading customers..."
+    },
+    "detail": {
+      "title": "Customer",
+      "loading": "Loading customer...",
+      "not_found": "Customer not found",
+      "back_to_customers": "Back to Customers",
+      "back": "Back",
+      "customer_since": "Customer since {{date}}",
+      "edit_button": "Edit",
+      "delete_button": "Delete",
+      "stats": {
+        "total_orders": "Total Orders",
+        "total_spent": "Total Spent",
+        "average_order": "Average Order"
+      },
+      "additional_info_title": "Additional Information",
+      "labels": {
+        "notes": "Notes"
+      },
+      "delete_confirm_title": "Delete Customer",
+      "delete_confirm_message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
+      "messages": {
+        "deleted": "Customer deleted successfully",
+        "delete_failed": "Failed to delete customer",
+        "not_found": "Customer not found"
+      }
+    },
+    "form": {
+      "title_add": "Add Customer",
+      "title_edit": "Edit Customer",
+      "subtitle": "Fill in the customer details below",
+      "loading": "Loading customer...",
+      "labels": {
+        "name": "Full Name *",
+        "phone": "Phone Number *",
+        "email": "Email (Optional)",
+        "address": "Address (Optional)",
+        "notes": "Notes (Optional)"
+      },
+      "placeholders": {
+        "name": "Enter customer name",
+        "phone": "+255 712 345 678",
+        "email": "customer@example.com",
+        "address": "Enter customer address...",
+        "notes": "Any notes about this customer..."
+      },
+      "buttons": {
+        "submit_add": "Add Customer",
+        "submit_edit": "Update Customer",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "name_required": "Customer name is required",
+        "phone_required": "Phone number is required",
+        "added": "Customer added successfully",
+        "updated": "Customer updated successfully",
+        "save_failed": "Failed to save customer",
+        "load_failed": "Failed to load customer"
+      }
+    }
+  },
+  "payments": {
+    "list": {
+      "title": "Payments",
+      "subtitle": "View all payment transactions",
+      "search_placeholder": "Search payments by order number or customer...",
+      "all_methods": "All Methods",
+      "all_statuses": "All Statuses",
+      "show_dates": "Show Dates",
+      "hide_dates": "Hide Dates",
+      "clear_all": "Clear All",
+      "loading": "Loading payments...",
+      "columns": {
+        "order": "Order",
+        "customer": "Customer",
+        "amount": "Amount",
+        "method": "Method",
+        "status": "Status",
+        "date": "Date"
+      },
+      "status": {
+        "completed": "Completed",
+        "voided": "Voided"
+      },
+      "methods": {
+        "cash": "Cash",
+        "mpesa": "M-Pesa",
+        "tigo_pesa": "Tigo Pesa"
+      },
+      "no_payments": "No payments found",
+      "no_payments_filtered": "Try adjusting or clearing your filters.",
+      "no_payments_empty": "Payments will appear here once recorded.",
+      "summary": {
+        "showing": "Showing {{shown}} of {{total}} payments",
+        "page_indicator": "(page {{page}} of {{pages}})",
+        "voided_label": "Voided:",
+        "page_total_label": "Page total:"
+      }
+    }
+  },
+    "settings": {
+    "page_title": "Settings",
+    "page_subtitle": "Manage your shops and branches",
+    "new_business_button": "New Business",
+    "loading": "Loading settings...",
+    "saved_success": "Settings saved successfully",
+    "subscription_notice": {
+      "suspended_title": "Account suspended",
+      "expired_title": "Your free trial has ended",
+      "active_title": "Free trial active",
+      "suspended_message": "Your account is suspended. Please contact support.",
+      "pending_message": "Your payment is under review. You can add branches once approved.",
+      "default_message": "Adding new businesses and branches requires an active subscription. Subscribe to unlock.",
+      "subscribe_button": "Subscribe",
+      "pending_badge": "Payment pending"
+    },
+    "my_businesses": {
+      "title": "My Businesses",
+      "subtitle": "Each business is fully separate. Switch, deactivate, or delete.",
+      "empty": "No businesses yet. Click \"New Business\" above.",
+      "branch_count": "{{count}} branch",
+      "branch_count_one": "{{count}} branch",
+      "branch_count_other": "{{count}} branches",
+      "active_view_badge": "Active view",
+      "switch_button": "Switch to",
+      "current_view_label": "Currently viewing",
+      "activate_tooltip": "Activate business",
+      "deactivate_tooltip": "Deactivate business",
+      "delete_tooltip": "Delete business permanently"
+    },
+    "identity": {
+      "title": "Business Identity",
+      "editing_prefix": "Editing the active business:",
+      "name_label": "Business Name (internal) *",
+      "shop_name_label": "Display Name (on receipts) *",
+      "phone_label": "Phone",
+      "email_label": "Email",
+      "location_label": "Location / Address",
+      "currency_label": "Currency"
+    },
+    "vat": {
+      "title": "VAT Configuration",
+      "enable_label": "Enable VAT",
+      "enabled_text": "VAT is enabled",
+      "disabled_text": "VAT is disabled",
+      "rate_label": "VAT Rate (%)",
+      "tin_label": "TIN",
+      "vrn_label": "VRN"
+    },
+    "pos": {
+      "title": "Point of Sale",
+      "enable_label": "Enable Quick Sale",
+      "enabled_text": "Quick Sale is available",
+      "disabled_text": "Quick Sale is disabled",
+      "hint": "When enabled, Boss, Manager, and Cashier can sell in a single screen without creating a customer first. Payment is recorded in the same transaction. The full order flow stays available as an alternative."
+    },
+    "branches": {
+      "title": "Branches",
+      "counter": "({{count}} of {{max}})",
+      "subtitle": "Each branch has its own products, customers, orders, and staff.",
+      "limit_reached_note": "You have reached the maximum number of branches.",
+      "add_button": "Add Branch",
+      "limit_reached_button": "Limit reached",
+      "add_tooltip": "Add a new branch",
+      "subscribed_tooltip": "Active subscription required",
+      "limit_tooltip": "Branch limit reached",
+      "new_name_placeholder": "Branch name *",
+      "new_location_placeholder": "Location (optional)",
+      "create_button": "Create Branch",
+      "creating_button": "Creating...",
+      "empty": "No branches yet. Click \"Add Branch\" to create one.",
+      "columns": {
+        "branch": "Branch",
+        "location": "Location",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "rename_tooltip": "Rename",
+      "deactivate_tooltip": "Deactivate",
+      "activate_tooltip": "Activate",
+      "delete_tooltip": "Delete permanently",
+      "badge_active": "Active",
+      "badge_inactive": "Inactive"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "dark_mode_label": "Dark Mode",
+      "light_mode_label": "Light Mode",
+      "switch_to_light": "Switch to Light",
+      "switch_to_dark": "Switch to Dark"
+    },
+    "save_button": "Save Settings",
+    "saving_button": "Saving...",
+    "new_business_modal": {
+      "title": "Create New Business",
+      "name_label": "Business Name (internal) *",
+      "name_placeholder": "e.g. OSWAGO Cosmetics",
+      "branch_label": "First Branch Name *",
+      "branch_placeholder": "e.g. Main Branch",
+      "location_label": "Location (optional)",
+      "create_button": "Create Business",
+      "creating_button": "Creating...",
+      "cancel_button": "Cancel"
+    },
+    "delete_business_dialog": {
+      "title": "Delete Business",
+      "message": "Delete \"{{name}}\"? This will permanently remove the business and everything inside it. This cannot be undone."
+    },
+    "delete_branch_dialog": {
+      "title": "Delete Branch",
+      "message": "Delete branch \"{{name}}\"? This will permanently remove the branch and all its data. This cannot be undone."
+    },
+    "business_toggle": {
+      "deactivate_title": "Deactivate Business",
+      "activate_title": "Activate Business",
+      "deactivate_message": "Deactivate \"{{name}}\"? All its branches and data are preserved but hidden from the switcher.",
+      "activate_message": "Activate \"{{name}}\"? Its branches become available again.",
+      "deactivate_button": "Deactivate",
+      "activate_button": "Activate"
+    },
+    "branch_toggle": {
+      "deactivate_title": "Deactivate Branch",
+      "activate_title": "Activate Branch",
+      "deactivate_message": "Deactivate \"{{name}}\"? Its data is preserved.",
+      "activate_message": "Reactivate \"{{name}}\"?",
+      "deactivate_button": "Deactivate",
+      "activate_button": "Activate"
+    },
+    "force_delete": {
+      "title_business": "Force Delete Business",
+      "title_branch": "Force Delete Branch",
+      "warning": "This will permanently destroy {{name}} and every row attached to it. There is no undo.",
+      "rows_header": "Rows that will be destroyed:",
+      "type_name_label": "Type the exact name: {{name}}",
+      "type_word_label": "Type DELETE to confirm",
+      "permanent_button": "Permanently Delete",
+      "cancel_button": "Cancel"
+    },
+      "messages": {
+      "save_failed": "Failed to save settings",
+      "business_name_required": "Business name is required",
+      "branch_name_required": "Branch name cannot be empty",
+      "branch_created": "Branch created",
+      "branch_updated": "Branch updated",
+      "branch_update_failed": "Failed to update branch",
+      "branch_deactivated": "Branch deactivated",
+      "branch_activated": "Branch activated",
+      "branch_status_failed": "Failed to change branch status",
+      "branch_create_failed": "Failed to create branch",
+      "business_created": "Business created",
+      "business_create_failed": "Failed to create business",
+      "business_deactivated": "Business deactivated. Data preserved.",
+      "business_activated": "Business activated.",
+      "business_status_failed": "Failed to change business status",
+      "business_deleted": "Business deleted",
+      "business_delete_failed": "Failed to delete business",
+      "branch_deleted": "Branch deleted",
+      "branch_delete_failed": "Failed to delete branch",
+      "business_force_deleted": "Business force-deleted",
+      "branch_force_deleted": "Branch force-deleted",
+      "force_delete_failed": "Force delete failed",
+      "typed_name_mismatch": "Typed name does not match",
+      "type_delete_hint": "Type DELETE to confirm"
+    }
+  },
+  "subscribe_modal": {
+    "title": "Subscribe to OSWAGOTech",
+    "instructions_title": "How to pay",
+    "instructions_line1": "Send payment to Lipa Namba {{number}}.",
+    "instructions_line2": "Use your business code {{code}} as the reference.",
+    "instructions_line3": "Then enter the transaction ID below.",
+    "choose_plan_label": "Choose a plan",
+    "loading_plans": "Loading plans...",
+    "method_label": "Payment method",
+    "methods": {
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa",
+      "airtel_money": "Airtel Money",
+      "bank": "Bank transfer"
+    },
+    "transaction_id_label": "Transaction ID",
+    "transaction_id_placeholder": "e.g. 8HJK1234XY",
+    "summary_line": "You are paying {{amount}} for {{label}}.",
+    "cancel_button": "Cancel",
+    "submit_button": "Submit payment",
+    "submitting_button": "Submitting...",
+    "messages": {
+      "plan_required": "Please choose a plan",
+      "transaction_required": "Please enter a valid transaction ID",
+      "success": "Payment submitted. Awaiting review.",
+      "submit_failed": "Failed to submit payment",
+      "pricing_failed": "Failed to load pricing"
+    }
+  },
+  "subscription": {
+    "status_labels": {
+      "trial": "Trial",
+      "active": "Active",
+      "expired": "Expired",
+      "suspended": "Suspended"
+    },
+    "trial_banner": {
+      "suspended_line": "Your account is suspended. Please contact support.",
+      "expired_label": "Your free trial has ended",
+      "days_remaining": "Free trial: {{count}} day remaining",
+      "days_remaining_one": "Free trial: {{count}} day remaining",
+      "days_remaining_other": "Free trial: {{count}} days remaining",
+      "payment_under_review": "Payment under review",
+      "subscribe_button": "Subscribe"
+    }
+  },
+    "profile_settings": {
+    "title": "Profile Settings",
+    "subtitle": "Manage your account information",
+    "back": "Back",
+    "profile_card": {
+      "title": "Profile Information",
+      "full_name_label": "Full Name",
+      "email_label": "Email",
+      "email_cannot_change": "Email cannot be changed",
+      "phone_label": "Phone",
+      "phone_placeholder": "Enter your phone number",
+      "save_button": "Save Changes",
+      "saving_button": "Saving..."
+    },
+    "password_card": {
+      "title": "Change Password",
+      "current_label": "Current Password",
+      "current_placeholder": "Enter current password",
+      "new_label": "New Password",
+      "new_placeholder": "Enter new password",
+      "confirm_label": "Confirm New Password",
+      "confirm_placeholder": "Confirm new password",
+      "hint": "Min 6 characters with at least 1 number",
+      "submit_button": "Change Password",
+      "changing_button": "Changing..."
+    },
+    "messages": {
+      "profile_updated": "Profile updated successfully",
+      "profile_update_failed": "Failed to update profile",
+      "passwords_do_not_match": "New passwords do not match",
+      "fill_passwords": "Please fill in current and new password"
+    }
+  },
+    "categories": {
+    "title": "Categories",
+    "subtitle": "Manage your product categories",
+    "add_button": "Add Category",
+    "search_placeholder": "Search categories...",
+    "new_placeholder": "Enter new category name...",
+    "add_submit": "Add",
+    "loading": "Loading categories...",
+    "columns": {
+      "category": "Category",
+      "products": "Products",
+      "actions": "Actions"
+    },
+    "product_count": "{{count}} product",
+    "product_count_one": "{{count}} product",
+    "product_count_other": "{{count}} products",
+    "no_categories_title": "No Categories",
+    "no_categories_hint": "Add your first category to organize your products",
+    "no_match": "No categories match \"{{search}}\"",
+    "footer": {
+      "count_label": "{{count}} Category",
+      "count_label_one": "{{count}} Category",
+      "count_label_other": "{{count}} Categories",
+      "products_organized": "{{count}} products organized in total",
+      "synced_badge": "All synced"
+    },
+    "delete_dialog": {
+      "title": "Delete Category",
+      "message": "Delete category \"{{name}}\"? This cannot be undone."
+    },
+    "tooltips": {
+      "edit": "Edit category",
+      "delete": "Delete category",
+      "clear_search": "Clear search"
+    },
+    "messages": {
+      "name_required": "Please enter a category name",
+      "name_empty": "Category name cannot be empty",
+      "added": "Category added successfully",
+      "updated": "Category updated successfully",
+      "deleted": "Category deleted successfully",
+      "add_failed": "Failed to add category",
+      "update_failed": "Failed to update category",
+      "delete_failed": "Failed to delete category",
+      "load_failed": "Failed to load categories"
+    }
+  },
+    "staff": {
+    "roles": {
+      "boss": "Boss",
+      "manager": "Manager",
+      "cashier": "Cashier",
+      "store_keeper": "Store Keeper",
+      "sales_rep": "Sales Rep"
+    },
+    "list": {
+      "title": "Staff",
+      "subtitle": "Manage your team members",
+      "add_button": "Add Staff",
+      "search_placeholder": "Search staff by name or email",
+      "count": "{{shown}} of {{total}} members",
+      "count_one": "{{shown}} of {{total}} member",
+      "count_other": "{{shown}} of {{total}} members",
+      "loading": "Loading staff...",
+      "columns": {
+        "staff": "Staff",
+        "email": "Email",
+        "phone": "Phone",
+        "role": "Role",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "you_badge": "You",
+      "status_active": "Active",
+      "status_inactive": "Inactive",
+      "no_staff_title": "No staff yet",
+      "no_staff_hint": "Add your first team member to get started.",
+      "no_match_title": "No matching staff",
+      "no_match_hint": "Try a different name or email.",
+      "clear_search": "Clear search"
+    },
+    "detail": {
+      "title": "Staff Member",
+      "loading": "Loading staff...",
+      "not_found": "Staff member not found",
+      "back_to_staff": "Back to Staff",
+      "back": "Back",
+      "since": "Staff member since {{date}}",
+      "you_badge": "You",
+      "personal_info_title": "Personal Information",
+      "account_status_title": "Account Status",
+      "labels": {
+        "full_name": "Full Name",
+        "email": "Email",
+        "phone": "Phone",
+        "role": "Role",
+        "status": "Status",
+        "first_login": "First Login",
+        "account_created": "Account Created"
+      },
+      "first_login_yes": "Yes - will be prompted to change password",
+      "first_login_no": "No",
+      "edit_button": "Edit Staff",
+      "reset_password_button": "Reset Password",
+      "activate_button": "Activate",
+      "deactivate_button": "Deactivate",
+      "delete_button": "Delete Staff",
+      "reset_modal": {
+        "title": "Reset Password",
+        "message": "Set a new password for {{name}}",
+        "new_password_label": "New Password",
+        "new_password_placeholder": "Enter new password",
+        "hint": "Staff will be prompted to change password on next login",
+        "submit_button": "Reset Password",
+        "submitting_button": "Resetting...",
+        "cancel_button": "Cancel"
+      },
+      "toggle_dialog": {
+        "deactivate_title": "Deactivate Staff",
+        "activate_title": "Activate Staff",
+        "deactivate_message": "Deactivating {{name}} will prevent them from logging in. Continue?",
+        "activate_message": "Reactivate {{name}}? They will be able to log in again.",
+        "deactivate_button": "Deactivate",
+        "activate_button": "Activate"
+      },
+      "delete_dialog": {
+        "title": "Delete Staff",
+        "message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone."
+      },
+      "messages": {
+        "deactivated": "{{name}} deactivated",
+        "activated": "{{name}} activated",
+        "deleted": "Staff deleted successfully",
+        "password_reset": "Password reset successfully",
+        "status_failed": "Failed to update status",
+        "delete_failed": "Failed to delete staff",
+        "password_reset_failed": "Failed to reset password",
+        "password_too_short": "Password must be at least 6 characters",
+        "not_found": "Staff member not found"
+      }
+    },
+    "form": {
+      "title_add": "Add Staff",
+      "title_edit": "Edit Staff",
+      "subtitle_add": "Add a new team member to a branch",
+      "subtitle_edit": "Update staff details",
+      "loading": "Loading staff...",
+      "labels": {
+        "full_name": "Full Name *",
+        "email": "Email *",
+        "phone": "Phone",
+        "role": "Role *",
+        "branch": "Branch *",
+        "temp_password": "Temporary Password"
+      },
+      "placeholders": {
+        "full_name": "Enter full name",
+        "email": "staff@shop.com",
+        "phone": "+255 712 345 678"
+      },
+      "email_cannot_change": "Email cannot be changed",
+      "branch_lock_hint": "Branch cannot be changed after creation. Contact support if this needs to move.",
+      "branch_help": "Staff will see only this branch's data after login",
+      "select_branch": "Select a branch",
+      "temp_password_hint": "Staff will be prompted to change password on first login",
+      "buttons": {
+        "submit_add": "Add Staff",
+        "submit_edit": "Update Staff",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "save_failed": "Failed to save staff",
+        "added": "Staff added successfully",
+        "updated": "Staff updated successfully",
+        "load_failed": "Failed to load staff"
+      }
+    }
+  },
+    "expenses": {
+    "list": {
+      "title": "Expenses",
+      "subtitle": "Track all business expenses",
+      "add_button": "Add Expense",
+      "search_placeholder": "Search expenses by description...",
+      "all_categories": "All Categories",
+      "show_dates": "Show Dates",
+      "hide_dates": "Hide Dates",
+      "clear_all": "Clear All",
+      "clear_dates": "Clear",
+      "page_total": "Page total:",
+      "loading": "Loading expenses...",
+      "columns": {
+        "description": "Description",
+        "category": "Category",
+        "amount": "Amount",
+        "date": "Date",
+        "actions": "Actions"
+      },
+      "no_expenses": "No expenses found",
+      "no_expenses_filtered": "Try adjusting or clearing your filters.",
+      "no_expenses_empty": "Add your first expense."
+    },
+    "detail": {
+      "title": "Expense Detail",
+      "loading": "Loading expense...",
+      "not_found": "Expense not found",
+      "back_to_expenses": "Back to Expenses",
+      "back": "Back",
+      "recorded_on": "Expense recorded on {{date}}",
+      "details_title": "Expense Details",
+      "additional_info_title": "Additional Information",
+      "labels": {
+        "description": "Description",
+        "category": "Category",
+        "amount": "Amount",
+        "date": "Date",
+        "payment_method": "Payment Method",
+        "notes": "Notes",
+        "created_by": "Created By",
+        "created_at": "Created At"
+      },
+      "no_notes": "No notes",
+      "edit_button": "Edit Expense",
+      "delete_button": "Delete Expense",
+      "delete_dialog": {
+        "title": "Delete Expense",
+        "message": "Are you sure you want to delete \"{{description}}\"? This cannot be undone."
+      },
+      "messages": {
+        "deleted": "Expense deleted successfully",
+        "delete_failed": "Failed to delete expense",
+        "not_found": "Expense not found"
+      }
+    },
+    "form": {
+      "title_add": "Add Expense",
+      "title_edit": "Edit Expense",
+      "subtitle_add": "Record a new business expense",
+      "subtitle_edit": "Update expense details",
+      "loading": "Loading expense...",
+      "labels": {
+        "description": "Description *",
+        "amount": "Amount (TZS) *",
+        "category": "Category *",
+        "date": "Expense Date",
+        "payment_method": "Payment Method",
+        "notes": "Notes (Optional)"
+      },
+      "placeholders": {
+        "description": "e.g., Monthly Rent, Salaries, Electricity Bill",
+        "amount": "Enter amount",
+        "notes": "Any additional notes..."
+      },
+      "category_select": "Select a category",
+      "payment_select": "Select payment method",
+      "buttons": {
+        "submit_add": "Add Expense",
+        "submit_edit": "Update Expense",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "description_required": "Description is required",
+        "amount_required": "Valid amount is required",
+        "added": "Expense added successfully",
+        "updated": "Expense updated successfully",
+        "save_failed": "Failed to save expense",
+        "load_failed": "Failed to load expense"
+      }
+    }
+  },
+    "suppliers": {
+    "list": {
+      "title": "Suppliers",
+      "subtitle": "Manage your product suppliers",
+      "add_button": "Add Supplier",
+      "search_placeholder": "Search suppliers by name, contact, phone, or email...",
+      "clear_button": "Clear",
+      "showing": "Showing {{shown}} of {{total}}",
+      "loading": "Loading suppliers...",
+      "columns": {
+        "name": "Supplier Name",
+        "contact_person": "Contact Person",
+        "phone": "Phone",
+        "email": "Email",
+        "actions": "Actions"
+      },
+      "no_suppliers": "No suppliers found",
+      "no_suppliers_filtered": "Try adjusting or clearing your search.",
+      "no_suppliers_empty": "Add your first supplier."
+    },
+    "detail": {
+      "title": "Supplier",
+      "subtitle": "Supplier details",
+      "loading": "Loading supplier...",
+      "not_found": "Supplier not found",
+      "back_to_suppliers": "Back to Suppliers",
+      "back": "Back",
+      "info_title": "Supplier Information",
+      "additional_info_title": "Additional Information",
+      "labels": {
+        "name": "Name",
+        "contact_person": "Contact Person",
+        "phone": "Phone",
+        "email": "Email",
+        "address": "Address",
+        "notes": "Notes",
+        "created_at": "Created At"
+      },
+      "no_notes": "No notes",
+      "edit_button": "Edit Supplier",
+      "delete_button": "Delete Supplier",
+      "delete_dialog": {
+        "title": "Delete Supplier",
+        "message": "Are you sure you want to delete \"{{name}}\"? This cannot be undone."
+      },
+      "messages": {
+        "deleted": "Supplier deleted successfully",
+        "delete_failed": "Failed to delete supplier",
+        "not_found": "Supplier not found"
+      }
+    },
+    "form": {
+      "title_add": "Add Supplier",
+      "title_edit": "Edit Supplier",
+      "subtitle_add": "Add a new supplier to your network",
+      "subtitle_edit": "Update supplier details",
+      "loading": "Loading supplier...",
+      "labels": {
+        "name": "Supplier Name *",
+        "contact_person": "Contact Person",
+        "phone": "Phone *",
+        "email": "Email (Optional)",
+        "address": "Address (Optional)",
+        "notes": "Notes (Optional)"
+      },
+      "placeholders": {
+        "name": "e.g., Electric Supplies Ltd",
+        "contact_person": "e.g., John Mwangi",
+        "phone": "+255 712 345 678",
+        "email": "supplier@example.com",
+        "address": "Supplier address...",
+        "notes": "Any notes about this supplier..."
+      },
+      "buttons": {
+        "submit_add": "Add Supplier",
+        "submit_edit": "Update Supplier",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "name_required": "Supplier name is required",
+        "phone_required": "Phone number is required",
+        "added": "Supplier added successfully",
+        "updated": "Supplier updated successfully",
+        "save_failed": "Failed to save supplier",
+        "load_failed": "Failed to load supplier"
+      }
+    }
+  },
+    "purchase_orders": {
+    "status": {
+      "pending": "Pending",
+      "received": "Received",
+      "cancelled": "Cancelled"
+    },
+    "list": {
+      "title": "Purchase Orders",
+      "subtitle": "Manage supplier purchase orders",
+      "create_button": "Create PO",
+      "search_placeholder": "Search POs by number or supplier...",
+      "all_pos": "All POs",
+      "show_dates": "Show Dates",
+      "hide_dates": "Hide Dates",
+      "clear_all": "Clear All",
+      "clear_dates": "Clear",
+      "showing": "Showing {{shown}} of {{total}}",
+      "loading": "Loading purchase orders...",
+      "columns": {
+        "po_number": "PO Number",
+        "supplier": "Supplier",
+        "total": "Total",
+        "status": "Status",
+        "date": "Date",
+        "actions": "Actions"
+      },
+      "no_pos": "No purchase orders found",
+      "no_pos_filtered": "Try adjusting or clearing your filters.",
+      "no_pos_empty": "Create your first PO."
+    },
+    "detail": {
+      "title": "Purchase Order",
+      "order_number": "Purchase Order #{{number}}",
+      "created_on": "Created on {{date}}",
+      "loading": "Loading purchase order...",
+      "not_found": "Purchase order not found",
+      "back_to_pos": "Back to Purchase Orders",
+      "back": "Back",
+      "received_banner_title": "This purchase order has been received.",
+      "received_banner_body": "Editing the items will adjust product stock by the difference between what was originally received and the new quantities.",
+      "info_title": "Purchase Order Information",
+      "items_title": "Order Items",
+      "labels": {
+        "po_number": "PO Number",
+        "supplier": "Supplier",
+        "status": "Status",
+        "total_amount": "Total Amount",
+        "order_date": "Order Date",
+        "delivery_date": "Delivery Date",
+        "notes": "Notes",
+        "created_by": "Created By"
+      },
+      "item_columns": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "cost_price": "Cost Price",
+        "subtotal": "Subtotal"
+      },
+      "no_items": "No items found",
+      "totals": {
+        "total": "Total"
+      },
+      "receive_button": "Receive Stock",
+      "edit_button": "Edit",
+      "delete_button": "Delete",
+      "receive_dialog": {
+        "title": "Receive Purchase Order",
+        "message": "Receiving this PO will add all items to your inventory. Continue?",
+        "confirm_button": "Receive"
+      },
+      "delete_dialog": {
+        "title": "Delete Purchase Order",
+        "message": "Are you sure you want to delete \"{{number}}\"? This cannot be undone."
+      },
+      "messages": {
+        "received": "Purchase order received. Stock updated.",
+        "receive_failed": "Failed to receive PO",
+        "deleted": "Purchase order deleted successfully",
+        "delete_failed": "Failed to delete PO",
+        "not_found": "Purchase order not found"
+      }
+    },
+    "form": {
+      "title_add": "Create Purchase Order",
+      "title_edit": "Edit Purchase Order",
+      "subtitle_add": "Order products from suppliers",
+      "subtitle_edit": "Update purchase order details",
+      "loading": "Loading purchase order...",
+      "labels": {
+        "supplier": "Supplier *",
+        "add_products": "Add Products",
+        "notes": "Notes (Optional)"
+      },
+      "supplier_search_placeholder": "Search and select a supplier...",
+      "supplier_search_hint": "Type supplier name, phone, or email...",
+      "product_search_placeholder": "Search and select a product...",
+      "product_search_hint": "Type product name or SKU...",
+      "product_add_button": "Add",
+      "order_items_title": "Order Items",
+      "no_items": "No items added yet",
+      "item_columns": {
+        "product": "Product",
+        "quantity": "Quantity",
+        "cost_price": "Cost Price",
+        "subtotal": "Subtotal",
+        "actions": "Actions"
+      },
+      "totals": {
+        "total": "Total"
+      },
+      "notes_placeholder": "Any special instructions...",
+      "buttons": {
+        "submit_add": "Create Purchase Order",
+        "submit_edit": "Update Purchase Order",
+        "saving": "Saving...",
+        "cancel": "Cancel"
+      },
+      "messages": {
+        "supplier_required": "Please select a supplier",
+        "add_one_item": "Please add at least one product",
+        "added": "Product added to PO",
+        "created": "Purchase Order created successfully",
+        "updated": "Purchase Order updated successfully",
+        "save_failed": "Failed to save PO",
+        "load_failed": "Failed to load purchase order"
+      }
+    }
+  },
+    "reports": {
+    "common": {
+      "show_dates": "Show Dates",
+      "hide_dates": "Hide Dates",
+      "clear": "Clear",
+      "loading": "Loading report...",
+      "no_data": "No data available",
+      "no_data_hint": "No sales found for this period",
+      "periods": {
+        "today": "Today",
+        "week": "This Week",
+        "month": "Month",
+        "year": "Year",
+        "custom": "Custom"
+      },
+      "months": {
+        "all": "All Months",
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      },
+      "apply": "Apply",
+      "date_range_to": "to",
+      "select_dates_error": "Please select both start and end dates",
+      "download_failed": "Failed to generate report"
+    },
+    "inventory": {
+      "title": "Inventory Report",
+      "subtitle": "Stock valuation and inventory status",
+      "total_products_title": "Total Products",
+      "total_products_hint": "Active products",
+      "cost_value_title": "Cost Value",
+      "cost_value_hint": "Total cost of inventory",
+      "selling_value_title": "Selling Value",
+      "selling_value_hint": "Potential revenue",
+      "profit_potential_title": "Potential Profit",
+      "profit_potential_hint": "Difference between selling and cost value of current stock",
+      "low_stock_title": "Low Stock Items ({{count}})",
+      "low_stock_all_good": "All items are well stocked",
+      "category_title": "Inventory by Category",
+      "category_empty": "No categories with products",
+      "all_products_title": "All Products ({{count}})",
+      "columns": {
+        "product": "Product",
+        "stock": "Stock",
+        "threshold": "Threshold",
+        "category": "Category",
+        "cost_price": "Cost Price",
+        "selling_price": "Selling Price",
+        "stock_value": "Stock Value"
+      }
+    },
+    "sales": {
+      "title": "Sales Report",
+      "subtitle": "View sales performance",
+      "total_sales_title": "Total Sales - Without VAT",
+      "profit_title": "Realized Profit (excl. VAT)",
+      "money_received_title": "Business Money Received",
+      "vat_collected_title": "VAT Collected",
+      "outstanding_title": "Outstanding Credit",
+      "total_received_title": "Total Money Received",
+      "total_orders_title": "Total Orders",
+      "avg_order_title": "Average Order (excl. VAT)",
+      "items_sold_title": "Items Sold",
+      "stock_summary_title": "Stock Movement Summary",
+      "stock_added": "Stock Added",
+      "stock_sold": "Stock Sold",
+      "stock_adjusted": "Stock Adjusted",
+      "stock_returned": "Stock Returned",
+      "net_stock_change": "Net Stock Change:",
+      "units": "units",
+      "product_movements_title": "Product Stock Movements",
+      "movement_columns": {
+        "product": "Product",
+        "opening": "Opening",
+        "added": "Added",
+        "sold": "Sold",
+        "adjusted": "Adjusted",
+        "returned": "Returned",
+        "closing": "Closing"
+      },
+      "product_financials_title": "Product Financial Summary",
+      "product_sales_total": "Total Sales (excl. VAT)",
+      "product_money_total": "Business Money Received",
+      "product_vat_total": "VAT Collected",
+      "product_outstanding_total": "Outstanding Credit",
+      "financial_columns": {
+        "product": "Product",
+        "sales": "Sales",
+        "payments": "Payments",
+        "vat": "VAT Collected",
+        "outstanding": "Outstanding",
+        "status": "Status"
+      },
+      "financial_status": {
+        "credit": "Credit",
+        "paid": "Paid"
+      },
+      "totals_label": "Totals",
+      "credit_count_badge": "{{count}} Credit",
+      "yoy_title": "Year-over-Year Comparison",
+      "yoy_columns": {
+        "year": "Year",
+        "sales": "Sales",
+        "vat": "VAT",
+        "orders": "Orders",
+        "growth": "Growth"
+      },
+      "monthly_title": "Monthly Breakdown",
+      "monthly_columns": {
+        "month": "Month",
+        "sales": "Sales",
+        "orders": "Orders"
+      },
+      "payment_methods_title": "Money Received By Method",
+      "top_products_title": "Top Selling Products",
+      "top_columns": {
+        "product": "Product",
+        "quantity_sold": "Quantity Sold",
+        "revenue": "Revenue"
+      },
+      "no_products_sold": "No products sold",
+      "recent_orders_title": "Recent Orders",
+      "recent_columns": {
+        "order_number": "Order #",
+        "customer": "Customer",
+        "amount": "Amount",
+        "status": "Status",
+        "payment": "Payment",
+        "date": "Date"
+      },
+      "no_orders": "No orders found"
+    },
+    "profit": {
+      "title": "Profit Report",
+      "subtitle": "Realized profit on money received, VAT excluded",
+      "realized_profit_title": "Realized Profit",
+      "business_money_title": "Business Money (excl. VAT)",
+      "expenses_title": "Expenses",
+      "net_profit_title": "Net Profit (after expenses)",
+      "breakdown_title": "Profit & Loss Breakdown",
+      "business_received_label": "Business Money Received (excl. VAT)",
+      "cost_paid_label": "Cost of Goods Sold (paid portion)",
+      "realized_profit_label": "Realized Profit",
+      "operating_expenses_label": "Operating Expenses",
+      "net_profit_label": "Net Profit",
+      "margin_label": "Margin",
+      "vat_memo_title": "VAT Collected (not part of profit)",
+      "vat_memo_note": "This amount belongs to the government and must be remitted. It is not included in the profit calculation above.",
+      "top_products_title": "Top Products by Profit",
+      "top_columns": {
+        "product": "Product",
+        "quantity_sold": "Qty Sold",
+        "revenue": "Revenue (full)",
+        "cost": "Cost (full)",
+        "profit": "Profit (full)"
+      },
+      "no_product_sales": "No product sales for this period",
+      "top_hint": "Note: product breakdown shows profit potential on full order values. The summary above reflects profit on money actually received.",
+      "expenses_in_period": "Expenses in This Period ({{count}})",
+      "no_expenses": "No expenses recorded",
+      "expense_columns": {
+        "date": "Date",
+        "description": "Description",
+        "category": "Category",
+        "amount": "Amount"
+      }
+    },
+    "extract": {
+      "title": "Extract Reports",
+      "subtitle": "Download shop data as Excel files",
+      "step1_title": "1. Choose a report",
+      "step2_title": "2. Choose a period",
+      "step3_title": "3. Download",
+      "download_button": "Download Excel File",
+      "downloading_button": "Generating...",
+      "types": {
+        "sales": {
+          "label": "Sales Report",
+          "description": "Orders, items, payments, and product breakdown"
+        },
+        "payments": {
+          "label": "Payments Report",
+          "description": "All payments received with methods and references"
+        },
+        "expenses": {
+          "label": "Expenses Report",
+          "description": "All expenses with category breakdown"
+        },
+        "products": {
+          "label": "Products Report",
+          "description": "Full product list with pricing and stock"
+        },
+        "stock-movements": {
+          "label": "Stock Movements Report",
+          "description": "Every stock movement (sale, purchase, adjustment, return)"
+        },
+        "customers": {
+          "label": "Customers Report",
+          "description": "All customers with order history and spend"
+        },
+        "suppliers": {
+          "label": "Suppliers Report",
+          "description": "All suppliers with contact information"
+        },
+        "purchase-orders": {
+          "label": "Purchase Orders Report",
+          "description": "All POs to suppliers with line items"
+        },
+        "profit": {
+          "label": "Profit & Loss Report",
+          "description": "Revenue, cost, expenses, and net profit"
+        },
+        "vat": {
+          "label": "VAT Report",
+          "description": "VAT collected for tax filing"
+        },
+        "full": {
+          "label": "Full Report (Everything)",
+          "description": "All reports combined in one workbook"
+        }
+      },
+      "downloaded_toast": "Downloaded: {{filename}}"
+    }
+  },
+    "audit_log": {
+    "title": "Audit Log",
+    "subtitle": "Complete history of all actions in the system",
+    "refresh_button": "Refresh",
+    "loading": "Loading audit log...",
+    "summary": {
+      "today": "Today",
+      "this_week": "This week",
+      "this_month": "This month",
+      "most_common": "Most common action",
+      "no_data": "-"
+    },
+    "search_placeholder": "Search by action, user, or details",
+    "clear_search": "Clear search",
+    "all_branches": "All branches",
+    "all_actions": "All actions",
+    "all_users": "All users",
+    "clear_filters": "Clear filters",
+    "results_count": "{{count}} record",
+    "results_count_one": "{{count}} record",
+    "results_count_other": "{{count}} records",
+    "empty_filtered": "Try adjusting or clearing your filters.",
+    "empty_default": "Actions taken in the system will appear here.",
+    "columns": {
+      "user": "User",
+      "branch": "Branch",
+      "action": "Action",
+      "details": "Details",
+      "timestamp": "Timestamp"
+    },
+    "system_user": "System",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "status": "Page {{page}} of {{pages}}"
+    },
+    "actions": {
+      "Login": "Login",
+      "Logout": "Logout",
+      "Account Signed Up": "Account Signed Up",
+      "Profile Updated": "Profile Updated",
+      "Password Changed": "Password Changed",
+      "Quick Sale": "Quick Sale",
+      "Order Created": "Order Created",
+      "Order Status Updated": "Order Status Updated",
+      "Payment Recorded": "Payment Recorded",
+      "Order Confirmed": "Order Confirmed",
+      "Order Delivered": "Order Delivered",
+      "Order Cancelled": "Order Cancelled",
+      "Product Created": "Product Created",
+      "Product Updated": "Product Updated",
+      "Product Deleted": "Product Deleted",
+      "Stock Adjusted": "Stock Adjusted",
+      "Customer Created": "Customer Created",
+      "Customer Updated": "Customer Updated",
+      "Customer Deleted": "Customer Deleted",
+      "Supplier Created": "Supplier Created",
+      "Supplier Updated": "Supplier Updated",
+      "Supplier Deleted": "Supplier Deleted",
+      "Purchase Order Created": "Purchase Order Created",
+      "Purchase Order Received": "Purchase Order Received",
+      "Purchase Order Updated": "Purchase Order Updated",
+      "Purchase Order Deleted": "Purchase Order Deleted",
+      "Expense Created": "Expense Created",
+      "Expense Updated": "Expense Updated",
+      "Expense Deleted": "Expense Deleted",
+      "Business Created": "Business Created",
+      "Business Updated": "Business Updated",
+      "Business Activated": "Business Activated",
+      "Business Deactivated": "Business Deactivated",
+      "Business Deleted": "Business Deleted",
+      "Business Force Deleted": "Business Force Deleted",
+      "Branch Created": "Branch Created",
+      "Branch Updated": "Branch Updated",
+      "Branch Activated": "Branch Activated",
+      "Branch Deactivated": "Branch Deactivated",
+      "Branch Deleted": "Branch Deleted",
+      "Branch Force Deleted": "Branch Force Deleted",
+      "Staff Created": "Staff Created",
+      "Staff Updated": "Staff Updated",
+      "Staff Deleted": "Staff Deleted",
+      "Staff Password Reset": "Staff Password Reset",
+      "Impersonation Started": "Impersonation Started",
+      "Impersonation Ended": "Impersonation Ended"
+    }
+  }
+}

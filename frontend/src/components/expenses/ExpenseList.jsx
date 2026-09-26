@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiPlus, FiSearch, FiX, FiCalendar,
   FiChevronLeft, FiChevronRight, FiChevronDown, FiChevronUp
@@ -17,6 +18,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const ExpenseList = () => {
+  const { t } = useTranslation();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -46,11 +48,11 @@ const ExpenseList = () => {
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
     } catch (error) {
       console.error('Error fetching expenses:', error);
-      toast.error('Failed to load expenses');
+      toast.error(t('expenses.form.messages.load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, filter, startDate, endDate]);
+  }, [debouncedSearch, filter, startDate, endDate, t]);
 
   useEffect(() => {
     fetchExpenses(1);
@@ -74,7 +76,7 @@ const ExpenseList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading expenses...</p>
+        <p>{t('expenses.list.loading')}</p>
       </div>
     );
   }
@@ -83,11 +85,11 @@ const ExpenseList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Expenses</h1>
-          <p>Track all business expenses</p>
+          <h1>{t('expenses.list.title')}</h1>
+          <p>{t('expenses.list.subtitle')}</p>
         </div>
         <Link to="/expenses/new" className="btn btn-primary">
-          <FiPlus size={18} /> Add Expense
+          <FiPlus size={18} /> {t('expenses.list.add_button')}
         </Link>
       </div>
 
@@ -97,7 +99,7 @@ const ExpenseList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search expenses by description..."
+              placeholder={t('expenses.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -110,7 +112,7 @@ const ExpenseList = () => {
             className="form-control"
             style={{ width: '160px', fontSize: '13px' }}
           >
-            <option value="all">All Categories</option>
+            <option value="all">{t('expenses.list.all_categories')}</option>
             {expenseCategories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -122,7 +124,7 @@ const ExpenseList = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <FiCalendar size={16} />
-            {showFilters ? 'Hide Dates' : 'Show Dates'}
+            {showFilters ? t('expenses.list.hide_dates') : t('expenses.list.show_dates')}
             {showFilters ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
           </button>
 
@@ -132,12 +134,13 @@ const ExpenseList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear All
+              <FiX size={14} /> {t('expenses.list.clear_all')}
             </button>
           )}
 
           <div style={{ marginLeft: 'auto', fontWeight: 'bold', fontSize: '16px', whiteSpace: 'nowrap' }}>
-            Page total: <span style={{ color: '#ef4444' }}>{formatCurrency(pageTotal)}</span>
+            {t('expenses.list.page_total')}{' '}
+            <span style={{ color: '#ef4444' }}>{formatCurrency(pageTotal)}</span>
           </div>
         </div>
 
@@ -152,7 +155,7 @@ const ExpenseList = () => {
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
-              Date Range:
+              {t('expenses.list.show_dates')}:
             </span>
             <input
               type="date"
@@ -175,7 +178,7 @@ const ExpenseList = () => {
                 className="btn btn-sm btn-secondary"
                 style={{ color: '#64748b' }}
               >
-                <FiX size={14} /> Clear
+                <FiX size={14} /> {t('expenses.list.clear_dates')}
               </button>
             )}
           </div>
@@ -186,22 +189,22 @@ const ExpenseList = () => {
         <table>
           <thead>
             <tr>
-              <th>Description</th>
-              <th>Category</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Actions</th>
+              <th>{t('expenses.list.columns.description')}</th>
+              <th>{t('expenses.list.columns.category')}</th>
+              <th>{t('expenses.list.columns.amount')}</th>
+              <th>{t('expenses.list.columns.date')}</th>
+              <th>{t('expenses.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {expenses.length === 0 ? (
               <tr>
                 <td colSpan="5" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No expenses found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('expenses.list.no_expenses')}</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
-                      ? 'Try adjusting or clearing your filters.'
-                      : 'Add your first expense.'}
+                      ? t('expenses.list.no_expenses_filtered')
+                      : t('expenses.list.no_expenses_empty')}
                   </p>
                 </td>
               </tr>
@@ -218,7 +221,7 @@ const ExpenseList = () => {
                   <td>{formatDateOnly(expense.expense_date)}</td>
                   <td>
                     <Link to={`/expenses/${expense.id}`} className="btn btn-sm btn-secondary">
-                      View
+                      {t('common.view')}
                     </Link>
                   </td>
                 </tr>
@@ -238,7 +241,7 @@ const ExpenseList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

@@ -3,6 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import StatsCards from './StatsCards';
 import RecentOrders from './RecentOrders';
 import LowStockAlerts from './LowStockAlerts';
@@ -10,6 +11,7 @@ import Loader from '../common/Loader';
 import api from '../../api/client';
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,14 +30,14 @@ const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <Loader message="Loading dashboard..." />;
+    return <Loader message={t('dashboard.loading')} />;
   }
 
   return (
     <div className="dashboard">
       <div className="page-header">
-        <h1>Dashboard</h1>
-        <p>Welcome back. Here is your shop overview.</p>
+        <h1>{t('dashboard.title')}</h1>
+        <p>{t('dashboard.welcome')}</p>
       </div>
 
       <div className="dashboard-stats">

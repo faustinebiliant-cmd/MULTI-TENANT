@@ -4,21 +4,22 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiPlus, FiSearch, FiCalendar, FiX, FiChevronDown, FiChevronUp,
   FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import api from '../../api/client';
-import { formatCurrency, formatDate, getStatusLabel } from '../../utils/helpers';
+import { formatCurrency, formatDate } from '../../utils/helpers';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import toast from 'react-hot-toast';
 
 const PAGE_SIZE = 50;
 
-const PAYMENT_LABELS = {
-  paid: { label: 'Paid', color: '#0bc518' },
-  unpaid: { label: 'Unpaid', color: '#d00f0f' },
-  partial: { label: 'Partial', color: '#92400e' }
+const PAYMENT_COLORS = {
+  paid: '#0bc518',
+  unpaid: '#d00f0f',
+  partial: '#92400e'
 };
 
 const ORDER_STATUS_COLORS = {
@@ -29,6 +30,7 @@ const ORDER_STATUS_COLORS = {
 };
 
 const OrderList = () => {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -132,18 +134,19 @@ const OrderList = () => {
 
   const renderPaymentCell = (order) => {
     const status = (order.payment_status || 'unpaid').toLowerCase();
-    const meta = PAYMENT_LABELS[status] || PAYMENT_LABELS.unpaid;
+    const color = PAYMENT_COLORS[status] || PAYMENT_COLORS.unpaid;
+    const label = t('status.' + status);
 
     if (status !== 'partial') {
       return (
         <span style={{
-          color: meta.color,
+          color,
           fontSize: '14px',
           fontWeight: '600',
           textTransform: 'capitalize',
           display: 'inline-block'
         }}>
-          {meta.label}
+          {label}
         </span>
       );
     }
@@ -163,7 +166,7 @@ const OrderList = () => {
             border: 'none',
             padding: 0,
             cursor: 'pointer',
-            color: meta.color,
+            color,
             fontSize: '14px',
             fontWeight: '600',
             textTransform: 'capitalize',
@@ -174,7 +177,7 @@ const OrderList = () => {
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
           }}
         >
-          {meta.label}
+          {label}
         </button>
         {isOpen && (
           <div style={{
@@ -199,7 +202,7 @@ const OrderList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading orders...</p>
+        <p>{t('orders.list.loading')}</p>
       </div>
     );
   }
@@ -208,17 +211,23 @@ const OrderList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Orders</h1>
-          <p className="text-gray" style={{ fontSize: '14px' }}>Manage all customer orders</p>
+          <h1>{t('orders.list.title')}</h1>
+          <p className="text-gray" style={{ fontSize: '14px' }}>{t('orders.list.subtitle')}</p>
         </div>
         <div className="flex" style={{ gap: '16px', alignItems: 'center' }}>
           <div className="flex" style={{ gap: '12px', alignItems: 'center' }}>
-            <span className="badge badge-info">{pagination.total} orders</span>
-            <span className="badge badge-success">Page total: {formatCurrency(pageTotalRevenue)}</span>
-            <span className="badge badge-secondary">{uniqueCustomersPage} customers</span>
+            <span className="badge badge-info">
+              {t('orders.list.orders_badge', { count: pagination.total })}
+            </span>
+            <span className="badge badge-success">
+              {t('orders.list.page_total', { amount: formatCurrency(pageTotalRevenue) })}
+            </span>
+            <span className="badge badge-secondary">
+              {t('orders.list.customers_badge', { count: uniqueCustomersPage })}
+            </span>
           </div>
           <Link to="/orders/new" className="btn btn-primary">
-            <FiPlus size={18} /> New Order
+            <FiPlus size={18} /> {t('orders.list.new_order')}
           </Link>
         </div>
       </div>
@@ -229,7 +238,7 @@ const OrderList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search orders by number or customer..."
+              placeholder={t('orders.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -242,11 +251,11 @@ const OrderList = () => {
             className="form-control"
             style={{ width: '140px', fontSize: '13px' }}
           >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{t('orders.list.all_statuses')}</option>
+            <option value="pending">{t('status.pending')}</option>
+            <option value="confirmed">{t('status.confirmed')}</option>
+            <option value="delivered">{t('status.delivered')}</option>
+            <option value="cancelled">{t('status.cancelled')}</option>
           </select>
 
           <select
@@ -255,10 +264,10 @@ const OrderList = () => {
             className="form-control"
             style={{ width: '150px', fontSize: '13px' }}
           >
-            <option value="all">All Payments</option>
-            <option value="paid">Paid</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="partial">Partial</option>
+            <option value="all">{t('orders.list.all_payments')}</option>
+            <option value="paid">{t('status.paid')}</option>
+            <option value="unpaid">{t('status.unpaid')}</option>
+            <option value="partial">{t('status.partial')}</option>
           </select>
 
           <button
@@ -267,7 +276,7 @@ const OrderList = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <FiCalendar size={16} />
-            {showFilters ? 'Hide Dates' : 'Show Dates'}
+            {showFilters ? t('orders.list.hide_dates') : t('orders.list.show_dates')}
             {showFilters ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />}
           </button>
 
@@ -282,7 +291,7 @@ const OrderList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear All
+              <FiX size={14} /> {t('orders.list.clear_all')}
             </button>
           )}
         </div>
@@ -298,7 +307,7 @@ const OrderList = () => {
           }}>
             <span style={{ fontSize: '13px', fontWeight: '500', color: '#64748b' }}>
               <FiCalendar size={14} style={{ marginRight: '4px' }} />
-              Date Range:
+              {t('orders.list.show_dates')}:
             </span>
             <input
               type="date"
@@ -321,7 +330,7 @@ const OrderList = () => {
                 className="btn btn-sm btn-secondary"
                 style={{ color: '#64748b' }}
               >
-                <FiX size={14} /> Clear
+                <FiX size={14} /> {t('common.cancel')}
               </button>
             )}
           </div>
@@ -333,31 +342,31 @@ const OrderList = () => {
           <thead>
             <tr>
               <th onClick={() => handleSort('order_number')} style={{ cursor: 'pointer' }}>
-                Order {sortField === 'order_number' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('orders.list.columns.order')} {sortField === 'order_number' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th onClick={() => handleSort('customer_name')} style={{ cursor: 'pointer' }}>
-                Customer {sortField === 'customer_name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('orders.list.columns.customer')} {sortField === 'customer_name' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
               <th onClick={() => handleSort('total_amount')} style={{ cursor: 'pointer' }}>
-                Amount {sortField === 'total_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('orders.list.columns.amount')} {sortField === 'total_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th>Status</th>
-              <th>Payment</th>
+              <th>{t('orders.list.columns.status')}</th>
+              <th>{t('orders.list.columns.payment')}</th>
               <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
-                Date {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                {t('orders.list.columns.date')} {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
-              <th>Actions</th>
+              <th>{t('orders.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {sortedOrders.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No orders found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('orders.list.no_orders')}</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
-                      ? 'Try adjusting or clearing your filters.'
-                      : 'Create your first order.'}
+                      ? t('orders.list.no_orders_filtered')
+                      : t('orders.list.no_orders_empty')}
                   </p>
                 </td>
               </tr>
@@ -369,13 +378,13 @@ const OrderList = () => {
                       {order.order_number}
                     </Link>
                   </td>
-                  <td>{order.customer_name || 'Walk-in'}</td>
+                  <td>{order.customer_name || t('orders.list.walk_in')}</td>
                   <td style={{ fontWeight: '600', color: '#10b981' }}>
                     {formatCurrency(order.total_amount)}
                   </td>
                   <td>
                     <span style={getStatusStyle(order.order_status)}>
-                      {getStatusLabel(order.order_status)}
+                      {t('status.' + (order.order_status || 'pending'))}
                     </span>
                   </td>
                   <td>{renderPaymentCell(order)}</td>
@@ -384,7 +393,7 @@ const OrderList = () => {
                   </td>
                   <td>
                     <Link to={`/orders/${order.id}`} className="btn btn-sm btn-secondary">
-                      View
+                      {t('common.view')}
                     </Link>
                   </td>
                 </tr>
@@ -404,7 +413,7 @@ const OrderList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

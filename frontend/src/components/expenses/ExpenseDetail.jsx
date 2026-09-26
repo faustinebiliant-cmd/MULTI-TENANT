@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency, formatDateOnly } from '../../utils/helpers';
@@ -12,6 +13,7 @@ import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const ExpenseDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [expense, setExpense] = useState(null);
@@ -30,7 +32,7 @@ const ExpenseDetail = () => {
       setExpense(data);
     } catch (error) {
       console.error('Error fetching expense:', error);
-      toast.error('Expense not found');
+      toast.error(t('expenses.detail.messages.not_found'));
       navigate('/expenses');
     } finally {
       setLoading(false);
@@ -41,24 +43,24 @@ const ExpenseDetail = () => {
     setDeleting(true);
     try {
       await api.deleteExpense(id);
-      toast.success('Expense deleted successfully');
+      toast.success(t('expenses.detail.messages.deleted'));
       navigate('/expenses');
     } catch (error) {
       console.error('Error deleting expense:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete expense');
+      toast.error(error.response?.data?.error || t('expenses.detail.messages.delete_failed'));
       setDeleting(false);
       setShowDelete(false);
     }
   };
 
-  if (loading) return <Loader message="Loading expense..." />;
+  if (loading) return <Loader message={t('expenses.detail.loading')} />;
 
   if (!expense) {
     return (
       <div className="empty-state">
-        <h3>Expense not found</h3>
+        <h3>{t('expenses.detail.not_found')}</h3>
         <button onClick={() => navigate('/expenses')} className="btn btn-primary">
-          Back to Expenses
+          {t('expenses.detail.back_to_expenses')}
         </button>
       </div>
     );
@@ -69,54 +71,54 @@ const ExpenseDetail = () => {
       <div className="page-header flex-between">
         <div>
           <button onClick={() => navigate('/expenses')} className="btn btn-sm btn-secondary">
-            <FiArrowLeft size={16} /> Back
+            <FiArrowLeft size={16} /> {t('expenses.detail.back')}
           </button>
           <h1>{expense.description}</h1>
-          <p>Expense recorded on {formatDateOnly(expense.expense_date)}</p>
+          <p>{t('expenses.detail.recorded_on', { date: formatDateOnly(expense.expense_date) })}</p>
         </div>
       </div>
 
       <div className="grid-2">
         <div className="card">
-          <h3>Expense Details</h3>
+          <h3>{t('expenses.detail.details_title')}</h3>
           <div className="detail-row">
-            <span className="detail-label">Description</span>
+            <span className="detail-label">{t('expenses.detail.labels.description')}</span>
             <span className="detail-value">{expense.description}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Category</span>
+            <span className="detail-label">{t('expenses.detail.labels.category')}</span>
             <span className="detail-value">
               <span className="badge badge-info">{expense.category || 'Other'}</span>
             </span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Amount</span>
+            <span className="detail-label">{t('expenses.detail.labels.amount')}</span>
             <span className="detail-value" style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '20px' }}>
               {formatCurrency(expense.amount)}
             </span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Date</span>
+            <span className="detail-label">{t('expenses.detail.labels.date')}</span>
             <span className="detail-value">{formatDateOnly(expense.expense_date)}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Payment Method</span>
+            <span className="detail-label">{t('expenses.detail.labels.payment_method')}</span>
             <span className="detail-value">{expense.payment_method || '-'}</span>
           </div>
         </div>
 
         <div className="card">
-          <h3>Additional Information</h3>
+          <h3>{t('expenses.detail.additional_info_title')}</h3>
           <div className="detail-row">
-            <span className="detail-label">Notes</span>
-            <span className="detail-value">{expense.notes || 'No notes'}</span>
+            <span className="detail-label">{t('expenses.detail.labels.notes')}</span>
+            <span className="detail-value">{expense.notes || t('expenses.detail.no_notes')}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Created By</span>
+            <span className="detail-label">{t('expenses.detail.labels.created_by')}</span>
             <span className="detail-value">{expense.created_by_name || 'System'}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Created At</span>
+            <span className="detail-label">{t('expenses.detail.labels.created_at')}</span>
             <span className="detail-value">{formatDateOnly(expense.created_at)}</span>
           </div>
         </div>
@@ -129,23 +131,23 @@ const ExpenseDetail = () => {
             className="btn btn-primary"
             state={{ expense }}
           >
-            <FiEdit2 size={18} /> Edit Expense
+            <FiEdit2 size={18} /> {t('expenses.detail.edit_button')}
           </Link>
           <button
             onClick={() => setShowDelete(true)}
             className="btn btn-danger"
           >
-            <FiTrash2 size={18} /> Delete Expense
+            <FiTrash2 size={18} /> {t('expenses.detail.delete_button')}
           </button>
         </div>
       </div>
 
       <ConfirmDialog
         open={showDelete}
-        title="Delete Expense"
-        message={`Are you sure you want to delete "${expense.description}"? This cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('expenses.detail.delete_dialog.title')}
+        message={t('expenses.detail.delete_dialog.message', { description: expense.description })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
         variant="danger"
         loading={deleting}
         onConfirm={handleDeleteConfirm}

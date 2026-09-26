@@ -3,6 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FiPackage, FiDollarSign, FiTrendingUp, FiAlertTriangle
 } from 'react-icons/fi';
@@ -12,6 +13,7 @@ import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
 const InventoryReport = () => {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,19 +28,19 @@ const InventoryReport = () => {
       setData(response.data);
     } catch (error) {
       console.error('Error fetching inventory report:', error);
-      toast.error('Failed to load inventory report');
+      toast.error(t('reports.common.download_failed'));
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <Loader message="Loading inventory report..." />;
+  if (loading) return <Loader message={t('reports.common.loading')} />;
 
   if (!data) {
     return (
       <div className="empty-state">
-        <h3>No inventory data</h3>
-        <p>Add products to see inventory statistics</p>
+        <h3>{t('reports.common.no_data')}</h3>
+        <p>{t('reports.common.no_data_hint')}</p>
       </div>
     );
   }
@@ -48,23 +50,24 @@ const InventoryReport = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>Inventory Report</h1>
-        <p>Stock valuation and inventory status</p>
+        <h1>{t('reports.inventory.title')}</h1>
+        <p>{t('reports.inventory.subtitle')}</p>
       </div>
 
-      {/* Summary cards */}
       <div className="grid-3">
         <div className="card">
           <div className="flex" style={{ alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
             <div className="stat-icon" style={{ backgroundColor: 'var(--tone-blue-bg)', color: 'var(--tone-blue-text)' }}>
               <FiPackage size={20} />
             </div>
-            <h3 style={{ margin: 0 }}>Total Products</h3>
+            <h3 style={{ margin: 0 }}>{t('reports.inventory.total_products_title')}</h3>
           </div>
           <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#3b82f6' }}>
             {summary.totalProducts}
           </p>
-          <p style={{ fontSize: '14px', color: '#6b7280' }}>Active products</p>
+          <p style={{ fontSize: '14px', color: '#6b7280' }}>
+            {t('reports.inventory.total_products_hint')}
+          </p>
         </div>
 
         <div className="card">
@@ -72,12 +75,14 @@ const InventoryReport = () => {
             <div className="stat-icon" style={{ backgroundColor: 'var(--tone-red-bg)', color: 'var(--tone-red-text)' }}>
               <FiDollarSign size={20} />
             </div>
-            <h3 style={{ margin: 0 }}>Cost Value</h3>
+            <h3 style={{ margin: 0 }}>{t('reports.inventory.cost_value_title')}</h3>
           </div>
           <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#ef4444' }}>
             {formatCurrency(summary.totalCostValue)}
           </p>
-          <p style={{ fontSize: '14px', color: '#6b7280' }}>Total cost of inventory</p>
+          <p style={{ fontSize: '14px', color: '#6b7280' }}>
+            {t('reports.inventory.cost_value_hint')}
+          </p>
         </div>
 
         <div className="card">
@@ -85,22 +90,23 @@ const InventoryReport = () => {
             <div className="stat-icon" style={{ backgroundColor: 'var(--tone-green-bg)', color: 'var(--tone-green-text)' }}>
               <FiTrendingUp size={20} />
             </div>
-            <h3 style={{ margin: 0 }}>Selling Value</h3>
+            <h3 style={{ margin: 0 }}>{t('reports.inventory.selling_value_title')}</h3>
           </div>
           <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#10b981' }}>
             {formatCurrency(summary.totalSellingValue)}
           </p>
-          <p style={{ fontSize: '14px', color: '#6b7280' }}>Potential revenue</p>
+          <p style={{ fontSize: '14px', color: '#6b7280' }}>
+            {t('reports.inventory.selling_value_hint')}
+          </p>
         </div>
       </div>
 
-      {/* Profit potential */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex-between">
           <div>
-            <h3 style={{ margin: 0 }}>Potential Profit</h3>
+            <h3 style={{ margin: 0 }}>{t('reports.inventory.profit_potential_title')}</h3>
             <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
-              Difference between selling and cost value of current stock
+              {t('reports.inventory.profit_potential_hint')}
             </p>
           </div>
           <h2 style={{ margin: 0, color: '#7c3aed' }}>
@@ -110,26 +116,27 @@ const InventoryReport = () => {
       </div>
 
       <div className="grid-2" style={{ marginTop: '20px' }}>
-        {/* Low stock */}
         <div className="card">
           <div className="card-header">
             <div className="flex" style={{ alignItems: 'center', gap: '8px' }}>
               <FiAlertTriangle size={18} color="#dc2626" />
-              <h3 style={{ margin: 0 }}>Low Stock Items ({lowStockItems.length})</h3>
+              <h3 style={{ margin: 0 }}>
+                {t('reports.inventory.low_stock_title', { count: lowStockItems.length })}
+              </h3>
             </div>
           </div>
           {lowStockItems.length === 0 ? (
             <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-              All items are well stocked
+              {t('reports.inventory.low_stock_all_good')}
             </p>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Stock</th>
-                    <th>Threshold</th>
+                    <th>{t('reports.inventory.columns.product')}</th>
+                    <th>{t('reports.inventory.columns.stock')}</th>
+                    <th>{t('reports.inventory.columns.threshold')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,23 +155,22 @@ const InventoryReport = () => {
           )}
         </div>
 
-        {/* Category breakdown */}
         <div className="card">
           <div className="card-header">
-            <h3 style={{ margin: 0 }}>Inventory by Category</h3>
+            <h3 style={{ margin: 0 }}>{t('reports.inventory.category_title')}</h3>
           </div>
           {categoryBreakdown.length === 0 ? (
             <p style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-              No categories with products
+              {t('reports.inventory.category_empty')}
             </p>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Category</th>
-                    <th>Items</th>
-                    <th>Cost Value</th>
+                    <th>{t('reports.inventory.columns.category')}</th>
+                    <th>{t('reports.inventory.columns.stock')}</th>
+                    <th>{t('reports.inventory.columns.stock_value')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,21 +188,22 @@ const InventoryReport = () => {
         </div>
       </div>
 
-      {/* Full product list */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3 style={{ margin: 0 }}>All Products ({products.length})</h3>
+          <h3 style={{ margin: 0 }}>
+            {t('reports.inventory.all_products_title', { count: products.length })}
+          </h3>
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Stock</th>
-                <th>Cost Price</th>
-                <th>Selling Price</th>
-                <th>Stock Value</th>
+                <th>{t('reports.inventory.columns.product')}</th>
+                <th>{t('reports.inventory.columns.category')}</th>
+                <th>{t('reports.inventory.columns.stock')}</th>
+                <th>{t('reports.inventory.columns.cost_price')}</th>
+                <th>{t('reports.inventory.columns.selling_price')}</th>
+                <th>{t('reports.inventory.columns.stock_value')}</th>
               </tr>
             </thead>
             <tbody>

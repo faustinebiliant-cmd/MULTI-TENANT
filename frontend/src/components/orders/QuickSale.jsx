@@ -1,14 +1,12 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Quick Sale
-// One-screen sale: cart, VAT, payment, optional customer.
-// Role-gated to boss, manager, cashier.
-// Only visible when quick_sale_enabled is true on the business.
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
-  FiPlus, FiTrash2, FiUser, FiPhone, FiX,
+  FiPlus, FiTrash2, FiUser, FiPhone,
   FiDollarSign, FiSmartphone, FiCheck, FiShoppingCart
 } from 'react-icons/fi';
 import api from '../../api/client';
@@ -21,12 +19,13 @@ import toast from 'react-hot-toast';
 const QUICK_SALE_ROLES = ['boss', 'manager', 'cashier'];
 
 const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash', icon: FiDollarSign },
-  { value: 'mpesa', label: 'M-Pesa', icon: FiSmartphone },
-  { value: 'tigo_pesa', label: 'Tigo Pesa', icon: FiSmartphone }
+  { value: 'cash', labelKey: 'quick_sale.methods.cash', icon: FiDollarSign },
+  { value: 'mpesa', labelKey: 'quick_sale.methods.mpesa', icon: FiSmartphone },
+  { value: 'tigo_pesa', labelKey: 'quick_sale.methods.tigo_pesa', icon: FiSmartphone }
 ];
 
 const QuickSale = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { quickSaleEnabled, vatEnabled, vatRate } = useShop();
 
@@ -45,12 +44,10 @@ const QuickSale = () => {
   const [lastPickedProduct, setLastPickedProduct] = useState(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
 
-  // Compute totals from the cart
   const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
   const tax = vatEnabled ? subtotal * (vatRate / 100) : 0;
   const total = subtotal + tax;
 
-  // Product search — same pattern as OrderForm
   const fetchProductOptions = useCallback(async (term) => {
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -66,7 +63,7 @@ const QuickSale = () => {
 
   const addItem = () => {
     if (!lastPickedProduct) {
-      toast.error('Please select a product');
+      toast.error(t('quick_sale.messages.select_product'));
       return;
     }
 
@@ -115,22 +112,22 @@ const QuickSale = () => {
 
   const handleCompleteSale = async () => {
     if (cart.length === 0) {
-      toast.error('Add at least one product');
+      toast.error(t('quick_sale.messages.add_one_item'));
       return;
     }
 
     if (paymentMethod !== 'cash' && !reference.trim()) {
-      toast.error('Reference number is required for mobile money');
+      toast.error(t('quick_sale.messages.reference_required'));
       return;
     }
 
     if (saveCustomer) {
       if (!customerName.trim()) {
-        toast.error('Customer name is required');
+        toast.error(t('quick_sale.messages.customer_name_required'));
         return;
       }
       if (!customerPhone.trim()) {
-        toast.error('Customer phone is required');
+        toast.error(t('quick_sale.messages.customer_phone_required'));
         return;
       }
     }
@@ -160,10 +157,9 @@ const QuickSale = () => {
 
       const response = await api.createQuickSale(payload);
 
-      // Build the receipt shape the Receipt component expects
       const orderForReceipt = {
         ...response.data,
-        customer: saveCustomer ? customerName.trim() : 'Walk-in',
+        customer: saveCustomer ? customerName.trim() : t('orders.list.walk_in'),
         items: cart.map((item) => ({
           product_name: item.name,
           quantity: item.quantity,
@@ -173,14 +169,13 @@ const QuickSale = () => {
         payment_method: paymentMethod
       };
 
-      // Reset the form, then show the receipt
       resetForm();
       setReceiptOrder(orderForReceipt);
-      toast.success('Sale completed');
+      toast.success(t('quick_sale.messages.sale_completed'));
 
     } catch (error) {
       console.error('Quick sale error:', error);
-      toast.error(error.response?.data?.error || 'Failed to complete sale');
+      toast.error(error.response?.data?.error || t('quick_sale.messages.sale_failed'));
     } finally {
       setSubmitting(false);
     }
@@ -202,69 +197,60 @@ const QuickSale = () => {
     setReceiptOrder(null);
   };
 
-  // ---------- Guard rails ----------
-  // Role check — hide the page from anyone who shouldn't be here.
-  // The toast is inside a useEffect so it runs once per mount,
-  // not once per render. React StrictMode double-renders in dev,
-  // which would otherwise queue two identical toasts.
   const roleBlocked = !roleAllowed;
 
   useEffect(() => {
     if (roleBlocked) {
-      toast.error('Your role cannot use Quick Sale');
+      toast.error(t('quick_sale.messages.role_blocked'));
     }
-  }, [roleBlocked]);
+  }, [roleBlocked, t]);
 
   if (roleBlocked) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Setting check — the Boss may have turned it off after this user logged in
   if (!quickSaleEnabled) {
     return (
       <div className="card" style={{ maxWidth: '500px', margin: '40px auto' }}>
-        <h3 style={{ marginTop: 0 }}>Quick Sale is disabled</h3>
+        <h3 style={{ marginTop: 0 }}>{t('quick_sale.disabled_title')}</h3>
         <p style={{ color: 'var(--gray)' }}>
-          Your business owner has turned off Quick Sale. You can still create
-          orders through the standard flow.
+          {t('quick_sale.disabled_message')}
         </p>
         <button onClick={() => navigate('/orders/new')} className="btn btn-primary">
-          Go to New Order
+          {t('quick_sale.go_to_new_order')}
         </button>
       </div>
     );
   }
 
-  // ---------- Render ----------
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1>Quick Sale</h1>
-          <p>One screen. Sell, take payment, done.</p>
+          <h1>{t('quick_sale.title')}</h1>
+          <p>{t('quick_sale.subtitle')}</p>
         </div>
         <button
           type="button"
           onClick={() => navigate('/orders')}
           className="btn btn-secondary"
         >
-          Cancel
+          {t('quick_sale.cancel_button')}
         </button>
       </div>
 
       <div className="grid-2">
-        {/* ---------- Left: product search + cart ---------- */}
         <div>
           <div className="card" style={{ marginBottom: '20px' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Add Product</label>
+              <label>{t('quick_sale.add_product_label')}</label>
               <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <div style={{ flex: 2, minWidth: '200px' }}>
                   <SearchableSelect
                     value={lastPickedProduct?.id || ''}
                     onChange={handleProductSelect}
-                    placeholder="Search product by name or SKU..."
-                    searchPlaceholder="Type to search..."
+                    placeholder={t('quick_sale.product_search_placeholder')}
+                    searchPlaceholder={t('quick_sale.product_search_hint')}
                     fetchOptions={fetchProductOptions}
                     getOptionLabel={(p) => p.name}
                     getOptionValue={(p) => p.id}
@@ -284,7 +270,7 @@ const QuickSale = () => {
                   onClick={addItem}
                   className="btn btn-primary"
                 >
-                  <FiPlus size={18} /> Add
+                  <FiPlus size={18} /> {t('quick_sale.add_button')}
                 </button>
               </div>
             </div>
@@ -292,10 +278,10 @@ const QuickSale = () => {
 
           <div className="card">
             <div className="flex-between" style={{ marginBottom: '12px' }}>
-              <h3 style={{ margin: 0 }}>Cart</h3>
+              <h3 style={{ margin: 0 }}>{t('quick_sale.cart_title')}</h3>
               {cart.length > 0 && (
                 <span className="badge badge-info">
-                  {cart.length} item{cart.length === 1 ? '' : 's'}
+                  {t('quick_sale.cart_items_badge', { count: cart.length })}
                 </span>
               )}
             </div>
@@ -303,18 +289,18 @@ const QuickSale = () => {
             {cart.length === 0 ? (
               <div className="empty-state" style={{ padding: '32px 12px' }}>
                 <FiShoppingCart size={28} />
-                <p style={{ margin: '8px 0 0' }}>No items yet</p>
-                <span>Search above to add products</span>
+                <p style={{ margin: '8px 0 0' }}>{t('quick_sale.cart_empty')}</p>
+                <span>{t('quick_sale.cart_empty_hint')}</span>
               </div>
             ) : (
               <div className="table-container">
                 <table className="cart-table">
                   <thead>
                     <tr>
-                      <th>Product</th>
-                      <th>Qty</th>
-                      <th>Price</th>
-                      <th>Subtotal</th>
+                      <th>{t('quick_sale.cart_columns.product')}</th>
+                      <th>{t('quick_sale.cart_columns.qty')}</th>
+                      <th>{t('quick_sale.cart_columns.price')}</th>
+                      <th>{t('quick_sale.cart_columns.subtotal')}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -353,13 +339,12 @@ const QuickSale = () => {
           </div>
         </div>
 
-        {/* ---------- Right: payment + customer + total ---------- */}
         <div>
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginTop: 0 }}>Payment</h3>
+            <h3 style={{ marginTop: 0 }}>{t('quick_sale.payment_title')}</h3>
 
             <div className="form-group">
-              <label>Method</label>
+              <label>{t('quick_sale.method_label')}</label>
               <div className="payment-methods">
                 {PAYMENT_METHODS.map((pm) => {
                   const Icon = pm.icon;
@@ -371,7 +356,7 @@ const QuickSale = () => {
                       onClick={() => setPaymentMethod(pm.value)}
                     >
                       <Icon size={18} />
-                      {pm.label}
+                      {t(pm.labelKey)}
                     </button>
                   );
                 })}
@@ -380,12 +365,12 @@ const QuickSale = () => {
 
             {paymentMethod !== 'cash' && (
               <div className="form-group">
-                <label>Reference Number *</label>
+                <label>{t('quick_sale.reference_label')}</label>
                 <input
                   type="text"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. 8HJK1234XY"
+                  placeholder={t('quick_sale.reference_placeholder')}
                   maxLength={50}
                 />
               </div>
@@ -393,7 +378,7 @@ const QuickSale = () => {
           </div>
 
           <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginTop: 0 }}>Customer (optional)</h3>
+            <h3 style={{ marginTop: 0 }}>{t('quick_sale.customer_title')}</h3>
 
             <div className="form-group" style={{ marginBottom: '12px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -403,32 +388,32 @@ const QuickSale = () => {
                   onChange={(e) => setSaveCustomer(e.target.checked)}
                   style={{ width: '18px', height: '18px' }}
                 />
-                <span>Save customer details</span>
+                <span>{t('quick_sale.save_customer')}</span>
               </label>
               <small style={{ color: 'var(--gray)', display: 'block', marginTop: '4px' }}>
-                Leave unchecked for a walk-in sale.
+                {t('quick_sale.save_customer_hint')}
               </small>
             </div>
 
             {saveCustomer && (
               <>
                 <div className="form-group">
-                  <label><FiUser size={13} /> Customer Name *</label>
+                  <label><FiUser size={13} /> {t('quick_sale.customer_name_label')}</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="e.g. John Mwangi"
+                    placeholder={t('quick_sale.customer_name_placeholder')}
                     maxLength={20}
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label><FiPhone size={13} /> Phone Number *</label>
+                  <label><FiPhone size={13} /> {t('quick_sale.customer_phone_label')}</label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="0712 345 678"
+                    placeholder={t('quick_sale.customer_phone_placeholder')}
                   />
                 </div>
               </>
@@ -436,16 +421,16 @@ const QuickSale = () => {
           </div>
 
           <div className="card">
-            <h3 style={{ marginTop: 0 }}>Total</h3>
+            <h3 style={{ marginTop: 0 }}>{t('quick_sale.total_title')}</h3>
 
             <div className="detail-row">
-              <span className="detail-label">Subtotal</span>
+              <span className="detail-label">{t('quick_sale.totals.subtotal')}</span>
               <span className="detail-value">{formatCurrency(subtotal)}</span>
             </div>
 
             {vatEnabled && (
               <div className="detail-row">
-                <span className="detail-label">VAT ({vatRate}%)</span>
+                <span className="detail-label">{t('quick_sale.totals.vat', { rate: vatRate })}</span>
                 <span className="detail-value" style={{ color: '#f59e0b' }}>
                   {formatCurrency(tax)}
                 </span>
@@ -453,18 +438,18 @@ const QuickSale = () => {
             )}
 
             <div className="detail-row" style={{ paddingTop: '14px', marginTop: '4px', borderTop: '2px solid var(--border)' }}>
-              <span className="detail-label" style={{ fontWeight: 700, fontSize: '15px' }}>Total</span>
+              <span className="detail-label" style={{ fontWeight: 700, fontSize: '15px' }}>{t('quick_sale.totals.total')}</span>
               <span className="detail-value" style={{ fontWeight: 800, fontSize: '20px', color: 'var(--primary)' }}>
                 {formatCurrency(total)}
               </span>
             </div>
 
             <div className="form-group" style={{ marginTop: '16px', marginBottom: 0 }}>
-              <label>Notes (optional)</label>
+              <label>{t('quick_sale.notes_label')}</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any notes for this sale..."
+                placeholder={t('quick_sale.notes_placeholder')}
                 rows="2"
                 maxLength={500}
               />
@@ -478,7 +463,7 @@ const QuickSale = () => {
               style={{ marginTop: '16px', padding: '14px', fontSize: '15px', fontWeight: 700 }}
             >
               <FiCheck size={18} />
-              {submitting ? 'Processing...' : `Complete Sale — ${formatCurrency(total)}`}
+              {submitting ? t('quick_sale.processing') : t('quick_sale.complete_button', { amount: formatCurrency(total) })}
             </button>
           </div>
         </div>

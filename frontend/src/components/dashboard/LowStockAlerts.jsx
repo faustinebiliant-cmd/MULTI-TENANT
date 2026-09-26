@@ -4,17 +4,20 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const LowStockAlerts = ({ items }) => {
+  const { t } = useTranslation();
+
   if (!items || items.length === 0) {
     return (
       <div className="card">
         <div className="card-header">
-          <h3>Low Stock Alerts</h3>
-          <span className="badge badge-success">All items well stocked</span>
+          <h3>{t('low_stock.title')}</h3>
+          <span className="badge badge-success">{t('low_stock.all_stocked')}</span>
         </div>
         <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-          <p>No low stock items found.</p>
+          <p>{t('low_stock.no_items')}</p>
         </div>
       </div>
     );
@@ -23,17 +26,19 @@ const LowStockAlerts = ({ items }) => {
   return (
     <div className="card">
       <div className="card-header">
-        <h3>Low Stock Alerts</h3>
-        <span className="badge badge-danger">{items.length} items</span>
+        <h3>{t('low_stock.title')}</h3>
+        <span className="badge badge-danger">
+          {items.length} {t('stats.low_stock_items')}
+        </span>
       </div>
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>Product</th>
-              <th>Current Stock</th>
-              <th>Threshold</th>
-              <th>Status</th>
+              <th>{t('low_stock.columns.product')}</th>
+              <th>{t('low_stock.columns.current_stock')}</th>
+              <th>{t('low_stock.columns.threshold')}</th>
+              <th>{t('low_stock.columns.status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -43,7 +48,7 @@ const LowStockAlerts = ({ items }) => {
                 <td>{item.stock}</td>
                 <td>{item.threshold || 5}</td>
                 <td>
-                  <span className="badge badge-danger">Low Stock</span>
+                  <span className="badge badge-danger">{t('low_stock.badge')}</span>
                 </td>
               </tr>
             ))}
@@ -52,7 +57,7 @@ const LowStockAlerts = ({ items }) => {
       </div>
       <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
         <Link to="/products" className="btn btn-sm btn-primary">
-          View All Products
+          {t('low_stock.view_all')}
         </Link>
       </div>
     </div>

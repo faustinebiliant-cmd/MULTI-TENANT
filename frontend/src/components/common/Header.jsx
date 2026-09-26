@@ -1,7 +1,5 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Header
-// Boss gets business + branch switchers (desktop only).
-// Staff just see identity.
 // ============================================================
 
 import React from 'react';
@@ -9,6 +7,7 @@ import { FiUser, FiBell } from 'react-icons/fi';
 import { useShop } from '../../contexts/ShopContext';
 import { ROLE_META } from '../../utils/constants';
 import Switchers from './Switchers';
+import LanguageSwitcher from '../../i18n/LanguageSwitcher';
 
 const getRoleColor = (role) => {
   const meta = ROLE_META[role];
@@ -29,6 +28,8 @@ const Header = () => {
 
       <div className="header-right">
         <Switchers variant="header" />
+
+        <LanguageSwitcher variant="header" />
 
         <button className="header-notification">
           <FiBell size={20} />

@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiPlus, FiSearch, FiX, FiUsers, FiAward, FiBriefcase,
   FiDollarSign, FiArchive, FiUserCheck
@@ -20,16 +21,8 @@ const ROLE_ICONS = {
   sales_rep: FiUserCheck
 };
 
-const getRoleMeta = (role) => {
-  const meta = ROLE_META[role] || { label: role || 'Staff', color: '#6b7280' };
-  return {
-    label: meta.label,
-    color: meta.color,
-    icon: ROLE_ICONS[role] || FiUsers
-  };
-};
-
 const StaffList = () => {
+  const { t } = useTranslation();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -49,7 +42,7 @@ const StaffList = () => {
       setStaff(data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
-      toast.error('Failed to load staff');
+      toast.error(t('staff.form.messages.load_failed'));
     } finally {
       setLoading(false);
     }
@@ -69,7 +62,7 @@ const StaffList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading staff...</p>
+        <p>{t('staff.list.loading')}</p>
       </div>
     );
   }
@@ -78,12 +71,12 @@ const StaffList = () => {
     <div className="staff-list">
       <div className="page-header">
         <div>
-          <h1>Staff</h1>
-          <p>Manage your team members</p>
+          <h1>{t('staff.list.title')}</h1>
+          <p>{t('staff.list.subtitle')}</p>
         </div>
         <Link to="/staff/new" className="btn btn-primary">
           <FiPlus size={18} />
-          Add Staff
+          {t('staff.list.add_button')}
         </Link>
       </div>
 
@@ -92,7 +85,7 @@ const StaffList = () => {
           <FiSearch size={18} />
           <input
             type="text"
-            placeholder="Search staff by name or email"
+            placeholder={t('staff.list.search_placeholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -101,14 +94,14 @@ const StaffList = () => {
               type="button"
               className="icon-btn"
               onClick={() => setSearch('')}
-              aria-label="Clear search"
+              aria-label={t('staff.list.clear_search')}
             >
               <FiX size={16} />
             </button>
           )}
         </div>
         <span className="staff-count">
-          {filteredStaff.length} of {staff.length} member{staff.length === 1 ? '' : 's'}
+          {t('staff.list.count', { shown: filteredStaff.length, total: staff.length })}
         </span>
       </div>
 
@@ -116,11 +109,11 @@ const StaffList = () => {
         <table>
           <thead>
             <tr>
-              <th>Staff</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Role</th>
-              <th>Status</th>
+              <th>{t('staff.list.columns.staff')}</th>
+              <th>{t('staff.list.columns.email')}</th>
+              <th>{t('staff.list.columns.phone')}</th>
+              <th>{t('staff.list.columns.role')}</th>
+              <th>{t('staff.list.columns.status')}</th>
               <th></th>
             </tr>
           </thead>
@@ -130,11 +123,15 @@ const StaffList = () => {
                 <td colSpan="6">
                   <div className="empty-state">
                     <FiUsers size={28} />
-                    <p>{staff.length === 0 ? 'No staff yet' : 'No matching staff'}</p>
+                    <p>
+                      {staff.length === 0
+                        ? t('staff.list.no_staff_title')
+                        : t('staff.list.no_match_title')}
+                    </p>
                     <span>
                       {staff.length === 0
-                        ? 'Add your first team member to get started.'
-                        : 'Try a different name or email.'}
+                        ? t('staff.list.no_staff_hint')
+                        : t('staff.list.no_match_hint')}
                     </span>
                   </div>
                 </td>
@@ -142,22 +139,23 @@ const StaffList = () => {
             ) : (
               filteredStaff.map((member) => {
                 const isSelf = member.id === currentUser.id;
-                const { label, icon: RoleIcon, color } = getRoleMeta(member.role);
+                const roleMeta = ROLE_META[member.role] || { color: '#6b7280' };
+                const RoleIcon = ROLE_ICONS[member.role] || FiUsers;
 
                 return (
                   <tr key={member.id}>
                     <td>
                       <div className="staff-name-block">
                         <span className="staff-name">{member.full_name}</span>
-                        {isSelf && <span className="you-tag">You</span>}
+                        {isSelf && <span className="you-tag">{t('staff.list.you_badge')}</span>}
                       </div>
                     </td>
                     <td className="text-muted">{member.email}</td>
                     <td className="text-muted">{member.phone || '-'}</td>
                     <td>
-                      <span className="role-label" style={{ color }}>
+                      <span className="role-label" style={{ color: roleMeta.color }}>
                         <RoleIcon size={14} />
-                        {label}
+                        {t('staff.roles.' + member.role)}
                       </span>
                     </td>
                     <td>
@@ -167,12 +165,14 @@ const StaffList = () => {
                         }`}
                       >
                         <span className="status-dot" />
-                        {member.is_active ? 'Active' : 'Inactive'}
+                        {member.is_active
+                          ? t('staff.list.status_active')
+                          : t('staff.list.status_inactive')}
                       </span>
                     </td>
                     <td className="text-right">
                       <Link to={`/staff/${member.id}`} className="btn btn-sm btn-secondary">
-                        View
+                        {t('common.view')}
                       </Link>
                     </td>
                   </tr>

@@ -1,0 +1,1775 @@
+{
+  "common": {
+    "save": "Hifadhi",
+    "cancel": "Ghairi",
+    "delete": "Futa",
+    "edit": "Badilisha",
+    "add": "Ongeza",
+    "search": "Tafuta",
+    "close": "Funga",
+    "confirm": "Thibitisha",
+    "back": "Rudi",
+    "loading": "Inapakia...",
+    "yes": "Ndiyo",
+    "no": "Hapana",
+    "view": "Tazama",
+    "page": "Ukurasa",
+    "of": "ya",
+    "actions": "Vitendo"
+  },
+  "auth": {
+    "brand": "Oswagotech",
+    "subtitle": "Mfumo wa Usimamizi",
+    "email_label": "Barua pepe",
+    "email_placeholder": "Weka barua pepe yako",
+    "password_label": "Password",
+    "password_placeholder": "Weka password yako",
+    "login_button": "Ingia",
+    "login_loading": "Inaingia...",
+    "no_account": "Hauna akaunti?",
+    "create_account": "Fungua moja",
+    "have_account": "Una akaunti tayari?",
+    "log_in_link": "Ingia",
+    "powered_by": "Inaendeshwa na",
+    "attempts_counter": "Majaribio: {{current}}/{{max}}",
+    "errors": {
+      "invalid_email": "Tafadhali weka barua pepe sahihi",
+      "short_password": "Password iwe na herufi 6 au zaidi",
+      "too_many_attempts_one": "Majaribio mengi. Tafadhali subiri dakika {{count}}.",
+      "too_many_attempts_other": "Majaribio mengi. Tafadhali subiri dakika {{count}}.",
+      "locked_out": "Majaribio mengi yameshindikana. Tafadhali subiri dakika 15.",
+      "locked_wait_one": "Akaunti imefungwa kwa muda. Tafadhali subiri dakika {{count}}.",
+      "locked_wait_other": "Akaunti imefungwa kwa muda. Tafadhali subiri dakika {{count}}.",
+      "generic": "Kuna hitilafu. Tafadhali jaribu tena."
+    }
+  },
+  "nav": {
+    "groups": {
+      "overview": "Muhtasari",
+      "sales": "Mauzo",
+      "inventory": "Bidhaa",
+      "management": "Usimamizi"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "quick_sale": "Uza Haraka",
+      "new_order": "Order Mpya",
+      "orders": "Orders",
+      "customers": "Wateja",
+      "payments": "Malipo",
+      "products": "Bidhaa",
+      "categories": "Kategoria",
+      "suppliers": "Wasambazaji",
+      "purchase_orders": "Oda za Manunuzi",
+      "expenses": "Matumizi",
+      "reports": "Ripoti",
+      "extract_reports": "Pakua Ripoti",
+      "audit_log": "Kumbukumbu",
+      "staff": "Wafanyakazi",
+      "settings": "Mipangilio"
+    },
+    "logout": "Toka"
+  },
+  "header": {
+    "switch_business": "Badilisha biashara",
+    "switch_branch": "Badilisha tawi"
+  },
+  "language": {
+    "english": "English",
+    "swahili": "Kiswahili"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Karibu tena. Huu ni muhtasari wa Biashara lako.",
+    "loading": "Inapakia dashboard..."
+  },
+  "stats": {
+    "today_sales": "Mauzo ya Leo",
+    "today_profit": "Faida ya Leo",
+    "business_money_received": "Pesa Zilizopokelewa",
+    "vat_collected": "VAT Iliyokusanywa",
+    "outstanding_credit": "Pesa Ambayo Haijalipwa",
+    "low_stock_items": "Bidhaa Zinazoisha"
+  },
+  "recent_orders": {
+    "title": "Orders za Hivi Karibuni",
+    "view_all": "Tazama Zote",
+    "no_orders": "Hakuna orders za hivi karibuni",
+    "columns": {
+      "order_number": "Order #",
+      "customer": "Mteja",
+      "amount": "Kiasi",
+      "status": "Hali",
+      "payment": "Malipo",
+      "date": "Tarehe"
+    }
+  },
+  "low_stock": {
+    "title": "Bidhaa Zinazoisha",
+    "all_stocked": "Bidhaa zote zipo vizuri",
+    "no_items": "Hakuna bidhaa zinazoisha.",
+    "columns": {
+      "product": "Bidhaa",
+      "current_stock": "Idadi Iliyopo",
+      "threshold": "Kiwango",
+      "status": "Hali"
+    },
+    "badge": "Inaisha",
+    "view_all": "Tazama Bidhaa Zote"
+  },
+  "status": {
+    "paid": "Imelipwa",
+    "unpaid": "Haijalipwa",
+    "partial": "Haijakamilika",
+    "pending": "Inasubiri",
+    "confirmed": "Imethibitishwa",
+    "delivered": "Imewasilishwa",
+    "cancelled": "Imefutwa"
+  },
+  "orders": {
+    "list": {
+      "title": "Orders",
+      "subtitle": "Simamia orders zote za wateja",
+      "search_placeholder": "Tafuta order kwa namba au mteja...",
+      "all_statuses": "Hali Zote",
+      "all_payments": "Malipo Yote",
+      "show_dates": "Onyesha Tarehe",
+      "hide_dates": "Ficha Tarehe",
+      "clear_all": "Safisha Zote",
+      "new_order": "Order Mpya",
+      "orders_badge": "Orders {{count}}",
+      "orders_badge_one": "Order {{count}}",
+      "orders_badge_other": "Orders {{count}}",
+      "page_total": "Jumla ya ukurasa: {{amount}}",
+      "customers_badge": "Wateja {{count}}",
+      "customers_badge_one": "Mteja {{count}}",
+      "customers_badge_other": "Wateja {{count}}",
+      "no_orders": "Hakuna orders",
+      "no_orders_filtered": "Jaribu kubadilisha au kusafisha filters.",
+      "no_orders_empty": "Tengeneza order yako ya kwanza.",
+      "loading": "Inapakia orders...",
+      "columns": {
+        "order": "Order",
+        "customer": "Mteja",
+        "amount": "Kiasi",
+        "status": "Hali",
+        "payment": "Malipo",
+        "date": "Tarehe",
+        "actions": "Vitendo"
+      },
+      "walk_in": "Walk-in"
+    },
+    "detail": {
+      "loading": "Inapakia order...",
+      "not_found": "Order haipatikani",
+      "back_to_orders": "Rudi kwa Orders",
+      "back": "Rudi",
+      "order_number": "Order #{{number}}",
+      "created_on": "Iliundwa {{date}}",
+      "payment_complete_badge": "Malipo Yamekamilika",
+      "record_payment": "Rekodi Malipo",
+      "confirm_order": "Thibitisha Order",
+      "mark_delivered": "Weka Imewasilishwa",
+      "cancel_order": "Futa Order",
+      "view_receipt": "Tazama Risiti",
+      "cancelled_badge": "IMEFUTWA",
+      "cancelled_reason": "Sababu: {{reason}}",
+      "progress": {
+        "pending": "Inasubiri",
+        "confirmed": "Imethibitishwa",
+        "delivered": "Imewasilishwa"
+      },
+      "order_info_title": "Taarifa za Order",
+      "payment_summary_title": "Muhtasari wa Malipo",
+      "labels": {
+        "order_number": "Namba ya Order",
+        "customer": "Mteja",
+        "status": "Hali",
+        "payment_status": "Hali ya Malipo",
+        "created_by": "Iliundwa na",
+        "notes": "Maelezo",
+        "subtotal": "Jumla ndogo",
+        "vat": "VAT",
+        "order_total": "Jumla ya Order",
+        "paid_amount": "Kiasi Kilicholipwa",
+        "balance_due": "Salio",
+        "payment_recorded_by": "Malipo Yalirekodiwa na",
+        "payment_recorded_at": "Malipo Yalirekodiwa"
+      },
+      "audit_trail_title": "Historia ya Order",
+      "audit": {
+        "created_by": "Iliundwa na",
+        "created_at": "Iliundwa",
+        "confirmed_by": "Ilithibitishwa na",
+        "confirmed_at": "Ilithibitishwa",
+        "cancelled_by": "Ilifutwa na",
+        "cancelled_at": "Ilifutwa",
+        "cancellation_reason": "Sababu ya Kufuta",
+        "no_activity": "Hakuna shughuli zaidi bado."
+      },
+      "items_title": "Bidhaa za Order",
+      "item_columns": {
+        "product": "Bidhaa",
+        "quantity": "Idadi",
+        "unit_price": "Bei ya Kimoja",
+        "subtotal": "Jumla ndogo"
+      },
+      "no_items": "Hakuna bidhaa",
+      "confirm_dialogs": {
+        "confirm_order_title": "Thibitisha Order",
+        "confirm_order_message": "Weka order hii kama imethibitishwa? Hii ifanyike malipo yamekamilika.",
+        "confirm_order_button": "Thibitisha",
+        "delivered_title": "Weka Imewasilishwa",
+        "delivered_message": "Weka order hii kama imewasilishwa? Mteja amepokea bidhaa.",
+        "delivered_button": "Weka Imewasilishwa"
+      }
+    },
+    "form": {
+      "title": "Tengeneza Order",
+      "subtitle": "Tengeneza order mpya ya mteja",
+      "customer_type_label": "Aina ya Mteja",
+      "customer_type_existing": "Mteja Aliyepo",
+      "customer_type_walkin": "Mteja wa Kuja",
+      "customer_type_quick": "Tengeneza Mteja Haraka",
+      "customer_label": "Mteja *",
+      "customer_search_placeholder": "Tafuta na uchague mteja...",
+      "customer_search_hint": "Andika jina, simu, au barua pepe ya mteja...",
+      "customer_selected": "Mteja amechaguliwa",
+      "walkin_details_title": "Taarifa za Mteja wa Kuja",
+      "quick_create_title": "Tengeneza Mteja Haraka",
+      "quick_create_hint": "(Weka namba ya simu kutengeneza mteja)",
+      "optional_hint": "(Si lazima)",
+      "phone_label": "Namba ya Simu",
+      "phone_placeholder": "0712 345 678",
+      "name_label": "Jina la Mteja",
+      "name_auto_hint": "(inajitengeneza)",
+      "name_placeholder": "Inajitengeneza kutoka kwa simu",
+      "email_label": "Barua pepe (Si lazima)",
+      "email_placeholder": "customer@example.com",
+      "address_label": "Anuani (Si lazima)",
+      "address_placeholder": "Anuani ya mteja",
+      "invalid_phone_hint": "Tafadhali weka namba sahihi ya simu (mfano 0712345678)",
+      "phone_required_hint": "Tafadhali weka namba ya simu kutengeneza mteja",
+      "add_products_label": "Ongeza Bidhaa",
+      "product_search_placeholder": "Tafuta na uchague bidhaa...",
+      "product_search_hint": "Andika jina la bidhaa au SKU...",
+      "add_button": "Ongeza",
+      "order_items_title": "Bidhaa za Order",
+      "no_items": "Hakuna bidhaa bado",
+      "item_columns": {
+        "product": "Bidhaa",
+        "quantity": "Idadi",
+        "unit_price": "Bei ya Kimoja",
+        "subtotal": "Jumla ndogo",
+        "actions": "Vitendo"
+      },
+      "totals": {
+        "subtotal": "Jumla ndogo",
+        "vat": "VAT",
+        "total": "Jumla"
+      },
+      "notes_label": "Maelezo (Si lazima)",
+      "notes_placeholder": "Maelezo yoyote au maagizo maalum...",
+      "creating": "Inatengeneza...",
+      "submit_button": "Tengeneza Order - {{amount}}",
+      "cancel_button": "Ghairi",
+      "messages": {
+        "select_product": "Tafadhali chagua bidhaa",
+        "added_to_order": "Bidhaa imeongezwa kwenye order",
+        "add_one_item": "Tafadhali ongeza bidhaa angalau moja",
+        "existing_customer_matched": "Mteja aliyepo amepatikana kwa simu",
+        "customer_created": "Mteja ameundwa kikamilifu",
+        "invalid_phone": "Tafadhali weka namba sahihi ya simu (mfano 0712345678)",
+        "fill_customer_details": "Tafadhali jaza taarifa za mteja",
+        "select_or_create": "Tafadhali chagua au tengeneza mteja",
+        "order_created": "Order imeundwa kikamilifu",
+        "create_failed": "Imeshindikana kutengeneza order",
+        "customer_create_failed": "Imeshindikana kutengeneza mteja"
+      }
+    }
+  },
+  "quick_sale": {
+    "title": "Uza Haraka",
+    "subtitle": "Skrini moja. Uza, pokea malipo, umemaliza.",
+    "cancel_button": "Ghairi",
+    "add_product_label": "Ongeza Bidhaa",
+    "product_search_placeholder": "Tafuta bidhaa kwa jina au SKU...",
+    "product_search_hint": "Andika kutafuta...",
+    "add_button": "Ongeza",
+    "cart_title": "Cart",
+    "cart_items_badge": "Bidhaa {{count}}",
+    "cart_items_badge_one": "Bidhaa {{count}}",
+    "cart_items_badge_other": "Bidhaa {{count}}",
+    "cart_empty": "Hakuna bidhaa bado",
+    "cart_empty_hint": "Tafuta juu ili kuongeza bidhaa",
+    "cart_columns": {
+      "product": "Bidhaa",
+      "qty": "Idadi",
+      "price": "Bei",
+      "subtotal": "Jumla ndogo"
+    },
+    "payment_title": "Malipo",
+    "method_label": "Njia",
+    "methods": {
+      "cash": "Fedha",
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa"
+    },
+    "reference_label": "Namba ya Kumbukumbu *",
+    "reference_placeholder": "mfano 8HJK1234XY",
+    "customer_title": "Mteja (si lazima)",
+    "save_customer": "Hifadhi taarifa za mteja",
+    "save_customer_hint": "Acha bila tick kwa mauzo ya mteja wa kuja.",
+    "customer_name_label": "Jina la Mteja *",
+    "customer_name_placeholder": "mfano John Mwangi",
+    "customer_phone_label": "Namba ya Simu *",
+    "customer_phone_placeholder": "0712 345 678",
+    "total_title": "Jumla",
+    "totals": {
+      "subtotal": "Jumla ndogo",
+      "vat": "VAT ({{rate}}%)",
+      "total": "Jumla"
+    },
+    "notes_label": "Maelezo (si lazima)",
+    "notes_placeholder": "Maelezo yoyote ya mauzo haya...",
+    "complete_button": "Kamilisha Mauzo - {{amount}}",
+    "processing": "Inafanya kazi...",
+    "disabled_title": "Uza Haraka imezimwa",
+    "disabled_message": "Mmiliki wa duka amezima Uza Haraka. Bado unaweza kutengeneza orders kwa mtiririko wa kawaida.",
+    "go_to_new_order": "Nenda kwa Order Mpya",
+    "messages": {
+      "select_product": "Tafadhali chagua bidhaa",
+      "add_one_item": "Ongeza bidhaa angalau moja",
+      "reference_required": "Namba ya kumbukumbu inahitajika kwa malipo ya simu",
+      "customer_name_required": "Jina la mteja linahitajika",
+      "customer_phone_required": "Simu ya mteja inahitajika",
+      "sale_completed": "Mauzo yamekamilika",
+      "sale_failed": "Imeshindikana kukamilisha mauzo",
+      "role_blocked": "Wadhifa wako hauwezi kutumia Uza Haraka"
+    }
+  },
+  "cancel_modal": {
+    "title": "Futa Order",
+    "warning_title": "Kitendo hiki hakiwezi kurudishwa.",
+    "warning_intro": "Kufuta order hii kuta:",
+    "warning_restore_stock": "Rudisha stock ya bidhaa zote",
+    "warning_remove_totals": "Ondoa kwenye jumla za mauzo na VAT",
+    "warning_reverse_customer": "Rudisha nyuma takwimu za mteja",
+    "warning_delete_payments": "Futa malipo yote yaliyorekodiwa",
+    "summary": {
+      "customer": "Mteja",
+      "order_total": "Jumla ya Order",
+      "already_paid": "Imelipwa Tayari"
+    },
+    "reason_label": "Sababu ya Kufuta *",
+    "reason_placeholder": "Kwa nini order hii inafutwa?",
+    "reason_hint": "{{count}} / 100 herufi (kiwango cha chini 3)",
+    "confirm_button": "Thibitisha Kufuta",
+    "keep_button": "Acha Order",
+    "cancelling": "Inafuta...",
+    "walk_in": "Walk-in",
+    "messages": {
+      "reason_length": "Sababu iwe kati ya herufi 3 na 100",
+      "success": "Order imefutwa kikamilifu",
+      "failed": "Imeshindikana kufuta order"
+    }
+  },
+  "receipt": {
+    "cancelled_badge": "IMEFUTWA",
+    "cancelled_reason": "Sababu: {{reason}}",
+    "cancelled_by_line": "Ilifutwa na {{name}} tarehe {{date}}",
+    "order_info": {
+      "order_number": "Order #:",
+      "date": "Tarehe:",
+      "customer": "Mteja:",
+      "status": "Hali:"
+    },
+    "item_columns": {
+      "item": "Bidhaa",
+      "qty": "Idadi",
+      "price": "Bei",
+      "total": "Jumla"
+    },
+    "no_items": "Hakuna bidhaa",
+    "cancelled_totals": {
+      "original_subtotal": "Jumla Ndogo ya Awali",
+      "original_vat": "VAT ya Awali",
+      "current_total": "Jumla ya Sasa",
+      "paid": "Imelipwa"
+    },
+    "totals": {
+      "subtotal": "Jumla ndogo",
+      "vat": "VAT",
+      "vat_rate": "VAT ({{rate}}%)",
+      "total": "Jumla",
+      "paid": "Imelipwa",
+      "balance_due": "Salio",
+      "payment_status": "Hali ya Malipo"
+    },
+    "footer": {
+      "cancelled_line1": "Order imefutwa - hakuna malipo yanayohitajika",
+      "cancelled_line2": "Hifadhi risiti hii kwa kumbukumbu zako",
+      "thanks": "Asante kwa kununua kwetu.",
+      "return_policy": "Bidhaa zilizouzwa hazirudishwi isipokuwa zina hitilafu"
+    },
+    "buttons": {
+      "print": "Chapisha Risiti",
+      "download": "Pakua",
+      "close": "Funga"
+    },
+    "messages": {
+      "download_failed": "Imeshindikana kupakua risiti"
+    }
+  },
+  "payment_modal": {
+    "title": "Rekodi Malipo",
+    "order_ref": "Order #{{number}} · {{customer}}",
+    "fully_paid": "Imelipwa Kikamilifu",
+    "balance_due": "Salio",
+    "summary": {
+      "total": "Jumla",
+      "vat": "VAT",
+      "paid": "Imelipwa"
+    },
+    "method_label": "Njia ya Malipo",
+    "methods": {
+      "cash": "Fedha",
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa"
+    },
+    "amount_label": "Kiasi",
+    "quick_amounts": {
+      "half": "Nusu - {{amount}}",
+      "full": "Zote - {{amount}}"
+    },
+    "reference_label": "Namba ya Kumbukumbu",
+    "reference_placeholder": "Weka namba ya kumbukumbu ya M-Pesa/Tigo",
+    "buttons": {
+      "cancel": "Ghairi",
+      "record": "Rekodi {{amount}}",
+      "recording": "Inarekodi...",
+      "close": "Funga"
+    },
+    "messages": {
+      "invalid_amount": "Tafadhali weka kiasi sahihi",
+      "exceeds_balance": "Kiasi hakiwezi kuzidi salio",
+      "reference_required": "Tafadhali weka namba ya kumbukumbu",
+      "success": "Malipo ya {{amount}} yamerekodiwa",
+      "failed": "Imeshindikana kurekodi malipo"
+    }
+  },
+  "products": {
+    "list": {
+      "title": "Bidhaa",
+      "subtitle": "Simamia stock ya bidhaa zako",
+      "add_button": "Ongeza Bidhaa",
+      "search_placeholder": "Tafuta bidhaa kwa jina, SKU, au maelezo...",
+      "all_categories": "Kategoria Zote",
+      "clear_button": "Safisha",
+      "showing": "Inaonyesha {{shown}} ya {{total}}",
+      "totals": {
+        "inventory_value": "{{scope}} Thamani ya Stock (Kuuza)",
+        "cost_value": "{{scope}} Thamani ya Gharama",
+        "profit_potential": "{{scope}} Faida Inayowezekana",
+        "filtered": "Iliyochujwa",
+        "total": "Jumla"
+      },
+      "columns": {
+        "name": "Jina la Bidhaa",
+        "category": "Kategoria",
+        "cost_price": "Bei ya Gharama",
+        "selling_price": "Bei ya Kuuza",
+        "stock": "Stock",
+        "total_value": "Thamani Jumla",
+        "actions": "Vitendo"
+      },
+      "no_products": "Hakuna bidhaa",
+      "no_products_filtered": "Jaribu kubadilisha au kusafisha filters.",
+      "no_products_empty": "Ongeza bidhaa yako ya kwanza.",
+      "loading": "Inapakia bidhaa..."
+    },
+    "detail": {
+      "title": "Maelezo ya Bidhaa",
+      "loading": "Inapakia bidhaa...",
+      "not_found": "Bidhaa haipatikani",
+      "back_to_products": "Rudi kwa Bidhaa",
+      "back": "Rudi",
+      "no_description": "Hakuna maelezo",
+      "details_title": "Taarifa za Bidhaa",
+      "pricing_title": "Bei",
+      "inventory_title": "Stock",
+      "actions_title": "Vitendo",
+      "labels": {
+        "name": "Jina",
+        "description": "Maelezo",
+        "category": "Kategoria",
+        "sku": "SKU",
+        "supplier": "Msambazaji",
+        "cost_price": "Bei ya Gharama",
+        "selling_price": "Bei ya Kuuza",
+        "profit_margin": "Faida kwa Kimoja",
+        "current_stock": "Stock Iliyopo",
+        "low_stock_threshold": "Kiwango cha Kuisha",
+        "status": "Hali"
+      },
+      "units": "Vipande {{count}}",
+      "units_one": "Kipande {{count}}",
+      "units_other": "Vipande {{count}}",
+      "badge_low_stock": "Inaisha",
+      "badge_in_stock": "Ipo Stock",
+      "adjust_stock_button": "Badilisha Stock",
+      "edit_button": "Badilisha Bidhaa",
+      "delete_button": "Futa Bidhaa",
+      "delete_confirm_title": "Futa Bidhaa",
+      "delete_confirm_message": "Una uhakika unataka kufuta \"{{name}}\"? Hili haliwezi kurudishwa.",
+      "messages": {
+        "deleted": "Bidhaa imefutwa kikamilifu",
+        "delete_failed": "Imeshindikana kufuta bidhaa",
+        "not_found": "Bidhaa haipatikani"
+      }
+    },
+    "form": {
+      "title_add": "Ongeza Bidhaa",
+      "title_edit": "Badilisha Bidhaa",
+      "subtitle_add": "Jaza taarifa za bidhaa hapa chini",
+      "subtitle_edit": "Badilisha taarifa za bidhaa",
+      "loading": "Inapakia bidhaa...",
+      "labels": {
+        "name": "Jina la Bidhaa *",
+        "description": "Maelezo",
+        "category": "Kategoria",
+        "cost_price": "Bei ya Gharama (TZS) *",
+        "selling_price": "Bei ya Kuuza (TZS) *",
+        "stock_quantity": "Idadi ya Stock",
+        "low_stock_threshold": "Kiwango cha Kuisha"
+      },
+      "placeholders": {
+        "name": "mfano Cable 2.5mm",
+        "description": "Maelezo ya bidhaa...",
+        "cost_price": "0",
+        "selling_price": "0",
+        "stock_quantity": "0",
+        "low_stock_threshold": "5"
+      },
+      "category_select": "Chagua kategoria",
+      "no_categories": "Hakuna kategoria bado - ongeza moja kwanza",
+      "no_categories_hint": "Tawi hili halina kategoria bado. Nenda kwenye ukurasa wa Kategoria na ongeza moja, kisha rudi.",
+      "name_conflict": "Bidhaa yenye jina \"{{name}}\" ipo tayari kwenye tawi hili.",
+      "buttons": {
+        "submit_add": "Ongeza Bidhaa",
+        "submit_edit": "Hifadhi Bidhaa",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "name_required": "Jina la bidhaa linahitajika",
+        "cost_required": "Tafadhali weka bei sahihi ya gharama",
+        "selling_required": "Tafadhali weka bei sahihi ya kuuza",
+        "added": "Bidhaa imeongezwa kikamilifu",
+        "updated": "Bidhaa imehifadhiwa kikamilifu",
+        "save_failed": "Imeshindikana kuhifadhi bidhaa",
+        "load_failed": "Imeshindikana kupakia bidhaa"
+      }
+    },
+    "stock": {
+      "title": "Badilisha Stock",
+      "product_label": "Bidhaa:",
+      "current_stock_label": "Stock Iliyopo:",
+      "threshold_label": "Kiwango cha Kuisha:",
+      "type_label": "Aina ya Marekebisho *",
+      "type_add": "Ongeza Stock",
+      "type_remove": "Toa Stock",
+      "quantity_label": "Idadi *",
+      "reason_label": "Sababu *",
+      "reason_placeholder": "mfano Bidhaa mpya zimefika, Bidhaa zimeharibika",
+      "confirm_add": "Thibitisha Kuongeza",
+      "confirm_remove": "Thibitisha Kutoa",
+      "processing": "Inafanya kazi...",
+      "cancel_button": "Ghairi",
+      "units": "Vipande {{count}}",
+      "units_one": "Kipande {{count}}",
+      "units_other": "Vipande {{count}}",
+      "messages": {
+        "invalid_quantity": "Tafadhali weka idadi sahihi",
+        "reason_required": "Tafadhali weka sababu ya marekebisho",
+        "added": "Stock imeongezwa kikamilifu",
+        "removed": "Stock imetolewa kikamilifu",
+        "failed": "Imeshindikana kubadilisha stock"
+      }
+    }
+  },
+  "customers": {
+    "list": {
+      "title": "Wateja",
+      "subtitle": "Simamia orodha ya wateja wako",
+      "add_button": "Ongeza Mteja",
+      "search_placeholder": "Tafuta mteja kwa jina, simu, au barua pepe...",
+      "clear_button": "Safisha",
+      "showing": "Inaonyesha {{shown}} ya {{total}}",
+      "columns": {
+        "name": "Jina",
+        "phone": "Simu",
+        "email": "Barua pepe",
+        "orders": "Orders",
+        "total_spent": "Jumla Aliyotumia",
+        "actions": "Vitendo"
+      },
+      "no_customers": "Hakuna wateja",
+      "no_customers_filtered": "Jaribu kubadilisha au kusafisha utafutaji.",
+      "no_customers_empty": "Ongeza mteja wako wa kwanza.",
+      "loading": "Inapakia wateja..."
+    },
+    "detail": {
+      "title": "Mteja",
+      "loading": "Inapakia mteja...",
+      "not_found": "Mteja hapatikani",
+      "back_to_customers": "Rudi kwa Wateja",
+      "back": "Rudi",
+      "customer_since": "Mteja tangu {{date}}",
+      "edit_button": "Badilisha",
+      "delete_button": "Futa",
+      "stats": {
+        "total_orders": "Orders Jumla",
+        "total_spent": "Jumla Aliyotumia",
+        "average_order": "Wastani wa Order"
+      },
+      "additional_info_title": "Taarifa za Ziada",
+      "labels": {
+        "notes": "Maelezo"
+      },
+      "delete_confirm_title": "Futa Mteja",
+      "delete_confirm_message": "Una uhakika unataka kufuta \"{{name}}\"? Hili haliwezi kurudishwa.",
+      "messages": {
+        "deleted": "Mteja amefutwa kikamilifu",
+        "delete_failed": "Imeshindikana kufuta mteja",
+        "not_found": "Mteja hapatikani"
+      }
+    },
+    "form": {
+      "title_add": "Ongeza Mteja",
+      "title_edit": "Badilisha Mteja",
+      "subtitle": "Jaza taarifa za mteja hapa chini",
+      "loading": "Inapakia mteja...",
+      "labels": {
+        "name": "Jina Kamili *",
+        "phone": "Namba ya Simu *",
+        "email": "Barua pepe (Si lazima)",
+        "address": "Anuani (Si lazima)",
+        "notes": "Maelezo (Si lazima)"
+      },
+      "placeholders": {
+        "name": "Weka jina la mteja",
+        "phone": "+255 712 345 678",
+        "email": "customer@example.com",
+        "address": "Weka anuani ya mteja...",
+        "notes": "Maelezo yoyote kuhusu mteja huyu..."
+      },
+      "buttons": {
+        "submit_add": "Ongeza Mteja",
+        "submit_edit": "Hifadhi Mteja",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "name_required": "Jina la mteja linahitajika",
+        "phone_required": "Namba ya simu inahitajika",
+        "added": "Mteja ameongezwa kikamilifu",
+        "updated": "Mteja amehifadhiwa kikamilifu",
+        "save_failed": "Imeshindikana kuhifadhi mteja",
+        "load_failed": "Imeshindikana kupakia mteja"
+      }
+    }
+  },
+  "payments": {
+    "list": {
+      "title": "Malipo",
+      "subtitle": "Ona miamala yote ya malipo",
+      "search_placeholder": "Tafuta malipo kwa namba ya order au mteja...",
+      "all_methods": "Njia Zote",
+      "all_statuses": "Hali Zote",
+      "show_dates": "Onyesha Tarehe",
+      "hide_dates": "Ficha Tarehe",
+      "clear_all": "Safisha Zote",
+      "loading": "Inapakia malipo...",
+      "columns": {
+        "order": "Order",
+        "customer": "Mteja",
+        "amount": "Kiasi",
+        "method": "Njia",
+        "status": "Hali",
+        "date": "Tarehe"
+      },
+      "status": {
+        "completed": "Imekamilika",
+        "voided": "Imebatilishwa"
+      },
+      "methods": {
+        "cash": "Fedha",
+        "mpesa": "M-Pesa",
+        "tigo_pesa": "Tigo Pesa"
+      },
+      "no_payments": "Hakuna malipo",
+      "no_payments_filtered": "Jaribu kubadilisha au kusafisha filters.",
+      "no_payments_empty": "Malipo yataonekana hapa yakirekodiwa.",
+      "summary": {
+        "showing": "Inaonyesha {{shown}} ya {{total}} malipo",
+        "page_indicator": "(ukurasa {{page}} ya {{pages}})",
+        "voided_label": "Imebatilishwa:",
+        "page_total_label": "Jumla ya ukurasa:"
+      }
+    }
+  },
+    "settings": {
+    "page_title": "Mipangilio",
+    "page_subtitle": "Simamia maduka yako na matawi",
+    "new_business_button": "Biashara Mpya",
+    "loading": "Inapakia mipangilio...",
+    "saved_success": "Mipangilio imehifadhiwa kikamilifu",
+    "subscription_notice": {
+      "suspended_title": "Akaunti imesimamishwa",
+      "expired_title": "Muda wa majaribio umekwisha",
+      "active_title": "Majaribio yanaendelea",
+      "suspended_message": "Akaunti yako imesimamishwa. Tafadhali wasiliana na support.",
+      "pending_message": "Malipo yako yanachunguzwa. Utaweza kuongeza matawi baada ya kuidhinishwa.",
+      "default_message": "Kuongeza biashara na matawi mapya kunahitaji subscription inayotumika. Lipia kufungua.",
+      "subscribe_button": "Lipia",
+      "pending_badge": "Malipo yanasubiri"
+    },
+    "my_businesses": {
+      "title": "Biashara Zangu",
+      "subtitle": "Kila biashara ipo huru. Badilisha, simamisha, au futa.",
+      "empty": "Hakuna biashara bado. Bofya \"Biashara Mpya\" juu.",
+      "branch_count": "Tawi {{count}}",
+      "branch_count_one": "Tawi {{count}}",
+      "branch_count_other": "Matawi {{count}}",
+      "active_view_badge": "Inayoonekana",
+      "switch_button": "Badilisha kwenda",
+      "current_view_label": "Unaona hii sasa",
+      "activate_tooltip": "Washa biashara",
+      "deactivate_tooltip": "Simamisha biashara",
+      "delete_tooltip": "Futa biashara kabisa"
+    },
+    "identity": {
+      "title": "Utambulisho wa Biashara",
+      "editing_prefix": "Unabadilisha biashara inayotumika:",
+      "name_label": "Jina la Biashara (ndani) *",
+      "shop_name_label": "Jina la Kuonyesha (kwenye risiti) *",
+      "phone_label": "Simu",
+      "email_label": "Barua pepe",
+      "location_label": "Mahali / Anuani",
+      "currency_label": "Sarafu"
+    },
+    "vat": {
+      "title": "Mipangilio ya VAT",
+      "enable_label": "Washa VAT",
+      "enabled_text": "VAT imewashwa",
+      "disabled_text": "VAT imezimwa",
+      "rate_label": "Kiwango cha VAT (%)",
+      "tin_label": "TIN",
+      "vrn_label": "VRN"
+    },
+    "pos": {
+      "title": "Point of Sale",
+      "enable_label": "Washa Uza Haraka",
+      "enabled_text": "Uza Haraka inapatikana",
+      "disabled_text": "Uza Haraka imezimwa",
+      "hint": "Ikiwashwa, Boss, Manager, na Cashier wanaweza kuuza kwenye skrini moja bila kutengeneza mteja kwanza. Malipo yanarekodiwa kwenye muamala mmoja. Mtiririko kamili wa order unabaki kama mbadala."
+    },
+    "branches": {
+      "title": "Matawi",
+      "counter": "({{count}} kati ya {{max}})",
+      "subtitle": "Kila tawi lina bidhaa zake, wateja wake, orders zake, na wafanyakazi wake.",
+      "limit_reached_note": "Umefikia kiwango cha juu cha matawi.",
+      "add_button": "Ongeza Tawi",
+      "limit_reached_button": "Kiwango kimefikiwa",
+      "add_tooltip": "Ongeza tawi jipya",
+      "subscribed_tooltip": "Subscription inahitajika",
+      "limit_tooltip": "Kiwango cha matawi kimefikiwa",
+      "new_name_placeholder": "Jina la tawi *",
+      "new_location_placeholder": "Mahali (si lazima)",
+      "create_button": "Tengeneza Tawi",
+      "creating_button": "Inatengeneza...",
+      "empty": "Hakuna matawi bado. Bofya \"Ongeza Tawi\" kutengeneza moja.",
+      "columns": {
+        "branch": "Tawi",
+        "location": "Mahali",
+        "status": "Hali",
+        "actions": "Vitendo"
+      },
+      "rename_tooltip": "Badilisha jina",
+      "deactivate_tooltip": "Simamisha",
+      "activate_tooltip": "Washa",
+      "delete_tooltip": "Futa kabisa",
+      "badge_active": "Inatumika",
+      "badge_inactive": "Imesimamishwa"
+    },
+    "appearance": {
+      "title": "Muonekano",
+      "dark_mode_label": "Hali ya Giza",
+      "light_mode_label": "Hali ya Mwanga",
+      "switch_to_light": "Badilisha kwenda Mwanga",
+      "switch_to_dark": "Badilisha kwenda Giza"
+    },
+    "save_button": "Hifadhi Mipangilio",
+    "saving_button": "Inahifadhi...",
+    "new_business_modal": {
+      "title": "Tengeneza Biashara Mpya",
+      "name_label": "Jina la Biashara (ndani) *",
+      "name_placeholder": "mfano OSWAGO Cosmetics",
+      "branch_label": "Jina la Tawi la Kwanza *",
+      "branch_placeholder": "mfano Tawi Kuu",
+      "location_label": "Mahali (si lazima)",
+      "create_button": "Tengeneza Biashara",
+      "creating_button": "Inatengeneza...",
+      "cancel_button": "Ghairi"
+    },
+    "delete_business_dialog": {
+      "title": "Futa Biashara",
+      "message": "Futa \"{{name}}\"? Hii itaondoa biashara na kila kitu ndani yake. Hili haliwezi kurudishwa."
+    },
+    "delete_branch_dialog": {
+      "title": "Futa Tawi",
+      "message": "Futa tawi \"{{name}}\"? Hii itaondoa tawi na data yake yote. Hili haliwezi kurudishwa."
+    },
+    "business_toggle": {
+      "deactivate_title": "Simamisha Biashara",
+      "activate_title": "Washa Biashara",
+      "deactivate_message": "Simamisha \"{{name}}\"? Matawi yake na data yake yote yanabaki lakini hayataonekana kwenye switcher.",
+      "activate_message": "Washa \"{{name}}\"? Matawi yake yanapatikana tena.",
+      "deactivate_button": "Simamisha",
+      "activate_button": "Washa"
+    },
+    "branch_toggle": {
+      "deactivate_title": "Simamisha Tawi",
+      "activate_title": "Washa Tawi",
+      "deactivate_message": "Simamisha \"{{name}}\"? Data yake inabaki.",
+      "activate_message": "Washa tena \"{{name}}\"?",
+      "deactivate_button": "Simamisha",
+      "activate_button": "Washa"
+    },
+    "force_delete": {
+      "title_business": "Futa Biashara Kabisa",
+      "title_branch": "Futa Tawi Kabisa",
+      "warning": "Hii itaharibu kabisa {{name}} na kila kitu kinachohusiana nacho. Hakuna kurudisha nyuma.",
+      "rows_header": "Vitu vitakavyo haribiwa:",
+      "type_name_label": "Andika jina kamili: {{name}}",
+      "type_word_label": "Andika DELETE kuthibitisha",
+      "permanent_button": "Futa Kabisa",
+      "cancel_button": "Ghairi"
+    },
+      "messages": {
+      "save_failed": "Imeshindikana kuhifadhi mipangilio",
+      "business_name_required": "Jina la biashara linahitajika",
+      "branch_created": "Tawi limetengenezwa",
+      "branch_name_required": "Jina la tawi haliwezi kuwa tupu",
+      "branch_updated": "Tawi limehifadhiwa",
+      "branch_update_failed": "Imeshindikana kuhifadhi tawi",
+      "branch_deactivated": "Tawi limesimamishwa",
+      "branch_activated": "Tawi limewashwa",
+      "branch_status_failed": "Imeshindikana kubadilisha hali ya tawi",
+      "branch_create_failed": "Imeshindikana kutengeneza tawi",
+      "business_created": "Biashara imetengenezwa",
+      "business_create_failed": "Imeshindikana kutengeneza biashara",
+      "business_deactivated": "Biashara imesimamishwa. Data imehifadhiwa.",
+      "business_activated": "Biashara imewashwa.",
+      "business_status_failed": "Imeshindikana kubadilisha hali ya biashara",
+      "business_deleted": "Biashara imefutwa",
+      "business_delete_failed": "Imeshindikana kufuta biashara",
+      "branch_deleted": "Tawi limefutwa",
+      "branch_delete_failed": "Imeshindikana kufuta tawi",
+      "business_force_deleted": "Biashara imefutwa kabisa",
+      "branch_force_deleted": "Tawi limefutwa kabisa",
+      "force_delete_failed": "Kufuta kabisa kimeshindikana",
+      "typed_name_mismatch": "Jina uliloandika halilingani",
+      "type_delete_hint": "Andika DELETE kuthibitisha"
+    }
+  },
+  "subscribe_modal": {
+    "title": "Lipia OSWAGOTech",
+    "instructions_title": "Jinsi ya kulipa",
+    "instructions_line1": "Tuma malipo kwa Lipa Namba {{number}}.",
+    "instructions_line2": "Tumia business code yako {{code}} kama kumbukumbu.",
+    "instructions_line3": "Kisha weka transaction ID hapa chini.",
+    "choose_plan_label": "Chagua mpango",
+    "loading_plans": "Inapakia mipango...",
+    "method_label": "Njia ya malipo",
+    "methods": {
+      "mpesa": "M-Pesa",
+      "tigo_pesa": "Tigo Pesa",
+      "airtel_money": "Airtel Money",
+      "bank": "Bank transfer"
+    },
+    "transaction_id_label": "Transaction ID",
+    "transaction_id_placeholder": "mfano 8HJK1234XY",
+    "summary_line": "Unalipa {{amount}} kwa {{label}}.",
+    "cancel_button": "Ghairi",
+    "submit_button": "Tuma malipo",
+    "submitting_button": "Inatuma...",
+    "messages": {
+      "plan_required": "Tafadhali chagua mpango",
+      "transaction_required": "Tafadhali weka transaction ID sahihi",
+      "success": "Malipo yametumwa. Yanachunguzwa.",
+      "submit_failed": "Imeshindikana kutuma malipo",
+      "pricing_failed": "Imeshindikana kupakia bei"
+    }
+  },
+  "subscription": {
+    "status_labels": {
+      "trial": "Majaribio",
+      "active": "Inatumika",
+      "expired": "Imekwisha",
+      "suspended": "Imesimamishwa"
+    },
+    "trial_banner": {
+      "suspended_line": "Akaunti yako imesimamishwa. Tafadhali wasiliana na support.",
+      "expired_label": "Muda wa majaribio umekwisha",
+      "days_remaining": "Majaribio: siku {{count}} zimebaki",
+      "days_remaining_one": "Majaribio: siku {{count}} imebaki",
+      "days_remaining_other": "Majaribio: siku {{count}} zimebaki",
+      "payment_under_review": "Malipo yanachunguzwa",
+      "subscribe_button": "Lipia"
+    }
+  },
+    "profile_settings": {
+    "title": "Mipangilio ya Wasifu",
+    "subtitle": "Simamia taarifa za akaunti yako",
+    "back": "Rudi",
+    "profile_card": {
+      "title": "Taarifa za Wasifu",
+      "full_name_label": "Jina Kamili",
+      "email_label": "Barua pepe",
+      "email_cannot_change": "Barua pepe haiwezi kubadilishwa",
+      "phone_label": "Simu",
+      "phone_placeholder": "Weka namba yako ya simu",
+      "save_button": "Hifadhi Mabadiliko",
+      "saving_button": "Inahifadhi..."
+    },
+    "password_card": {
+      "title": "Badilisha Password",
+      "current_label": "Password ya Sasa",
+      "current_placeholder": "Weka password ya sasa",
+      "new_label": "Password Mpya",
+      "new_placeholder": "Weka password mpya",
+      "confirm_label": "Thibitisha Password Mpya",
+      "confirm_placeholder": "Thibitisha password mpya",
+      "hint": "Herufi 6 au zaidi na namba 1",
+      "submit_button": "Badilisha Password",
+      "changing_button": "Inabadilisha..."
+    },
+    "messages": {
+      "profile_updated": "Wasifu umehifadhiwa kikamilifu",
+      "profile_update_failed": "Imeshindikana kuhifadhi wasifu",
+      "passwords_do_not_match": "Password mpya hazifanani",
+      "fill_passwords": "Tafadhali jaza password ya sasa na mpya"
+    }
+  },
+    "categories": {
+    "title": "Kategoria",
+    "subtitle": "Simamia kategoria za bidhaa zako",
+    "add_button": "Ongeza Kategoria",
+    "search_placeholder": "Tafuta kategoria...",
+    "new_placeholder": "Weka jina la kategoria mpya...",
+    "add_submit": "Ongeza",
+    "loading": "Inapakia kategoria...",
+    "columns": {
+      "category": "Kategoria",
+      "products": "Bidhaa",
+      "actions": "Vitendo"
+    },
+    "product_count": "Bidhaa {{count}}",
+    "product_count_one": "Bidhaa {{count}}",
+    "product_count_other": "Bidhaa {{count}}",
+    "no_categories_title": "Hakuna Kategoria",
+    "no_categories_hint": "Ongeza kategoria yako ya kwanza kupanga bidhaa zako",
+    "no_match": "Hakuna kategoria inayolingana na \"{{search}}\"",
+    "footer": {
+      "count_label": "Kategoria {{count}}",
+      "count_label_one": "Kategoria {{count}}",
+      "count_label_other": "Kategoria {{count}}",
+      "products_organized": "Bidhaa {{count}} zimepangwa kwa jumla",
+      "synced_badge": "Zote zimesawazishwa"
+    },
+    "delete_dialog": {
+      "title": "Futa Kategoria",
+      "message": "Futa kategoria \"{{name}}\"? Hili haliwezi kurudishwa."
+    },
+    "tooltips": {
+      "edit": "Badilisha kategoria",
+      "delete": "Futa kategoria",
+      "clear_search": "Safisha utafutaji"
+    },
+    "messages": {
+      "name_required": "Tafadhali weka jina la kategoria",
+      "name_empty": "Jina la kategoria haliwezi kuwa tupu",
+      "added": "Kategoria imeongezwa kikamilifu",
+      "updated": "Kategoria imehifadhiwa kikamilifu",
+      "deleted": "Kategoria imefutwa kikamilifu",
+      "add_failed": "Imeshindikana kuongeza kategoria",
+      "update_failed": "Imeshindikana kuhifadhi kategoria",
+      "delete_failed": "Imeshindikana kufuta kategoria",
+      "load_failed": "Imeshindikana kupakia kategoria"
+    }
+  },
+    "staff": {
+    "roles": {
+      "boss": "Boss",
+      "manager": "Manager",
+      "cashier": "Cashier",
+      "store_keeper": "Store Keeper",
+      "sales_rep": "Sales Rep"
+    },
+    "list": {
+      "title": "Wafanyakazi",
+      "subtitle": "Simamia wanachama wa timu yako",
+      "add_button": "Ongeza Mfanyakazi",
+      "search_placeholder": "Tafuta mfanyakazi kwa jina au barua pepe",
+      "count": "{{shown}} ya {{total}} wanachama",
+      "count_one": "{{shown}} ya {{total}} mwanachama",
+      "count_other": "{{shown}} ya {{total}} wanachama",
+      "loading": "Inapakia wafanyakazi...",
+      "columns": {
+        "staff": "Mfanyakazi",
+        "email": "Barua pepe",
+        "phone": "Simu",
+        "role": "Wadhifa",
+        "status": "Hali",
+        "actions": "Vitendo"
+      },
+      "you_badge": "Wewe",
+      "status_active": "Anafanya kazi",
+      "status_inactive": "Hafanyi kazi",
+      "no_staff_title": "Hakuna wafanyakazi bado",
+      "no_staff_hint": "Ongeza mwanachama wa timu yako wa kwanza kuanza.",
+      "no_match_title": "Hakuna mfanyakazi anayelingana",
+      "no_match_hint": "Jaribu jina au barua pepe tofauti.",
+      "clear_search": "Safisha utafutaji"
+    },
+    "detail": {
+      "title": "Mfanyakazi",
+      "loading": "Inapakia mfanyakazi...",
+      "not_found": "Mfanyakazi hapatikani",
+      "back_to_staff": "Rudi kwa Wafanyakazi",
+      "back": "Rudi",
+      "since": "Mfanyakazi tangu {{date}}",
+      "you_badge": "Wewe",
+      "personal_info_title": "Taarifa Binafsi",
+      "account_status_title": "Hali ya Akaunti",
+      "labels": {
+        "full_name": "Jina Kamili",
+        "email": "Barua pepe",
+        "phone": "Simu",
+        "role": "Wadhifa",
+        "status": "Hali",
+        "first_login": "Kuingia kwa Kwanza",
+        "account_created": "Akaunti Iliundwa"
+      },
+      "first_login_yes": "Ndiyo - ataulizwa kubadilisha password",
+      "first_login_no": "Hapana",
+      "edit_button": "Badilisha Mfanyakazi",
+      "reset_password_button": "Weka Password Mpya",
+      "activate_button": "Washa",
+      "deactivate_button": "Simamisha",
+      "delete_button": "Futa Mfanyakazi",
+      "reset_modal": {
+        "title": "Weka Password Mpya",
+        "message": "Weka password mpya kwa {{name}}",
+        "new_password_label": "Password Mpya",
+        "new_password_placeholder": "Weka password mpya",
+        "hint": "Mfanyakazi ataulizwa kubadilisha password anapoingia tena",
+        "submit_button": "Weka Password",
+        "submitting_button": "Inaweka...",
+        "cancel_button": "Ghairi"
+      },
+      "toggle_dialog": {
+        "deactivate_title": "Simamisha Mfanyakazi",
+        "activate_title": "Washa Mfanyakazi",
+        "deactivate_message": "Kumsimamisha {{name}} kutamzuia kuingia. Endelea?",
+        "activate_message": "Kumwasha tena {{name}}? Ataweza kuingia tena.",
+        "deactivate_button": "Simamisha",
+        "activate_button": "Washa"
+      },
+      "delete_dialog": {
+        "title": "Futa Mfanyakazi",
+        "message": "Una uhakika unataka kumfuta \"{{name}}\"? Hili haliwezi kurudishwa."
+      },
+      "messages": {
+        "deactivated": "{{name}} amesimamishwa",
+        "activated": "{{name}} amewashwa",
+        "deleted": "Mfanyakazi amefutwa kikamilifu",
+        "password_reset": "Password imewekwa kikamilifu",
+        "status_failed": "Imeshindikana kubadilisha hali",
+        "delete_failed": "Imeshindikana kumfuta mfanyakazi",
+        "password_reset_failed": "Imeshindikana kuweka password",
+        "password_too_short": "Password iwe na herufi 6 au zaidi",
+        "not_found": "Mfanyakazi hapatikani"
+      }
+    },
+    "form": {
+      "title_add": "Ongeza Mfanyakazi",
+      "title_edit": "Badilisha Mfanyakazi",
+      "subtitle_add": "Ongeza mwanachama mpya wa timu kwenye tawi",
+      "subtitle_edit": "Badilisha taarifa za mfanyakazi",
+      "loading": "Inapakia mfanyakazi...",
+      "labels": {
+        "full_name": "Jina Kamili *",
+        "email": "Barua pepe *",
+        "phone": "Simu",
+        "role": "Wadhifa *",
+        "branch": "Tawi *",
+        "temp_password": "Password ya Muda"
+      },
+      "placeholders": {
+        "full_name": "Weka jina kamili",
+        "email": "staff@shop.com",
+        "phone": "+255 712 345 678"
+      },
+      "email_cannot_change": "Barua pepe haiwezi kubadilishwa",
+      "branch_lock_hint": "Tawi haliwezi kubadilishwa baada ya kuundwa. Wasiliana na support kama linahitaji kuhamishwa.",
+      "branch_help": "Mfanyakazi ataona data ya tawi hili peke yake baada ya kuingia",
+      "select_branch": "Chagua tawi",
+      "temp_password_hint": "Mfanyakazi ataulizwa kubadilisha password anapoingia mara ya kwanza",
+      "buttons": {
+        "submit_add": "Ongeza Mfanyakazi",
+        "submit_edit": "Hifadhi Mfanyakazi",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "save_failed": "Imeshindikana kuhifadhi mfanyakazi",
+        "added": "Mfanyakazi ameongezwa kikamilifu",
+        "updated": "Mfanyakazi amehifadhiwa kikamilifu",
+        "load_failed": "Imeshindikana kupakia mfanyakazi"
+      }
+    }
+  },
+    "expenses": {
+    "list": {
+      "title": "Matumizi",
+      "subtitle": "Fuatilia matumizi yote ya biashara",
+      "add_button": "Ongeza Matumizi",
+      "search_placeholder": "Tafuta matumizi kwa maelezo...",
+      "all_categories": "Kategoria Zote",
+      "show_dates": "Onyesha Tarehe",
+      "hide_dates": "Ficha Tarehe",
+      "clear_all": "Safisha Zote",
+      "clear_dates": "Safisha",
+      "page_total": "Jumla ya ukurasa:",
+      "loading": "Inapakia matumizi...",
+      "columns": {
+        "description": "Maelezo",
+        "category": "Kategoria",
+        "amount": "Kiasi",
+        "date": "Tarehe",
+        "actions": "Vitendo"
+      },
+      "no_expenses": "Hakuna matumizi",
+      "no_expenses_filtered": "Jaribu kubadilisha au kusafisha filters.",
+      "no_expenses_empty": "Ongeza matumizi yako ya kwanza."
+    },
+    "detail": {
+      "title": "Maelezo ya Matumizi",
+      "loading": "Inapakia matumizi...",
+      "not_found": "Matumizi hapatikani",
+      "back_to_expenses": "Rudi kwa Matumizi",
+      "back": "Rudi",
+      "recorded_on": "Matumizi yamerekodiwa {{date}}",
+      "details_title": "Taarifa za Matumizi",
+      "additional_info_title": "Taarifa za Ziada",
+      "labels": {
+        "description": "Maelezo",
+        "category": "Kategoria",
+        "amount": "Kiasi",
+        "date": "Tarehe",
+        "payment_method": "Njia ya Malipo",
+        "notes": "Maelezo ya Ziada",
+        "created_by": "Iliwekwa na",
+        "created_at": "Iliwekwa"
+      },
+      "no_notes": "Hakuna maelezo ya ziada",
+      "edit_button": "Badilisha Matumizi",
+      "delete_button": "Futa Matumizi",
+      "delete_dialog": {
+        "title": "Futa Matumizi",
+        "message": "Una uhakika unataka kufuta \"{{description}}\"? Hili haliwezi kurudishwa."
+      },
+      "messages": {
+        "deleted": "Matumizi yamefutwa kikamilifu",
+        "delete_failed": "Imeshindikana kufuta matumizi",
+        "not_found": "Matumizi hapatikani"
+      }
+    },
+    "form": {
+      "title_add": "Ongeza Matumizi",
+      "title_edit": "Badilisha Matumizi",
+      "subtitle_add": "Rekodi matumizi mapya ya biashara",
+      "subtitle_edit": "Badilisha taarifa za matumizi",
+      "loading": "Inapakia matumizi...",
+      "labels": {
+        "description": "Maelezo *",
+        "amount": "Kiasi (TZS) *",
+        "category": "Kategoria *",
+        "date": "Tarehe ya Matumizi",
+        "payment_method": "Njia ya Malipo",
+        "notes": "Maelezo ya Ziada (Si lazima)"
+      },
+      "placeholders": {
+        "description": "mfano Kodi ya Mwezi, Mishahara, Umeme",
+        "amount": "Weka kiasi",
+        "notes": "Maelezo yoyote ya ziada..."
+      },
+      "category_select": "Chagua kategoria",
+      "payment_select": "Chagua njia ya malipo",
+      "buttons": {
+        "submit_add": "Ongeza Matumizi",
+        "submit_edit": "Hifadhi Matumizi",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "description_required": "Maelezo yanahitajika",
+        "amount_required": "Kiasi sahihi kinahitajika",
+        "added": "Matumizi yameongezwa kikamilifu",
+        "updated": "Matumizi yamehifadhiwa kikamilifu",
+        "save_failed": "Imeshindikana kuhifadhi matumizi",
+        "load_failed": "Imeshindikana kupakia matumizi"
+      }
+    }
+  },
+    "suppliers": {
+    "list": {
+      "title": "Wasambazaji",
+      "subtitle": "Simamia wasambazaji wa bidhaa zako",
+      "add_button": "Ongeza Msambazaji",
+      "search_placeholder": "Tafuta msambazaji kwa jina, mtu wa kuwasiliana, simu, au barua pepe...",
+      "clear_button": "Safisha",
+      "showing": "Inaonyesha {{shown}} ya {{total}}",
+      "loading": "Inapakia wasambazaji...",
+      "columns": {
+        "name": "Jina la Msambazaji",
+        "contact_person": "Mtu wa Kuwasiliana",
+        "phone": "Simu",
+        "email": "Barua pepe",
+        "actions": "Vitendo"
+      },
+      "no_suppliers": "Hakuna wasambazaji",
+      "no_suppliers_filtered": "Jaribu kubadilisha au kusafisha utafutaji.",
+      "no_suppliers_empty": "Ongeza msambazaji wako wa kwanza."
+    },
+    "detail": {
+      "title": "Msambazaji",
+      "subtitle": "Taarifa za msambazaji",
+      "loading": "Inapakia msambazaji...",
+      "not_found": "Msambazaji hapatikani",
+      "back_to_suppliers": "Rudi kwa Wasambazaji",
+      "back": "Rudi",
+      "info_title": "Taarifa za Msambazaji",
+      "additional_info_title": "Taarifa za Ziada",
+      "labels": {
+        "name": "Jina",
+        "contact_person": "Mtu wa Kuwasiliana",
+        "phone": "Simu",
+        "email": "Barua pepe",
+        "address": "Anuani",
+        "notes": "Maelezo",
+        "created_at": "Iliundwa"
+      },
+      "no_notes": "Hakuna maelezo",
+      "edit_button": "Badilisha Msambazaji",
+      "delete_button": "Futa Msambazaji",
+      "delete_dialog": {
+        "title": "Futa Msambazaji",
+        "message": "Una uhakika unataka kufuta \"{{name}}\"? Hili haliwezi kurudishwa."
+      },
+      "messages": {
+        "deleted": "Msambazaji amefutwa kikamilifu",
+        "delete_failed": "Imeshindikana kufuta msambazaji",
+        "not_found": "Msambazaji hapatikani"
+      }
+    },
+    "form": {
+      "title_add": "Ongeza Msambazaji",
+      "title_edit": "Badilisha Msambazaji",
+      "subtitle_add": "Ongeza msambazaji mpya kwenye mtandao wako",
+      "subtitle_edit": "Badilisha taarifa za msambazaji",
+      "loading": "Inapakia msambazaji...",
+      "labels": {
+        "name": "Jina la Msambazaji *",
+        "contact_person": "Mtu wa Kuwasiliana",
+        "phone": "Simu *",
+        "email": "Barua pepe (Si lazima)",
+        "address": "Anuani (Si lazima)",
+        "notes": "Maelezo (Si lazima)"
+      },
+      "placeholders": {
+        "name": "mfano Electric Supplies Ltd",
+        "contact_person": "mfano John Mwangi",
+        "phone": "+255 712 345 678",
+        "email": "supplier@example.com",
+        "address": "Anuani ya msambazaji...",
+        "notes": "Maelezo yoyote kuhusu msambazaji huyu..."
+      },
+      "buttons": {
+        "submit_add": "Ongeza Msambazaji",
+        "submit_edit": "Hifadhi Msambazaji",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "name_required": "Jina la msambazaji linahitajika",
+        "phone_required": "Namba ya simu inahitajika",
+        "added": "Msambazaji ameongezwa kikamilifu",
+        "updated": "Msambazaji amehifadhiwa kikamilifu",
+        "save_failed": "Imeshindikana kuhifadhi msambazaji",
+        "load_failed": "Imeshindikana kupakia msambazaji"
+      }
+    }
+  },
+    "purchase_orders": {
+    "status": {
+      "pending": "Inasubiri",
+      "received": "Imepokelewa",
+      "cancelled": "Imefutwa"
+    },
+    "list": {
+      "title": "Oda za Manunuzi",
+      "subtitle": "Simamia oda za manunuzi kwa wasambazaji",
+      "create_button": "Tengeneza Oda",
+      "search_placeholder": "Tafuta oda kwa namba au msambazaji...",
+      "all_pos": "Oda Zote",
+      "show_dates": "Onyesha Tarehe",
+      "hide_dates": "Ficha Tarehe",
+      "clear_all": "Safisha Zote",
+      "clear_dates": "Safisha",
+      "showing": "Inaonyesha {{shown}} ya {{total}}",
+      "loading": "Inapakia oda za manunuzi...",
+      "columns": {
+        "po_number": "Namba ya Oda",
+        "supplier": "Msambazaji",
+        "total": "Jumla",
+        "status": "Hali",
+        "date": "Tarehe",
+        "actions": "Vitendo"
+      },
+      "no_pos": "Hakuna oda za manunuzi",
+      "no_pos_filtered": "Jaribu kubadilisha au kusafisha filters.",
+      "no_pos_empty": "Tengeneza oda yako ya kwanza."
+    },
+    "detail": {
+      "title": "Oda ya Manunuzi",
+      "order_number": "Oda ya Manunuzi #{{number}}",
+      "created_on": "Iliundwa {{date}}",
+      "loading": "Inapakia oda...",
+      "not_found": "Oda haipatikani",
+      "back_to_pos": "Rudi kwa Oda za Manunuzi",
+      "back": "Rudi",
+      "received_banner_title": "Oda hii ya manunuzi imepokelewa.",
+      "received_banner_body": "Kubadilisha bidhaa kutabadilisha stock kwa tofauti kati ya kile kilichopokelewa awali na idadi mpya.",
+      "info_title": "Taarifa za Oda",
+      "items_title": "Bidhaa za Oda",
+      "labels": {
+        "po_number": "Namba ya Oda",
+        "supplier": "Msambazaji",
+        "status": "Hali",
+        "total_amount": "Jumla ya Kiasi",
+        "order_date": "Tarehe ya Oda",
+        "delivery_date": "Tarehe ya Kufikisha",
+        "notes": "Maelezo",
+        "created_by": "Iliundwa na"
+      },
+      "item_columns": {
+        "product": "Bidhaa",
+        "quantity": "Idadi",
+        "cost_price": "Bei ya Gharama",
+        "subtotal": "Jumla ndogo"
+      },
+      "no_items": "Hakuna bidhaa",
+      "totals": {
+        "total": "Jumla"
+      },
+      "receive_button": "Pokea Stock",
+      "edit_button": "Badilisha",
+      "delete_button": "Futa",
+      "receive_dialog": {
+        "title": "Pokea Oda ya Manunuzi",
+        "message": "Kupokea oda hii kutaongeza bidhaa zote kwenye stock yako. Endelea?",
+        "confirm_button": "Pokea"
+      },
+      "delete_dialog": {
+        "title": "Futa Oda ya Manunuzi",
+        "message": "Una uhakika unataka kufuta \"{{number}}\"? Hili haliwezi kurudishwa."
+      },
+      "messages": {
+        "received": "Oda imepokelewa. Stock imeongezwa.",
+        "receive_failed": "Imeshindikana kupokea oda",
+        "deleted": "Oda imefutwa kikamilifu",
+        "delete_failed": "Imeshindikana kufuta oda",
+        "not_found": "Oda haipatikani"
+      }
+    },
+    "form": {
+      "title_add": "Tengeneza Oda ya Manunuzi",
+      "title_edit": "Badilisha Oda ya Manunuzi",
+      "subtitle_add": "Agiza bidhaa kutoka kwa wasambazaji",
+      "subtitle_edit": "Badilisha taarifa za oda",
+      "loading": "Inapakia oda...",
+      "labels": {
+        "supplier": "Msambazaji *",
+        "add_products": "Ongeza Bidhaa",
+        "notes": "Maelezo (Si lazima)"
+      },
+      "supplier_search_placeholder": "Tafuta na uchague msambazaji...",
+      "supplier_search_hint": "Andika jina, simu, au barua pepe ya msambazaji...",
+      "product_search_placeholder": "Tafuta na uchague bidhaa...",
+      "product_search_hint": "Andika jina la bidhaa au SKU...",
+      "product_add_button": "Ongeza",
+      "order_items_title": "Bidhaa za Oda",
+      "no_items": "Hakuna bidhaa bado",
+      "item_columns": {
+        "product": "Bidhaa",
+        "quantity": "Idadi",
+        "cost_price": "Bei ya Gharama",
+        "subtotal": "Jumla ndogo",
+        "actions": "Vitendo"
+      },
+      "totals": {
+        "total": "Jumla"
+      },
+      "notes_placeholder": "Maagizo yoyote maalum...",
+      "buttons": {
+        "submit_add": "Tengeneza Oda",
+        "submit_edit": "Hifadhi Oda",
+        "saving": "Inahifadhi...",
+        "cancel": "Ghairi"
+      },
+      "messages": {
+        "supplier_required": "Tafadhali chagua msambazaji",
+        "add_one_item": "Tafadhali ongeza bidhaa angalau moja",
+        "added": "Bidhaa imeongezwa kwenye oda",
+        "created": "Oda imeundwa kikamilifu",
+        "updated": "Oda imehifadhiwa kikamilifu",
+        "save_failed": "Imeshindikana kuhifadhi oda",
+        "load_failed": "Imeshindikana kupakia oda"
+      }
+    }
+  },
+    "reports": {
+    "common": {
+      "show_dates": "Onyesha Tarehe",
+      "hide_dates": "Ficha Tarehe",
+      "clear": "Safisha",
+      "loading": "Inapakia ripoti...",
+      "no_data": "Hakuna data",
+      "no_data_hint": "Hakuna mauzo kwa kipindi hiki",
+      "periods": {
+        "today": "Leo",
+        "week": "Wiki Hii",
+        "month": "Mwezi",
+        "year": "Mwaka",
+        "custom": "Chagua Mwenyewe"
+      },
+      "months": {
+        "all": "Miezi Yote",
+        "1": "Januari",
+        "2": "Februari",
+        "3": "Machi",
+        "4": "Aprili",
+        "5": "Mei",
+        "6": "Juni",
+        "7": "Julai",
+        "8": "Agosti",
+        "9": "Septemba",
+        "10": "Oktoba",
+        "11": "Novemba",
+        "12": "Desemba"
+      },
+      "apply": "Tumia",
+      "date_range_to": "hadi",
+      "select_dates_error": "Tafadhali chagua tarehe ya kuanza na ya kumaliza",
+      "download_failed": "Imeshindikana kutengeneza ripoti"
+    },
+    "inventory": {
+      "title": "Ripoti ya Stock",
+      "subtitle": "Thamani ya stock na hali ya stock",
+      "total_products_title": "Bidhaa Zote",
+      "total_products_hint": "Bidhaa zinazotumika",
+      "cost_value_title": "Thamani ya Gharama",
+      "cost_value_hint": "Gharama jumla ya stock",
+      "selling_value_title": "Thamani ya Kuuza",
+      "selling_value_hint": "Mapato yanayowezekana",
+      "profit_potential_title": "Faida Inayowezekana",
+      "profit_potential_hint": "Tofauti kati ya bei ya kuuza na gharama ya stock ya sasa",
+      "low_stock_title": "Bidhaa Zinazoisha ({{count}})",
+      "low_stock_all_good": "Bidhaa zote zipo vizuri",
+      "category_title": "Stock kwa Kategoria",
+      "category_empty": "Hakuna kategoria zenye bidhaa",
+      "all_products_title": "Bidhaa Zote ({{count}})",
+      "columns": {
+        "product": "Bidhaa",
+        "stock": "Stock",
+        "threshold": "Kiwango",
+        "category": "Kategoria",
+        "cost_price": "Bei ya Gharama",
+        "selling_price": "Bei ya Kuuza",
+        "stock_value": "Thamani ya Stock"
+      }
+    },
+    "sales": {
+      "title": "Ripoti ya Mauzo",
+      "subtitle": "Ona utendaji wa mauzo",
+      "total_sales_title": "Mauzo Jumla - Bila VAT",
+      "profit_title": "Faida Halisi (bila VAT)",
+      "money_received_title": "Pesa Zilizopokelewa",
+      "vat_collected_title": "VAT Iliyokusanywa",
+      "outstanding_title": "Madeni",
+      "total_received_title": "Pesa Zote Zilizopokelewa",
+      "total_orders_title": "Orders Jumla",
+      "avg_order_title": "Wastani wa Order (bila VAT)",
+      "items_sold_title": "Bidhaa Zilizouzwa",
+      "stock_summary_title": "Muhtasari wa Mwendo wa Stock",
+      "stock_added": "Stock Iliyoongezwa",
+      "stock_sold": "Stock Iliyouzwa",
+      "stock_adjusted": "Stock Iliyorekebishwa",
+      "stock_returned": "Stock Iliyorudishwa",
+      "net_stock_change": "Mabadiliko ya Stock:",
+      "units": "vipande",
+      "product_movements_title": "Mwendo wa Stock kwa Bidhaa",
+      "movement_columns": {
+        "product": "Bidhaa",
+        "opening": "Mwanzo",
+        "added": "Iliyoongezwa",
+        "sold": "Iliyouzwa",
+        "adjusted": "Iliyorekebishwa",
+        "returned": "Iliyorudishwa",
+        "closing": "Mwisho"
+      },
+      "product_financials_title": "Muhtasari wa Fedha kwa Bidhaa",
+      "product_sales_total": "Mauzo Jumla (bila VAT)",
+      "product_money_total": "Pesa Zilizopokelewa",
+      "product_vat_total": "VAT Iliyokusanywa",
+      "product_outstanding_total": "Madeni",
+      "financial_columns": {
+        "product": "Bidhaa",
+        "sales": "Mauzo",
+        "payments": "Malipo",
+        "vat": "VAT Iliyokusanywa",
+        "outstanding": "Madeni",
+        "status": "Hali"
+      },
+      "financial_status": {
+        "credit": "Deni",
+        "paid": "Imelipwa"
+      },
+      "totals_label": "Jumla",
+      "credit_count_badge": "Madeni {{count}}",
+      "yoy_title": "Mlinganisho wa Mwaka kwa Mwaka",
+      "yoy_columns": {
+        "year": "Mwaka",
+        "sales": "Mauzo",
+        "vat": "VAT",
+        "orders": "Orders",
+        "growth": "Ukuaji"
+      },
+      "monthly_title": "Mgawanyo wa Mwezi kwa Mwezi",
+      "monthly_columns": {
+        "month": "Mwezi",
+        "sales": "Mauzo",
+        "orders": "Orders"
+      },
+      "payment_methods_title": "Pesa Zilizopokelewa kwa Njia",
+      "top_products_title": "Bidhaa Zinazouza Zaidi",
+      "top_columns": {
+        "product": "Bidhaa",
+        "quantity_sold": "Idadi Iliyouzwa",
+        "revenue": "Mapato"
+      },
+      "no_products_sold": "Hakuna bidhaa zilizouzwa",
+      "recent_orders_title": "Orders za Hivi Karibuni",
+      "recent_columns": {
+        "order_number": "Order #",
+        "customer": "Mteja",
+        "amount": "Kiasi",
+        "status": "Hali",
+        "payment": "Malipo",
+        "date": "Tarehe"
+      },
+      "no_orders": "Hakuna orders"
+    },
+    "profit": {
+      "title": "Ripoti ya Faida",
+      "subtitle": "Faida halisi kwa pesa zilizopokelewa, VAT haijajumuishwa",
+      "realized_profit_title": "Faida Halisi",
+      "business_money_title": "Pesa za Biashara (bila VAT)",
+      "expenses_title": "Matumizi",
+      "net_profit_title": "Faida Halisi (baada ya matumizi)",
+      "breakdown_title": "Mgawanyo wa Faida na Hasara",
+      "business_received_label": "Pesa Zilizopokelewa (bila VAT)",
+      "cost_paid_label": "Gharama ya Bidhaa Zilizouzwa (sehemu iliyolipwa)",
+      "realized_profit_label": "Faida Halisi",
+      "operating_expenses_label": "Matumizi ya Uendeshaji",
+      "net_profit_label": "Faida Halisi",
+      "margin_label": "Kiwango cha Faida",
+      "vat_memo_title": "VAT Iliyokusanywa (si sehemu ya faida)",
+      "vat_memo_note": "Kiasi hiki ni cha serikali na kinatakiwa kuwasilishwa. Hakijajumuishwa kwenye hesabu ya faida hapo juu.",
+      "top_products_title": "Bidhaa Zinazoongoza kwa Faida",
+      "top_columns": {
+        "product": "Bidhaa",
+        "quantity_sold": "Idadi Iliyouzwa",
+        "revenue": "Mapato (kamili)",
+        "cost": "Gharama (kamili)",
+        "profit": "Faida (kamili)"
+      },
+      "no_product_sales": "Hakuna mauzo ya bidhaa kwa kipindi hiki",
+      "top_hint": "Kumbuka: mgawanyo wa bidhaa unaonyesha faida inayowezekana kwa jumla ya oda. Muhtasari hapo juu unaonyesha faida halisi kwa pesa zilizopokelewa.",
+      "expenses_in_period": "Matumizi kwa Kipindi Hiki ({{count}})",
+      "no_expenses": "Hakuna matumizi yaliyorekodiwa",
+      "expense_columns": {
+        "date": "Tarehe",
+        "description": "Maelezo",
+        "category": "Kategoria",
+        "amount": "Kiasi"
+      }
+    },
+    "extract": {
+      "title": "Pakua Ripoti",
+      "subtitle": "Pakua data ya duka kama faili za Excel",
+      "step1_title": "1. Chagua ripoti",
+      "step2_title": "2. Chagua kipindi",
+      "step3_title": "3. Pakua",
+      "download_button": "Pakua Faili ya Excel",
+      "downloading_button": "Inatengeneza...",
+      "types": {
+        "sales": {
+          "label": "Ripoti ya Mauzo",
+          "description": "Oda, bidhaa, malipo, na mgawanyo wa bidhaa"
+        },
+        "payments": {
+          "label": "Ripoti ya Malipo",
+          "description": "Malipo yote yaliyopokelewa pamoja na njia na kumbukumbu"
+        },
+        "expenses": {
+          "label": "Ripoti ya Matumizi",
+          "description": "Matumizi yote pamoja na mgawanyo wa kategoria"
+        },
+        "products": {
+          "label": "Ripoti ya Bidhaa",
+          "description": "Orodha kamili ya bidhaa pamoja na bei na stock"
+        },
+        "stock-movements": {
+          "label": "Ripoti ya Mwendo wa Stock",
+          "description": "Kila mwendo wa stock (mauzo, manunuzi, marekebisho, marudio)"
+        },
+        "customers": {
+          "label": "Ripoti ya Wateja",
+          "description": "Wateja wote pamoja na historia ya oda na matumizi"
+        },
+        "suppliers": {
+          "label": "Ripoti ya Wasambazaji",
+          "description": "Wasambazaji wote pamoja na taarifa za mawasiliano"
+        },
+        "purchase-orders": {
+          "label": "Ripoti ya Oda za Manunuzi",
+          "description": "Oda zote kwa wasambazaji pamoja na bidhaa"
+        },
+        "profit": {
+          "label": "Ripoti ya Faida na Hasara",
+          "description": "Mapato, gharama, matumizi, na faida halisi"
+        },
+        "vat": {
+          "label": "Ripoti ya VAT",
+          "description": "VAT iliyokusanywa kwa kuwasilisha kodi"
+        },
+        "full": {
+          "label": "Ripoti Kamili (Kila Kitu)",
+          "description": "Ripoti zote zimeunganishwa kwenye faili moja"
+        }
+      },
+      "downloaded_toast": "Imepakuliwa: {{filename}}"
+    }
+  },
+    "audit_log": {
+    "title": "Kumbukumbu",
+    "subtitle": "Historia kamili ya matendo yote kwenye mfumo",
+    "refresh_button": "Onyesha Upya",
+    "loading": "Inapakia kumbukumbu...",
+    "summary": {
+      "today": "Leo",
+      "this_week": "Wiki Hii",
+      "this_month": "Mwezi Huu",
+      "most_common": "Kitendo cha mara kwa mara",
+      "no_data": "-"
+    },
+    "search_placeholder": "Tafuta kwa kitendo, mtumiaji, au maelezo",
+    "clear_search": "Safisha utafutaji",
+    "all_branches": "Matawi Yote",
+    "all_actions": "Vitendo Vyote",
+    "all_users": "Watumiaji Wote",
+    "clear_filters": "Safisha filters",
+    "results_count": "Kumbukumbu {{count}}",
+    "results_count_one": "Kumbukumbu {{count}}",
+    "results_count_other": "Kumbukumbu {{count}}",
+    "empty_filtered": "Jaribu kubadilisha au kusafisha filters.",
+    "empty_default": "Vitendo vinavyofanyika kwenye mfumo vitaonekana hapa.",
+    "columns": {
+      "user": "Mtumiaji",
+      "branch": "Tawi",
+      "action": "Kitendo",
+      "details": "Maelezo",
+      "timestamp": "Muda"
+    },
+    "system_user": "Mfumo",
+    "pagination": {
+      "previous": "Iliyotangulia",
+      "next": "Inayofuata",
+      "status": "Ukurasa {{page}} ya {{pages}}"
+    },
+    "actions": {
+      "Login": "Ingia",
+      "Logout": "Toka",
+      "Account Signed Up": "Akaunti Ilifunguliwa",
+      "Profile Updated": "Wasifu Ulisasishwa",
+      "Password Changed": "Password Ilibadilishwa",
+      "Quick Sale": "Uza Haraka",
+      "Order Created": "Order Iliundwa",
+      "Order Status Updated": "Hali ya Order Ilibadilishwa",
+      "Payment Recorded": "Malipo Yalirekodiwa",
+      "Order Confirmed": "Order Ilithibitishwa",
+      "Order Delivered": "Order Imewasilishwa",
+      "Order Cancelled": "Order Ilifutwa",
+      "Product Created": "Bidhaa Iliundwa",
+      "Product Updated": "Bidhaa Ilibadilishwa",
+      "Product Deleted": "Bidhaa Ilifutwa",
+      "Stock Adjusted": "Stock Ilirekebishwa",
+      "Customer Created": "Mteja Aliundwa",
+      "Customer Updated": "Mteja Alibadilishwa",
+      "Customer Deleted": "Mteja Alifutwa",
+      "Supplier Created": "Msambazaji Aliundwa",
+      "Supplier Updated": "Msambazaji Alibadilishwa",
+      "Supplier Deleted": "Msambazaji Alifutwa",
+      "Purchase Order Created": "Oda ya Manunuzi Iliundwa",
+      "Purchase Order Received": "Oda ya Manunuzi Ilipokelewa",
+      "Purchase Order Updated": "Oda ya Manunuzi Ilibadilishwa",
+      "Purchase Order Deleted": "Oda ya Manunuzi Ilifutwa",
+      "Expense Created": "Matumizi Yalirekodiwa",
+      "Expense Updated": "Matumizi Yalibadilishwa",
+      "Expense Deleted": "Matumizi Yalifutwa",
+      "Business Created": "Biashara Iliundwa",
+      "Business Updated": "Biashara Ilibadilishwa",
+      "Business Activated": "Biashara Ilifunguliwa",
+      "Business Deactivated": "Biashara Ilisimamishwa",
+      "Business Deleted": "Biashara Ilifutwa",
+      "Business Force Deleted": "Biashara Ilifutwa Kabisa",
+      "Branch Created": "Tawi Liliundwa",
+      "Branch Updated": "Tawi Lilibadilishwa",
+      "Branch Activated": "Tawi Lilifunguliwa",
+      "Branch Deactivated": "Tawi Lilisimamishwa",
+      "Branch Deleted": "Tawi Lilifutwa",
+      "Branch Force Deleted": "Tawi Lilifutwa Kabisa",
+      "Staff Created": "Mfanyakazi Aliundwa",
+      "Staff Updated": "Mfanyakazi Alibadilishwa",
+      "Staff Deleted": "Mfanyakazi Alifutwa",
+      "Staff Password Reset": "Password ya Mfanyakazi Iliwekwa Upya",
+      "Impersonation Started": "Uigaji Uliaanza",
+      "Impersonation Ended": "Uigaji Uliisha"
+    }
+  }
+}

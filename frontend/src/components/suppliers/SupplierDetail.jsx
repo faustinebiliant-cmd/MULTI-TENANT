@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatDate } from '../../utils/helpers';
@@ -12,6 +13,7 @@ import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const SupplierDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [supplier, setSupplier] = useState(null);
@@ -30,7 +32,7 @@ const SupplierDetail = () => {
       setSupplier(data);
     } catch (error) {
       console.error('Error fetching supplier:', error);
-      toast.error('Supplier not found');
+      toast.error(t('suppliers.detail.messages.not_found'));
       navigate('/suppliers');
     } finally {
       setLoading(false);
@@ -41,24 +43,24 @@ const SupplierDetail = () => {
     setDeleting(true);
     try {
       await api.deleteSupplier(id);
-      toast.success('Supplier deleted successfully');
+      toast.success(t('suppliers.detail.messages.deleted'));
       navigate('/suppliers');
     } catch (error) {
       console.error('Error deleting supplier:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete supplier');
+      toast.error(error.response?.data?.error || t('suppliers.detail.messages.delete_failed'));
       setDeleting(false);
       setShowDelete(false);
     }
   };
 
-  if (loading) return <Loader message="Loading supplier..." />;
+  if (loading) return <Loader message={t('suppliers.detail.loading')} />;
 
   if (!supplier) {
     return (
       <div className="empty-state">
-        <h3>Supplier not found</h3>
+        <h3>{t('suppliers.detail.not_found')}</h3>
         <button onClick={() => navigate('/suppliers')} className="btn btn-primary">
-          Back to Suppliers
+          {t('suppliers.detail.back_to_suppliers')}
         </button>
       </div>
     );
@@ -72,46 +74,46 @@ const SupplierDetail = () => {
             onClick={() => navigate('/suppliers')}
             className="btn btn-sm btn-secondary"
           >
-            <FiArrowLeft size={16} /> Back
+            <FiArrowLeft size={16} /> {t('suppliers.detail.back')}
           </button>
           <h1>{supplier.name}</h1>
-          <p>Supplier details</p>
+          <p>{t('suppliers.detail.subtitle')}</p>
         </div>
       </div>
 
       <div className="grid-2">
         <div className="card">
-          <h3>Supplier Information</h3>
+          <h3>{t('suppliers.detail.info_title')}</h3>
           <div className="detail-row">
-            <span className="detail-label">Name</span>
+            <span className="detail-label">{t('suppliers.detail.labels.name')}</span>
             <span className="detail-value">{supplier.name}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Contact Person</span>
+            <span className="detail-label">{t('suppliers.detail.labels.contact_person')}</span>
             <span className="detail-value">{supplier.contact_person || '-'}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Phone</span>
+            <span className="detail-label">{t('suppliers.detail.labels.phone')}</span>
             <span className="detail-value">{supplier.phone}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Email</span>
+            <span className="detail-label">{t('suppliers.detail.labels.email')}</span>
             <span className="detail-value">{supplier.email || '-'}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Address</span>
+            <span className="detail-label">{t('suppliers.detail.labels.address')}</span>
             <span className="detail-value">{supplier.address || '-'}</span>
           </div>
         </div>
 
         <div className="card">
-          <h3>Additional Information</h3>
+          <h3>{t('suppliers.detail.additional_info_title')}</h3>
           <div className="detail-row">
-            <span className="detail-label">Notes</span>
-            <span className="detail-value">{supplier.notes || 'No notes'}</span>
+            <span className="detail-label">{t('suppliers.detail.labels.notes')}</span>
+            <span className="detail-value">{supplier.notes || t('suppliers.detail.no_notes')}</span>
           </div>
           <div className="detail-row">
-            <span className="detail-label">Created At</span>
+            <span className="detail-label">{t('suppliers.detail.labels.created_at')}</span>
             <span className="detail-value">{formatDate(supplier.created_at)}</span>
           </div>
         </div>
@@ -120,20 +122,20 @@ const SupplierDetail = () => {
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="flex" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to={`/suppliers/${id}/edit`} className="btn btn-primary">
-            <FiEdit2 size={18} /> Edit Supplier
+            <FiEdit2 size={18} /> {t('suppliers.detail.edit_button')}
           </Link>
           <button onClick={() => setShowDelete(true)} className="btn btn-danger">
-            <FiTrash2 size={18} /> Delete Supplier
+            <FiTrash2 size={18} /> {t('suppliers.detail.delete_button')}
           </button>
         </div>
       </div>
 
       <ConfirmDialog
         open={showDelete}
-        title="Delete Supplier"
-        message={`Are you sure you want to delete "${supplier.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('suppliers.detail.delete_dialog.title')}
+        message={t('suppliers.detail.delete_dialog.message', { name: supplier.name })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
         variant="danger"
         loading={deleting}
         onConfirm={handleDeleteConfirm}

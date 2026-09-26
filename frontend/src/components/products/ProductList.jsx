@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiPlus, FiSearch, FiPackage, FiDollarSign, FiTrendingUp,
   FiX, FiChevronLeft, FiChevronRight
@@ -16,6 +17,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const ProductList = () => {
+  const { t } = useTranslation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -60,11 +62,11 @@ const ProductList = () => {
       });
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
+      toast.error(t('products.list.loading'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, categoryId]);
+  }, [debouncedSearch, categoryId, t]);
 
   useEffect(() => {
     fetchProducts(1);
@@ -77,6 +79,9 @@ const ProductList = () => {
   };
 
   const hasActiveFilters = search || categoryId;
+  const scopeKey = hasActiveFilters ? 'products.list.totals.filtered' : 'products.list.totals.total';
+  const scopeLabel = t(scopeKey);
+
   const totalInventoryValue = canSeeFinancialData ? (totals.inventoryValue || 0) : 0;
   const totalCostValue = canSeeFinancialData ? (totals.costValue || 0) : 0;
   const totalProfitPotential = canSeeFinancialData ? (totals.profitPotential || 0) : 0;
@@ -85,7 +90,7 @@ const ProductList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading products...</p>
+        <p>{t('products.list.loading')}</p>
       </div>
     );
   }
@@ -94,11 +99,11 @@ const ProductList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Products</h1>
-          <p>Manage your electrical equipment inventory</p>
+          <h1>{t('products.list.title')}</h1>
+          <p>{t('products.list.subtitle')}</p>
         </div>
         <Link to="/products/new" className="btn btn-primary">
-          <FiPlus size={18} /> Add Product
+          <FiPlus size={18} /> {t('products.list.add_button')}
         </Link>
       </div>
 
@@ -108,7 +113,7 @@ const ProductList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search products by name, SKU, or description..."
+              placeholder={t('products.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -121,7 +126,7 @@ const ProductList = () => {
             className="form-control"
             style={{ width: '200px', fontSize: '13px' }}
           >
-            <option value="">All Categories</option>
+            <option value="">{t('products.list.all_categories')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -133,12 +138,12 @@ const ProductList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear
+              <FiX size={14} /> {t('products.list.clear_button')}
             </button>
           )}
 
           <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#64748b', whiteSpace: 'nowrap' }}>
-            Showing <strong>{products.length}</strong> of <strong>{pagination.total}</strong>
+            {t('products.list.showing', { shown: products.length, total: pagination.total })}
           </div>
         </div>
       </div>
@@ -151,7 +156,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalInventoryValue)}</h3>
-              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Inventory Value (Selling)</p>
+              <p>{t('products.list.totals.inventory_value', { scope: scopeLabel })}</p>
             </div>
           </div>
           <div className="stat-card">
@@ -160,7 +165,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalCostValue)}</h3>
-              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Cost Value</p>
+              <p>{t('products.list.totals.cost_value', { scope: scopeLabel })}</p>
             </div>
           </div>
           <div className="stat-card">
@@ -169,7 +174,7 @@ const ProductList = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(totalProfitPotential)}</h3>
-              <p>{hasActiveFilters ? 'Filtered' : 'Total'} Potential Profit</p>
+              <p>{t('products.list.totals.profit_potential', { scope: scopeLabel })}</p>
             </div>
           </div>
         </div>
@@ -179,24 +184,24 @@ const ProductList = () => {
         <table>
           <thead>
             <tr>
-              <th>Product Name</th>
-              <th>Category</th>
-              {canSeeFinancialData && <th>Cost Price</th>}
-              <th>Selling Price</th>
-              <th>Stock</th>
-              {canSeeFinancialData && <th>Total Value</th>}
-              <th>Actions</th>
+              <th>{t('products.list.columns.name')}</th>
+              <th>{t('products.list.columns.category')}</th>
+              {canSeeFinancialData && <th>{t('products.list.columns.cost_price')}</th>}
+              <th>{t('products.list.columns.selling_price')}</th>
+              <th>{t('products.list.columns.stock')}</th>
+              {canSeeFinancialData && <th>{t('products.list.columns.total_value')}</th>}
+              <th>{t('products.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {products.length === 0 ? (
               <tr>
                 <td colSpan={canSeeFinancialData ? 7 : 5} className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No products found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('products.list.no_products')}</h3>
                   <p style={{ fontSize: '14px' }}>
                     {hasActiveFilters
-                      ? 'Try adjusting or clearing your filters.'
-                      : 'Add your first product.'}
+                      ? t('products.list.no_products_filtered')
+                      : t('products.list.no_products_empty')}
                   </p>
                 </td>
               </tr>
@@ -232,7 +237,7 @@ const ProductList = () => {
                     )}
                     <td>
                       <Link to={`/products/${product.id}`} className="btn btn-sm btn-secondary">
-                        View
+                        {t('common.view')}
                       </Link>
                     </td>
                   </tr>
@@ -253,7 +258,7 @@ const ProductList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

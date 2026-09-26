@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiPhone, FiMail, FiMapPin,
   FiShoppingBag, FiDollarSign, FiTrendingUp
@@ -15,6 +16,7 @@ import ConfirmDialog from '../common/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 const CustomerDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
@@ -33,7 +35,7 @@ const CustomerDetail = () => {
       setCustomer(data);
     } catch (error) {
       console.error('Error fetching customer:', error);
-      toast.error('Customer not found');
+      toast.error(t('customers.detail.messages.not_found'));
       navigate('/customers');
     } finally {
       setLoading(false);
@@ -44,24 +46,24 @@ const CustomerDetail = () => {
     setDeleting(true);
     try {
       await api.deleteCustomer(id);
-      toast.success('Customer deleted successfully');
+      toast.success(t('customers.detail.messages.deleted'));
       navigate('/customers');
     } catch (error) {
       console.error('Error deleting customer:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete customer');
+      toast.error(error.response?.data?.error || t('customers.detail.messages.delete_failed'));
       setDeleting(false);
       setShowDelete(false);
     }
   };
 
-  if (loading) return <Loader message="Loading customer..." />;
+  if (loading) return <Loader message={t('customers.detail.loading')} />;
 
   if (!customer) {
     return (
       <div className="empty-state">
-        <h3>Customer not found</h3>
+        <h3>{t('customers.detail.not_found')}</h3>
         <button onClick={() => navigate('/customers')} className="btn btn-primary">
-          Back to Customers
+          {t('customers.detail.back_to_customers')}
         </button>
       </div>
     );
@@ -82,7 +84,7 @@ const CustomerDetail = () => {
         className="btn btn-sm btn-secondary"
         style={{ marginBottom: '16px' }}
       >
-        <FiArrowLeft size={16} /> Back
+        <FiArrowLeft size={16} /> {t('customers.detail.back')}
       </button>
 
       <div className="card customer-profile-header">
@@ -90,7 +92,7 @@ const CustomerDetail = () => {
         <div className="customer-profile-info">
           <h1 style={{ margin: 0 }}>{customer.name}</h1>
           <p style={{ margin: '2px 0 10px 0' }}>
-            Customer since {formatDate(customer.created_at)}
+            {t('customers.detail.customer_since', { date: formatDate(customer.created_at) })}
           </p>
           <div className="customer-profile-contacts">
             {customer.phone && (
@@ -112,10 +114,10 @@ const CustomerDetail = () => {
         </div>
         <div className="customer-profile-actions">
           <Link to={`/customers/${id}/edit`} className="btn btn-secondary">
-            <FiEdit2 size={16} /> Edit
+            <FiEdit2 size={16} /> {t('customers.detail.edit_button')}
           </Link>
           <button onClick={() => setShowDelete(true)} className="btn btn-danger">
-            <FiTrash2 size={16} /> Delete
+            <FiTrash2 size={16} /> {t('customers.detail.delete_button')}
           </button>
         </div>
       </div>
@@ -127,7 +129,7 @@ const CustomerDetail = () => {
           </div>
           <div className="stat-info">
             <h3>{customer.total_orders || 0}</h3>
-            <p>Total Orders</p>
+            <p>{t('customers.detail.stats.total_orders')}</p>
           </div>
         </div>
         <div className="stat-card">
@@ -136,7 +138,7 @@ const CustomerDetail = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(customer.total_spent || 0)}</h3>
-            <p>Total Spent</p>
+            <p>{t('customers.detail.stats.total_spent')}</p>
           </div>
         </div>
         <div className="stat-card">
@@ -145,25 +147,25 @@ const CustomerDetail = () => {
           </div>
           <div className="stat-info">
             <h3>{avgOrder > 0 ? formatCurrency(avgOrder) : '-'}</h3>
-            <p>Average Order</p>
+            <p>{t('customers.detail.stats.average_order')}</p>
           </div>
         </div>
       </div>
 
       <div className="card" style={{ marginTop: '20px' }}>
-        <h3>Additional Information</h3>
+        <h3>{t('customers.detail.additional_info_title')}</h3>
         <div className="detail-row">
-          <span className="detail-label">Notes</span>
+          <span className="detail-label">{t('customers.detail.labels.notes')}</span>
           <span className="detail-value">{customer.notes || '-'}</span>
         </div>
       </div>
 
       <ConfirmDialog
         open={showDelete}
-        title="Delete Customer"
-        message={`Are you sure you want to delete "${customer.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('customers.detail.delete_confirm_title')}
+        message={t('customers.detail.delete_confirm_message', { name: customer.name })}
+        confirmLabel={t('common.delete')}
+        cancelLabel={t('common.cancel')}
         variant="danger"
         loading={deleting}
         onConfirm={handleDeleteConfirm}

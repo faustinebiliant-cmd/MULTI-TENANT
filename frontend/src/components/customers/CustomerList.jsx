@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiPlus, FiSearch, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/helpers';
@@ -13,6 +14,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const CustomerList = () => {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -32,11 +34,11 @@ const CustomerList = () => {
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
     } catch (error) {
       console.error('Error fetching customers:', error);
-      toast.error('Failed to load customers');
+      toast.error(t('customers.list.loading'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, t]);
 
   useEffect(() => {
     fetchCustomers(1);
@@ -52,7 +54,7 @@ const CustomerList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading customers...</p>
+        <p>{t('customers.list.loading')}</p>
       </div>
     );
   }
@@ -61,11 +63,11 @@ const CustomerList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Customers</h1>
-          <p>Manage your customer database</p>
+          <h1>{t('customers.list.title')}</h1>
+          <p>{t('customers.list.subtitle')}</p>
         </div>
         <Link to="/customers/new" className="btn btn-primary">
-          <FiPlus size={18} /> Add Customer
+          <FiPlus size={18} /> {t('customers.list.add_button')}
         </Link>
       </div>
 
@@ -75,7 +77,7 @@ const CustomerList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search customers by name, phone, or email..."
+              placeholder={t('customers.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -88,12 +90,12 @@ const CustomerList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear
+              <FiX size={14} /> {t('customers.list.clear_button')}
             </button>
           )}
 
           <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#64748b', whiteSpace: 'nowrap' }}>
-            Showing <strong>{customers.length}</strong> of <strong>{pagination.total}</strong>
+            {t('customers.list.showing', { shown: customers.length, total: pagination.total })}
           </div>
         </div>
       </div>
@@ -102,21 +104,23 @@ const CustomerList = () => {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Orders</th>
-              <th>Total Spent</th>
-              <th>Actions</th>
+              <th>{t('customers.list.columns.name')}</th>
+              <th>{t('customers.list.columns.phone')}</th>
+              <th>{t('customers.list.columns.email')}</th>
+              <th>{t('customers.list.columns.orders')}</th>
+              <th>{t('customers.list.columns.total_spent')}</th>
+              <th>{t('customers.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {customers.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No customers found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('customers.list.no_customers')}</h3>
                   <p style={{ fontSize: '14px' }}>
-                    {search ? 'Try adjusting or clearing your search.' : 'Add your first customer.'}
+                    {search
+                      ? t('customers.list.no_customers_filtered')
+                      : t('customers.list.no_customers_empty')}
                   </p>
                 </td>
               </tr>
@@ -134,7 +138,7 @@ const CustomerList = () => {
                   <td>{formatCurrency(customer.total_spent || 0)}</td>
                   <td>
                     <Link to={`/customers/${customer.id}`} className="btn btn-sm btn-secondary">
-                      View
+                      {t('common.view')}
                     </Link>
                   </td>
                 </tr>
@@ -154,7 +158,7 @@ const CustomerList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

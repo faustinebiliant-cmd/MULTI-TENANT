@@ -1,9 +1,9 @@
 // ============================================================
 // OSWAGO ELECTRICAL EQUIPMENT - Subscribe Modal
-// Shown to a Boss when they click Subscribe on the trial banner.
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiX, FiCheck } from 'react-icons/fi';
 import api from '../../api/client';
 import { useBranch } from '../../contexts/BranchContext';
@@ -11,15 +11,16 @@ import { formatCurrency } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 const METHODS = [
-  { value: 'mpesa', label: 'M-Pesa' },
-  { value: 'tigo_pesa', label: 'Tigo Pesa' },
-  { value: 'airtel_money', label: 'Airtel Money' },
-  { value: 'bank', label: 'Bank transfer' }
+  { value: 'mpesa', labelKey: 'subscribe_modal.methods.mpesa' },
+  { value: 'tigo_pesa', labelKey: 'subscribe_modal.methods.tigo_pesa' },
+  { value: 'airtel_money', labelKey: 'subscribe_modal.methods.airtel_money' },
+  { value: 'bank', labelKey: 'subscribe_modal.methods.bank' }
 ];
 
 const LIPA_NAMBA = '12345678';
 
 const SubscribeModal = ({ onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const { activeBusiness } = useBranch();
 
   const [plans, setPlans] = useState([]);
@@ -36,13 +37,13 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
         setPlans(data || []);
       } catch (error) {
         console.error('Failed to load pricing:', error);
-        toast.error('Failed to load pricing');
+        toast.error(t('subscribe_modal.messages.pricing_failed'));
       } finally {
         setLoadingPlans(false);
       }
     };
     load();
-  }, []);
+  }, [t]);
 
   const selectedPlan = plans.find((p) => p.duration_months === selectedDuration);
 
@@ -50,11 +51,11 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
     e.preventDefault();
 
     if (!selectedDuration) {
-      toast.error('Please choose a plan');
+      toast.error(t('subscribe_modal.messages.plan_required'));
       return;
     }
     if (!transactionId.trim() || transactionId.trim().length < 6) {
-      toast.error('Please enter a valid transaction ID');
+      toast.error(t('subscribe_modal.messages.transaction_required'));
       return;
     }
 
@@ -65,11 +66,11 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
         method,
         transaction_id: transactionId.trim()
       });
-      toast.success('Payment submitted. Awaiting review.');
+      toast.success(t('subscribe_modal.messages.success'));
       onSuccess();
     } catch (error) {
       console.error('Submit payment error:', error);
-      toast.error(error.response?.data?.error || 'Failed to submit payment');
+      toast.error(error.response?.data?.error || t('subscribe_modal.messages.submit_failed'));
     } finally {
       setSubmitting(false);
     }
@@ -79,29 +80,29 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h2 style={styles.title}>Subscribe to OSWAGOTech</h2>
-          <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <h2 style={styles.title}>{t('subscribe_modal.title')}</h2>
+          <button type="button" style={styles.closeBtn} onClick={onClose} aria-label={t('common.close')}>
             <FiX size={16} />
           </button>
         </div>
 
         <div style={styles.instructions}>
-          <div style={styles.instructionsTitle}>How to pay</div>
+          <div style={styles.instructionsTitle}>{t('subscribe_modal.instructions_title')}</div>
           <div style={styles.instructionsLine}>
-            Send payment to <strong>Lipa Namba {LIPA_NAMBA}</strong>.
+            {t('subscribe_modal.instructions_line1', { number: LIPA_NAMBA })}
           </div>
           <div style={styles.instructionsLine}>
-            Use your business code <strong>{activeBusiness?.business_code || '—'}</strong> as the reference.
+            {t('subscribe_modal.instructions_line2', { code: activeBusiness?.business_code || '-' })}
           </div>
           <div style={styles.instructionsLine}>
-            Then enter the transaction ID below.
+            {t('subscribe_modal.instructions_line3')}
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={styles.sectionLabel}>Choose a plan</div>
+          <div style={styles.sectionLabel}>{t('subscribe_modal.choose_plan_label')}</div>
           {loadingPlans ? (
-            <div style={styles.loadingText}>Loading plans...</div>
+            <div style={styles.loadingText}>{t('subscribe_modal.loading_plans')}</div>
           ) : (
             <div style={styles.planList}>
               {plans.map((plan) => {
@@ -131,7 +132,7 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
             </div>
           )}
 
-          <div style={styles.sectionLabel}>Payment method</div>
+          <div style={styles.sectionLabel}>{t('subscribe_modal.method_label')}</div>
           <div style={styles.methodRow}>
             {METHODS.map((m) => (
               <button
@@ -143,18 +144,18 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
                 }}
                 onClick={() => setMethod(m.value)}
               >
-                {m.label}
+                {t(m.labelKey)}
               </button>
             ))}
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Transaction ID</label>
+            <label style={styles.label}>{t('subscribe_modal.transaction_id_label')}</label>
             <input
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
-              placeholder="e.g. 8HJK1234XY"
+              placeholder={t('subscribe_modal.transaction_id_placeholder')}
               style={styles.input}
               maxLength={100}
               autoComplete="off"
@@ -163,16 +164,19 @@ const SubscribeModal = ({ onClose, onSuccess }) => {
 
           {selectedPlan && (
             <div style={styles.summary}>
-              You are paying <strong>{formatCurrency(selectedPlan.amount)}</strong> for {selectedPlan.label}.
+              {t('subscribe_modal.summary_line', {
+                amount: formatCurrency(selectedPlan.amount),
+                label: selectedPlan.label
+              })}
             </div>
           )}
 
           <div style={styles.actions}>
             <button type="button" style={styles.cancelBtn} onClick={onClose} disabled={submitting}>
-              Cancel
+              {t('subscribe_modal.cancel_button')}
             </button>
             <button type="submit" style={styles.submitBtn} disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit payment'}
+              {submitting ? t('subscribe_modal.submitting_button') : t('subscribe_modal.submit_button')}
             </button>
           </div>
         </form>

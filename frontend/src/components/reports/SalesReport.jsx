@@ -3,6 +3,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FiDollarSign, FiCreditCard, FiClock, FiShoppingCart, FiBarChart2,
   FiPackage, FiSmartphone, FiTrendingDown, FiArrowUpCircle,
@@ -14,6 +15,7 @@ import Loader from '../common/Loader';
 import toast from 'react-hot-toast';
 
 const SalesReport = () => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
 
   const [period, setPeriod] = useState('today');
@@ -36,27 +38,27 @@ const SalesReport = () => {
   }
 
   const periodOptions = [
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This Week' },
-    { value: 'month', label: 'Month' },
-    { value: 'year', label: 'Year' },
-    { value: 'custom', label: 'Custom' }
+    { value: 'today', labelKey: 'reports.common.periods.today' },
+    { value: 'week', labelKey: 'reports.common.periods.week' },
+    { value: 'month', labelKey: 'reports.common.periods.month' },
+    { value: 'year', labelKey: 'reports.common.periods.year' },
+    { value: 'custom', labelKey: 'reports.common.periods.custom' }
   ];
 
   const months = [
-    { value: 'all', label: 'All Months' },
-    { value: '1', label: 'January' },
-    { value: '2', label: 'February' },
-    { value: '3', label: 'March' },
-    { value: '4', label: 'April' },
-    { value: '5', label: 'May' },
-    { value: '6', label: 'June' },
-    { value: '7', label: 'July' },
-    { value: '8', label: 'August' },
-    { value: '9', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' }
+    { value: 'all', labelKey: 'reports.common.months.all' },
+    { value: '1', labelKey: 'reports.common.months.1' },
+    { value: '2', labelKey: 'reports.common.months.2' },
+    { value: '3', labelKey: 'reports.common.months.3' },
+    { value: '4', labelKey: 'reports.common.months.4' },
+    { value: '5', labelKey: 'reports.common.months.5' },
+    { value: '6', labelKey: 'reports.common.months.6' },
+    { value: '7', labelKey: 'reports.common.months.7' },
+    { value: '8', labelKey: 'reports.common.months.8' },
+    { value: '9', labelKey: 'reports.common.months.9' },
+    { value: '10', labelKey: 'reports.common.months.10' },
+    { value: '11', labelKey: 'reports.common.months.11' },
+    { value: '12', labelKey: 'reports.common.months.12' }
   ];
 
   useEffect(() => {
@@ -92,7 +94,7 @@ const SalesReport = () => {
       setData(response.data);
     } catch (error) {
       console.error('Error fetching sales report:', error);
-      toast.error('Failed to load sales report');
+      toast.error(t('reports.common.download_failed'));
     } finally {
       setLoading(false);
     }
@@ -119,17 +121,17 @@ const SalesReport = () => {
       setPeriod('custom');
       fetchReport();
     } else {
-      toast.error('Please select both start and end dates');
+      toast.error(t('reports.common.select_dates_error'));
     }
   };
 
-  if (loading) return <Loader message="Loading sales report..." />;
+  if (loading) return <Loader message={t('reports.common.loading')} />;
 
   if (!data) {
     return (
       <div className="empty-state">
-        <h3>No data available</h3>
-        <p>No sales found for this period</p>
+        <h3>{t('reports.common.no_data')}</h3>
+        <p>{t('reports.common.no_data_hint')}</p>
       </div>
     );
   }
@@ -155,12 +157,11 @@ const SalesReport = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Sales Report</h1>
-          <p>View sales performance</p>
+          <h1>{t('reports.sales.title')}</h1>
+          <p>{t('reports.sales.subtitle')}</p>
         </div>
       </div>
 
-      {/* Period selector */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="report-tabs">
           {periodOptions.map((opt) => (
@@ -169,7 +170,7 @@ const SalesReport = () => {
               className={`report-tab ${period === opt.value ? 'active' : ''}`}
               onClick={() => handlePeriodChange(opt.value)}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
@@ -196,7 +197,7 @@ const SalesReport = () => {
               style={{ width: '150px' }}
             >
               {months.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>{t(m.labelKey)}</option>
               ))}
             </select>
           )}
@@ -210,7 +211,9 @@ const SalesReport = () => {
                 className="form-control"
                 style={{ width: '160px' }}
               />
-              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>to</span>
+              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>
+                {t('reports.common.date_range_to')}
+              </span>
               <input
                 type="date"
                 value={endDate}
@@ -219,14 +222,13 @@ const SalesReport = () => {
                 style={{ width: '160px' }}
               />
               <button onClick={handleApplyCustom} className="btn btn-primary btn-sm">
-                Apply
+                {t('reports.common.apply')}
               </button>
             </>
           )}
         </div>
       </div>
 
-      {/* Summary cards — row 1 */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
@@ -234,7 +236,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalSales || 0)}</h3>
-            <p>Total Sales — Without VAT</p>
+            <p>{t('reports.sales.total_sales_title')}</p>
           </div>
         </div>
 
@@ -244,7 +246,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalProfit || 0)}</h3>
-            <p>Realized Profit (excl. VAT)</p>
+            <p>{t('reports.sales.profit_title')}</p>
           </div>
         </div>
 
@@ -254,7 +256,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalPaymentsReceived || 0)}</h3>
-            <p>Business Money Received</p>
+            <p>{t('reports.sales.money_received_title')}</p>
           </div>
         </div>
 
@@ -264,7 +266,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.totalVATFromPayments || 0)}</h3>
-            <p>VAT Collected</p>
+            <p>{t('reports.sales.vat_collected_title')}</p>
           </div>
         </div>
 
@@ -274,12 +276,11 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.outstandingCredit || 0)}</h3>
-            <p>Outstanding Credit</p>
+            <p>{t('reports.sales.outstanding_title')}</p>
           </div>
         </div>
       </div>
 
-      {/* Summary cards — row 2 */}
       <div className="stats-grid-4" style={{ marginTop: '14px' }}>
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: '#ecfdf5', color: '#059669' }}>
@@ -289,7 +290,7 @@ const SalesReport = () => {
             <h3>
               {formatCurrency((summary.totalPaymentsReceived || 0) + (summary.totalVATFromPayments || 0))}
             </h3>
-            <p>Total Money Received</p>
+            <p>{t('reports.sales.total_received_title')}</p>
           </div>
         </div>
         <div className="stat-card">
@@ -298,7 +299,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{summary.totalOrders || 0}</h3>
-            <p>Total Orders</p>
+            <p>{t('reports.sales.total_orders_title')}</p>
           </div>
         </div>
         <div className="stat-card">
@@ -307,7 +308,7 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{formatCurrency(summary.averageOrderValue || 0)}</h3>
-            <p>Average Order (excl. VAT)</p>
+            <p>{t('reports.sales.avg_order_title')}</p>
           </div>
         </div>
         <div className="stat-card">
@@ -316,16 +317,15 @@ const SalesReport = () => {
           </div>
           <div className="stat-info">
             <h3>{summary.totalItems || 0}</h3>
-            <p>Items Sold</p>
+            <p>{t('reports.sales.items_sold_title')}</p>
           </div>
         </div>
       </div>
 
-      {/* Stock movement summary */}
       {stockSummary && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>Stock Movement Summary</h3>
+            <h3>{t('reports.sales.stock_summary_title')}</h3>
           </div>
           <div className="stats-grid">
             <div className="stat-card">
@@ -334,7 +334,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>+{stockSummary.stockAdded || 0}</h3>
-                <p>Stock Added</p>
+                <p>{t('reports.sales.stock_added')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -343,7 +343,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>-{stockSummary.stockSold || 0}</h3>
-                <p>Stock Sold</p>
+                <p>{t('reports.sales.stock_sold')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -352,7 +352,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>{stockSummary.stockAdjusted || 0}</h3>
-                <p>Stock Adjusted</p>
+                <p>{t('reports.sales.stock_adjusted')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -361,7 +361,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>+{stockSummary.stockReturned || 0}</h3>
-                <p>Stock Returned</p>
+                <p>{t('reports.sales.stock_returned')}</p>
               </div>
             </div>
           </div>
@@ -375,35 +375,35 @@ const SalesReport = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <strong>Net Stock Change:</strong>
+            <strong>{t('reports.sales.net_stock_change')}</strong>
             <span style={{
               fontSize: '20px',
               fontWeight: 'bold',
               color: getNetStockColor(stockSummary.netStockChange || 0)
             }}>
-              {stockSummary.netStockChange > 0 ? '+' : ''}{stockSummary.netStockChange || 0} units
+              {stockSummary.netStockChange > 0 ? '+' : ''}{stockSummary.netStockChange || 0}{' '}
+              {t('reports.sales.units')}
             </span>
           </div>
         </div>
       )}
 
-      {/* Product stock movements */}
       {productStockMovements && productStockMovements.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>Product Stock Movements</h3>
+            <h3>{t('reports.sales.product_movements_title')}</h3>
           </div>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>Opening</th>
-                  <th>Added</th>
-                  <th>Sold</th>
-                  <th>Adjusted</th>
-                  <th>Returned</th>
-                  <th>Closing</th>
+                  <th>{t('reports.sales.movement_columns.product')}</th>
+                  <th>{t('reports.sales.movement_columns.opening')}</th>
+                  <th>{t('reports.sales.movement_columns.added')}</th>
+                  <th>{t('reports.sales.movement_columns.sold')}</th>
+                  <th>{t('reports.sales.movement_columns.adjusted')}</th>
+                  <th>{t('reports.sales.movement_columns.returned')}</th>
+                  <th>{t('reports.sales.movement_columns.closing')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -432,11 +432,10 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Product financial summary */}
       {productFinancials && productFinancials.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>Product Financial Summary</h3>
+            <h3>{t('reports.sales.product_financials_title')}</h3>
           </div>
 
           <div className="stats-grid" style={{ marginBottom: '16px' }}>
@@ -446,7 +445,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>{formatCurrency(productFinancials.reduce((sum, p) => sum + p.sales, 0))}</h3>
-                <p>Total Sales (excl. VAT)</p>
+                <p>{t('reports.sales.product_sales_total')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -455,7 +454,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>{formatCurrency(productFinancials.reduce((sum, p) => sum + p.payments, 0))}</h3>
-                <p>Business Money Received</p>
+                <p>{t('reports.sales.product_money_total')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -464,7 +463,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>{formatCurrency(productFinancials.reduce((sum, p) => sum + p.vat, 0))}</h3>
-                <p>VAT Collected</p>
+                <p>{t('reports.sales.product_vat_total')}</p>
               </div>
             </div>
             <div className="stat-card">
@@ -473,7 +472,7 @@ const SalesReport = () => {
               </div>
               <div className="stat-info">
                 <h3>{formatCurrency(productFinancials.reduce((sum, p) => sum + p.outstanding, 0))}</h3>
-                <p>Outstanding Credit</p>
+                <p>{t('reports.sales.product_outstanding_total')}</p>
               </div>
             </div>
           </div>
@@ -482,12 +481,12 @@ const SalesReport = () => {
             <table>
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th style={{ textAlign: 'right' }}>Sales</th>
-                  <th style={{ textAlign: 'right' }}>Payments</th>
-                  <th style={{ textAlign: 'right' }}>VAT Collected</th>
-                  <th style={{ textAlign: 'right' }}>Outstanding</th>
-                  <th style={{ textAlign: 'center' }}>Status</th>
+                  <th>{t('reports.sales.financial_columns.product')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('reports.sales.financial_columns.sales')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('reports.sales.financial_columns.payments')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('reports.sales.financial_columns.vat')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('reports.sales.financial_columns.outstanding')}</th>
+                  <th style={{ textAlign: 'center' }}>{t('reports.sales.financial_columns.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -512,9 +511,13 @@ const SalesReport = () => {
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {(item.outstanding || 0) > 0 ? (
-                        <span className="badge badge-warning">Credit</span>
+                        <span className="badge badge-warning">
+                          {t('reports.sales.financial_status.credit')}
+                        </span>
                       ) : (
-                        <span className="badge badge-success">Paid</span>
+                        <span className="badge badge-success">
+                          {t('reports.sales.financial_status.paid')}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -528,7 +531,7 @@ const SalesReport = () => {
                 <tr>
                   <td style={{ fontWeight: '700', color: '#0f172a', padding: '12px 20px' }}>
                     <span style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Totals
+                      {t('reports.sales.totals_label')}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', color: '#059669', fontWeight: '700', fontSize: '15px', padding: '12px 20px' }}>
@@ -545,7 +548,9 @@ const SalesReport = () => {
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 20px' }}>
                     <span className="badge badge-info" style={{ fontSize: '11px' }}>
-                      {productFinancials.filter(p => p.outstanding > 0).length} Credit
+                      {t('reports.sales.credit_count_badge', {
+                        count: productFinancials.filter(p => p.outstanding > 0).length
+                      })}
                     </span>
                   </td>
                 </tr>
@@ -555,21 +560,20 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Year over year */}
       {comparison && comparison.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>Year-over-Year Comparison</h3>
+            <h3>{t('reports.sales.yoy_title')}</h3>
           </div>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Year</th>
-                  <th>Sales</th>
-                  <th>VAT</th>
-                  <th>Orders</th>
-                  <th>Growth</th>
+                  <th>{t('reports.sales.yoy_columns.year')}</th>
+                  <th>{t('reports.sales.yoy_columns.sales')}</th>
+                  <th>{t('reports.sales.yoy_columns.vat')}</th>
+                  <th>{t('reports.sales.yoy_columns.orders')}</th>
+                  <th>{t('reports.sales.yoy_columns.growth')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -594,19 +598,18 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Monthly breakdown */}
       {monthlyBreakdown && monthlyBreakdown.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
-            <h3>Monthly Breakdown</h3>
+            <h3>{t('reports.sales.monthly_title')}</h3>
           </div>
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Month</th>
-                  <th>Sales</th>
-                  <th>Orders</th>
+                  <th>{t('reports.sales.monthly_columns.month')}</th>
+                  <th>{t('reports.sales.monthly_columns.sales')}</th>
+                  <th>{t('reports.sales.monthly_columns.orders')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -623,10 +626,9 @@ const SalesReport = () => {
         </div>
       )}
 
-      {/* Payment methods */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3>Money Received By Method</h3>
+          <h3>{t('reports.sales.payment_methods_title')}</h3>
         </div>
         <div className="stats-grid">
           <div className="stat-card">
@@ -635,7 +637,7 @@ const SalesReport = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(paymentMethods.cash || 0)}</h3>
-              <p>Cash</p>
+              <p>{t('payments.list.methods.cash')}</p>
             </div>
           </div>
           <div className="stat-card">
@@ -644,7 +646,7 @@ const SalesReport = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(paymentMethods.mpesa || 0)}</h3>
-              <p>M-Pesa</p>
+              <p>{t('payments.list.methods.mpesa')}</p>
             </div>
           </div>
           <div className="stat-card">
@@ -653,30 +655,29 @@ const SalesReport = () => {
             </div>
             <div className="stat-info">
               <h3>{formatCurrency(paymentMethods.tigo_pesa || 0)}</h3>
-              <p>Tigo Pesa</p>
+              <p>{t('payments.list.methods.tigo_pesa')}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Top products */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3>Top Selling Products</h3>
+          <h3>{t('reports.sales.top_products_title')}</h3>
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Quantity Sold</th>
-                <th style={{ textAlign: 'right' }}>Revenue</th>
+                <th>{t('reports.sales.top_columns.product')}</th>
+                <th>{t('reports.sales.top_columns.quantity_sold')}</th>
+                <th style={{ textAlign: 'right' }}>{t('reports.sales.top_columns.revenue')}</th>
               </tr>
             </thead>
             <tbody>
               {topProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="text-center">No products sold</td>
+                  <td colSpan="3" className="text-center">{t('reports.sales.no_products_sold')}</td>
                 </tr>
               ) : (
                 topProducts.map((item, index) => (
@@ -692,27 +693,26 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Recent orders */}
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-header">
-          <h3>Recent Orders</h3>
+          <h3>{t('reports.sales.recent_orders_title')}</h3>
         </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Order #</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Payment</th>
-                <th>Date</th>
+                <th>{t('reports.sales.recent_columns.order_number')}</th>
+                <th>{t('reports.sales.recent_columns.customer')}</th>
+                <th>{t('reports.sales.recent_columns.amount')}</th>
+                <th>{t('reports.sales.recent_columns.status')}</th>
+                <th>{t('reports.sales.recent_columns.payment')}</th>
+                <th>{t('reports.sales.recent_columns.date')}</th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center">No orders found</td>
+                  <td colSpan="6" className="text-center">{t('reports.sales.no_orders')}</td>
                 </tr>
               ) : (
                 orders.map((order) => {
@@ -724,19 +724,19 @@ const SalesReport = () => {
                   const owed = Math.max(0, total - paid);
 
                   const paymentMeta = {
-                    paid: { label: 'Paid', color: '#0bc518' },
-                    unpaid: { label: 'Unpaid', color: '#d00f0f' },
-                    partial: { label: 'Partial', color: '#d97706' }
-                  }[paymentStatusRaw] || { label: 'Unpaid', color: '#d00f0f' };
+                    paid: { label: t('status.paid'), color: '#0bc518' },
+                    unpaid: { label: t('status.unpaid'), color: '#d00f0f' },
+                    partial: { label: t('status.partial'), color: '#d97706' }
+                  }[paymentStatusRaw] || { label: t('status.unpaid'), color: '#d00f0f' };
 
                   return (
                     <tr key={order.id}>
                       <td style={{ fontWeight: 600, color: 'var(--primary)' }}>{order.order_number}</td>
-                      <td>{order.customers?.name || 'Walk-in'}</td>
+                      <td>{order.customers?.name || t('orders.list.walk_in')}</td>
                       <td>{formatCurrency(order.total_amount)}</td>
                       <td>
                         <span className={`badge badge-${order.order_status}`}>
-                          {order.order_status?.toUpperCase() || 'PENDING'}
+                          {t('status.' + (order.order_status || 'pending'))}
                         </span>
                       </td>
                       <td>

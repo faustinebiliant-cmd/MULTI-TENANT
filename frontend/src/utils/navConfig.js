@@ -20,8 +20,6 @@ import {
   FiPlus
 } from 'react-icons/fi';
 
-// Roles allowed to see and use Quick Sale.
-// Boss, Manager, Cashier. Store keeper and sales rep are excluded.
 const QUICK_SALE_ROLES = ['boss', 'manager', 'cashier'];
 
 export const getMenuGroups = (role, quickSaleEnabled = false) => {
@@ -34,48 +32,45 @@ export const getMenuGroups = (role, quickSaleEnabled = false) => {
   const canUseQuickSale = QUICK_SALE_ROLES.includes(role);
   const showQuickSale = quickSaleEnabled && canUseQuickSale;
 
-  // New Order (advanced) is hidden for cashiers when Quick Sale is on,
-  // because for a cashier the two flows overlap. Managers and Bosses
-  // keep both because they often need the advanced flow.
   const showAdvancedNewOrder =
     !isCashier ||
     !showQuickSale;
 
   return [
     {
-      label: 'Overview',
+      labelKey: 'nav.groups.overview',
       items: [
-        { path: '/dashboard', icon: FiHome, label: 'Dashboard', show: true }
+        { path: '/dashboard', icon: FiHome, labelKey: 'nav.items.dashboard', show: true }
       ]
     },
     {
-      label: 'Sales',
+      labelKey: 'nav.groups.sales',
       items: [
-        { path: '/orders/quick', icon: FiZap, label: 'Quick Sale', show: showQuickSale },
-        { path: '/orders/new', icon: FiPlus, label: 'New Order', show: showAdvancedNewOrder && !isStoreKeeper && !isSalesRep },
-        { path: '/orders', icon: FiShoppingCart, label: 'Orders', show: true },
-        { path: '/customers', icon: FiUsers, label: 'Customers', show: !isCashier && !isStoreKeeper },
-        { path: '/payments', icon: FiCreditCard, label: 'Payments', show: isCashier || isManager || isBoss }
+        { path: '/orders/quick', icon: FiZap, labelKey: 'nav.items.quick_sale', show: showQuickSale },
+        { path: '/orders/new', icon: FiPlus, labelKey: 'nav.items.new_order', show: showAdvancedNewOrder && !isStoreKeeper && !isSalesRep },
+        { path: '/orders', icon: FiShoppingCart, labelKey: 'nav.items.orders', show: true },
+        { path: '/customers', icon: FiUsers, labelKey: 'nav.items.customers', show: !isCashier && !isStoreKeeper },
+        { path: '/payments', icon: FiCreditCard, labelKey: 'nav.items.payments', show: isCashier || isManager || isBoss }
       ]
     },
     {
-      label: 'Inventory',
+      labelKey: 'nav.groups.inventory',
       items: [
-        { path: '/products', icon: FiPackage, label: 'Products', show: true },
-        { path: '/categories', icon: FiGrid, label: 'Categories', show: isManager },
-        { path: '/suppliers', icon: FiTruck, label: 'Suppliers', show: isManager },
-        { path: '/purchase-orders', icon: FiFileText, label: 'Purchase Orders', show: isManager }
+        { path: '/products', icon: FiPackage, labelKey: 'nav.items.products', show: true },
+        { path: '/categories', icon: FiGrid, labelKey: 'nav.items.categories', show: isManager },
+        { path: '/suppliers', icon: FiTruck, labelKey: 'nav.items.suppliers', show: isManager },
+        { path: '/purchase-orders', icon: FiFileText, labelKey: 'nav.items.purchase_orders', show: isManager }
       ]
     },
     {
-      label: 'Management',
+      labelKey: 'nav.groups.management',
       items: [
-        { path: '/expenses', icon: FiDollarSign, label: 'Expenses', show: isManager },
-        { path: '/reports/sales', icon: FiBarChart2, label: 'Reports', show: isManager },
-        { path: '/reports/extract', icon: FiDownload, label: 'Extract Reports', show: isBoss },
-        { path: '/audit-log', icon: FiClipboard, label: 'Audit Log', show: isBoss },
-        { path: '/staff', icon: FiUserPlus, label: 'Staff', show: isBoss },
-        { path: '/settings', icon: FiSettings, label: 'Settings', show: isBoss }
+        { path: '/expenses', icon: FiDollarSign, labelKey: 'nav.items.expenses', show: isManager },
+        { path: '/reports/sales', icon: FiBarChart2, labelKey: 'nav.items.reports', show: isManager },
+        { path: '/reports/extract', icon: FiDownload, labelKey: 'nav.items.extract_reports', show: isBoss },
+        { path: '/audit-log', icon: FiClipboard, labelKey: 'nav.items.audit_log', show: isBoss },
+        { path: '/staff', icon: FiUserPlus, labelKey: 'nav.items.staff', show: isBoss },
+        { path: '/settings', icon: FiSettings, labelKey: 'nav.items.settings', show: isBoss }
       ]
     }
   ];

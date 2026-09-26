@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiPlus, FiSearch, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import api from '../../api/client';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
@@ -12,6 +13,7 @@ import toast from 'react-hot-toast';
 const PAGE_SIZE = 50;
 
 const SupplierList = () => {
+  const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
@@ -31,11 +33,11 @@ const SupplierList = () => {
       setPagination(response.pagination || { total: 0, page: 1, pages: 1 });
     } catch (error) {
       console.error('Error fetching suppliers:', error);
-      toast.error('Failed to load suppliers');
+      toast.error(t('suppliers.form.messages.load_failed'));
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, t]);
 
   useEffect(() => {
     fetchSuppliers(1);
@@ -51,7 +53,7 @@ const SupplierList = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading suppliers...</p>
+        <p>{t('suppliers.list.loading')}</p>
       </div>
     );
   }
@@ -60,11 +62,11 @@ const SupplierList = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1>Suppliers</h1>
-          <p>Manage your product suppliers</p>
+          <h1>{t('suppliers.list.title')}</h1>
+          <p>{t('suppliers.list.subtitle')}</p>
         </div>
         <Link to="/suppliers/new" className="btn btn-primary">
-          <FiPlus size={18} /> Add Supplier
+          <FiPlus size={18} /> {t('suppliers.list.add_button')}
         </Link>
       </div>
 
@@ -74,7 +76,7 @@ const SupplierList = () => {
             <FiSearch size={18} style={{ color: '#94a3b8' }} />
             <input
               type="text"
-              placeholder="Search suppliers by name, contact, phone, or email..."
+              placeholder={t('suppliers.list.search_placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ fontSize: '14px' }}
@@ -87,12 +89,12 @@ const SupplierList = () => {
               className="btn btn-sm btn-secondary"
               style={{ color: '#ef4444' }}
             >
-              <FiX size={14} /> Clear
+              <FiX size={14} /> {t('suppliers.list.clear_button')}
             </button>
           )}
 
           <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#64748b', whiteSpace: 'nowrap' }}>
-            Showing <strong>{suppliers.length}</strong> of <strong>{pagination.total}</strong>
+            {t('suppliers.list.showing', { shown: suppliers.length, total: pagination.total })}
           </div>
         </div>
       </div>
@@ -101,20 +103,22 @@ const SupplierList = () => {
         <table>
           <thead>
             <tr>
-              <th>Supplier Name</th>
-              <th>Contact Person</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Actions</th>
+              <th>{t('suppliers.list.columns.name')}</th>
+              <th>{t('suppliers.list.columns.contact_person')}</th>
+              <th>{t('suppliers.list.columns.phone')}</th>
+              <th>{t('suppliers.list.columns.email')}</th>
+              <th>{t('suppliers.list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {suppliers.length === 0 ? (
               <tr>
                 <td colSpan="5" className="text-center" style={{ padding: '40px 20px', color: '#94a3b8' }}>
-                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>No suppliers found</h3>
+                  <h3 style={{ color: '#1e293b', marginBottom: '4px' }}>{t('suppliers.list.no_suppliers')}</h3>
                   <p style={{ fontSize: '14px' }}>
-                    {search ? 'Try adjusting or clearing your search.' : 'Add your first supplier.'}
+                    {search
+                      ? t('suppliers.list.no_suppliers_filtered')
+                      : t('suppliers.list.no_suppliers_empty')}
                   </p>
                 </td>
               </tr>
@@ -127,7 +131,7 @@ const SupplierList = () => {
                   <td>{supplier.email || '-'}</td>
                   <td>
                     <Link to={`/suppliers/${supplier.id}`} className="btn btn-sm btn-secondary">
-                      View
+                      {t('common.view')}
                     </Link>
                   </td>
                 </tr>
@@ -147,7 +151,7 @@ const SupplierList = () => {
             <FiChevronLeft size={16} /> Previous
           </button>
           <span className="pagination-status">
-            Page {pagination.page} of {pagination.pages}
+            {t('common.page')} {pagination.page} {t('common.of')} {pagination.pages}
           </span>
           <button
             className="btn btn-sm btn-secondary"

@@ -4,10 +4,12 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { formatCurrency, formatDate, getStatusColor } from '../../utils/helpers';
 import { PAYMENT_STATUS_META } from '../../utils/constants';
 
 const RecentOrders = ({ orders }) => {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState({});
 
   const toggleExpanded = (orderId) => {
@@ -18,11 +20,13 @@ const RecentOrders = ({ orders }) => {
     return (
       <div className="card">
         <div className="flex-between">
-          <h3>Recent Orders</h3>
-          <Link to="/orders" className="btn btn-sm btn-secondary">View All</Link>
+          <h3>{t('recent_orders.title')}</h3>
+          <Link to="/orders" className="btn btn-sm btn-secondary">
+            {t('recent_orders.view_all')}
+          </Link>
         </div>
         <div className="empty-state">
-          <p>No recent orders</p>
+          <p>{t('recent_orders.no_orders')}</p>
         </div>
       </div>
     );
@@ -35,7 +39,7 @@ const RecentOrders = ({ orders }) => {
     if (status !== 'partial') {
       return (
         <span style={{ color: meta.color, fontWeight: '600', textTransform: 'capitalize' }}>
-          {meta.label}
+          {t('status.' + status)}
         </span>
       );
     }
@@ -65,7 +69,7 @@ const RecentOrders = ({ orders }) => {
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
           }}
         >
-          {meta.label}
+          {t('status.partial')}
         </button>
         {isOpen && (
           <div style={{
@@ -86,19 +90,21 @@ const RecentOrders = ({ orders }) => {
   return (
     <div className="card">
       <div className="flex-between">
-        <h3>Recent Orders</h3>
-        <Link to="/orders" className="btn btn-sm btn-secondary">View All</Link>
+        <h3>{t('recent_orders.title')}</h3>
+        <Link to="/orders" className="btn btn-sm btn-secondary">
+          {t('recent_orders.view_all')}
+        </Link>
       </div>
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>Order #</th>
-              <th>Customer</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>Date</th>
+              <th>{t('recent_orders.columns.order_number')}</th>
+              <th>{t('recent_orders.columns.customer')}</th>
+              <th>{t('recent_orders.columns.amount')}</th>
+              <th>{t('recent_orders.columns.status')}</th>
+              <th>{t('recent_orders.columns.payment')}</th>
+              <th>{t('recent_orders.columns.date')}</th>
             </tr>
           </thead>
           <tbody>
@@ -117,7 +123,7 @@ const RecentOrders = ({ orders }) => {
                     fontWeight: '600',
                     textTransform: 'capitalize'
                   }}>
-                    {order.status?.toUpperCase() || 'PENDING'}
+                    {t('status.' + (order.status || 'pending'))}
                   </span>
                 </td>
                 <td>{renderPaymentCell(order)}</td>

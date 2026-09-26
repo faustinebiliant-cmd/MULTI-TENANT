@@ -3,10 +3,13 @@
 // ============================================================
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiDollarSign, FiCreditCard, FiClock, FiAlertTriangle, FiPercent, FiTrendingUp } from 'react-icons/fi';
 import { formatCurrency } from '../../utils/helpers';
 
 const StatsCards = ({ stats }) => {
+  const { t } = useTranslation();
+
   if (!stats) return null;
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -23,12 +26,9 @@ const StatsCards = ({ stats }) => {
     todayProfit: 0
   };
 
-  // Backend sends todayVATBilled; fallback to legacy todayVAT
-  const vatBilled = safeStats.todayVATBilled ?? safeStats.todayVAT ?? 0;
-
   const cards = [
     {
-      title: "Today's Sales",
+      title: t('stats.today_sales'),
       value: formatCurrency(safeStats.todaySales || 0),
       icon: FiDollarSign,
       color: 'var(--tone-green-text)',
@@ -36,11 +36,9 @@ const StatsCards = ({ stats }) => {
     }
   ];
 
-  // Profit card — Boss and Manager only. Uses realized profit
-  // (scaled by what customers have paid), VAT excluded.
   if (canSeeProfit) {
     cards.push({
-      title: "Today's Profit",
+      title: t('stats.today_profit'),
       value: formatCurrency(safeStats.todayProfit || 0),
       icon: FiTrendingUp,
       color: 'var(--tone-purple-text)',
@@ -50,21 +48,21 @@ const StatsCards = ({ stats }) => {
 
   cards.push(
     {
-      title: 'Business Money Received',
+      title: t('stats.business_money_received'),
       value: formatCurrency(safeStats.businessMoneyReceived || 0),
       icon: FiCreditCard,
       color: 'var(--tone-blue-text)',
       bg: 'var(--tone-blue-bg)'
     },
     {
-      title: 'VAT Collected',
+      title: t('stats.vat_collected'),
       value: formatCurrency(safeStats.vatCollectedFromPayments || 0),
       icon: FiPercent,
       color: 'var(--tone-amber-text)',
       bg: 'var(--tone-amber-bg)'
     },
     {
-      title: 'Outstanding Credit',
+      title: t('stats.outstanding_credit'),
       value: formatCurrency(safeStats.outstandingCredit || 0),
       icon: FiClock,
       color: 'var(--tone-red-text)',
@@ -74,7 +72,7 @@ const StatsCards = ({ stats }) => {
 
   if (!isSalesRep) {
     cards.push({
-      title: 'Low Stock Items',
+      title: t('stats.low_stock_items'),
       value: safeStats.lowStockItems || 0,
       icon: FiAlertTriangle,
       color: 'var(--tone-red-text)',

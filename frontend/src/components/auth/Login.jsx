@@ -4,13 +4,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { FiZap, FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import LanguageSwitcher from '../../i18n/LanguageSwitcher';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 
 const Login = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,18 +60,18 @@ const Login = () => {
     setError('');
 
     if (!email || !isValidEmail(email)) {
-      setError('Please enter a valid email address');
+      setError(t('auth.errors.invalid_email'));
       return;
     }
 
     if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth.errors.short_password'));
       return;
     }
 
     if (blockedUntil && Date.now() < blockedUntil.getTime()) {
       const remaining = Math.ceil((blockedUntil.getTime() - Date.now()) / 60000);
-      setError(`Too many attempts. Please wait ${remaining} minute${remaining === 1 ? '' : 's'}.`);
+      setError(t('auth.errors.too_many_attempts', { count: remaining }));
       return;
     }
 
@@ -84,6 +87,7 @@ const Login = () => {
         return;
       }
 
+      // Backend error messages stay English for now (Phase 5).
       const rawError = result.error || 'Invalid email or password';
       setError(rawError);
 
@@ -97,11 +101,11 @@ const Login = () => {
         const until = Date.now() + LOCKOUT_MS;
         localStorage.setItem('loginBlocked', String(until));
         setBlockedUntil(new Date(until));
-        setError('Too many failed attempts. Please wait 15 minutes.');
+        setError(t('auth.errors.locked_out'));
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Something went wrong. Please try again.');
+      setError(t('auth.errors.generic'));
     } finally {
       setLoading(false);
     }
@@ -114,12 +118,16 @@ const Login = () => {
     <div className="login-page">
       <div className="login-container">
         <div className="login-card">
+          <div className="lang-switcher-row">
+            <LanguageSwitcher variant="login" />
+          </div>
+
           <div className="login-header">
             <div className="login-logo">
               <FiZap size={26} />
             </div>
-            <h1>Oswagotech</h1>
-            <span className="login-subtitle">Management System</span>
+            <h1>{t('auth.brand')}</h1>
+            <span className="login-subtitle">{t('auth.subtitle')}</span>
           </div>
 
           {error && (
@@ -132,13 +140,15 @@ const Login = () => {
           {isLocked && (
             <div className="alert alert-warning">
               <FiAlertCircle size={16} style={{ marginRight: '8px', flexShrink: 0 }} />
-              Account temporarily locked. Please wait {Math.ceil((blockedUntil.getTime() - Date.now()) / 60000)} minute(s).
+              {t('auth.errors.locked_wait', {
+                count: Math.ceil((blockedUntil.getTime() - Date.now()) / 60000)
+              })}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label>Email Address</label>
+              <label>{t('auth.email_label')}</label>
               <div className="login-input-wrapper">
                 <FiMail size={17} className="login-input-icon" />
                 <input
@@ -148,7 +158,7 @@ const Login = () => {
                     setEmail(e.target.value);
                     if (error) setError('');
                   }}
-                  placeholder="Enter your email"
+                  placeholder={t('auth.email_placeholder')}
                   required
                   autoFocus
                   disabled={isLoginDisabled}
@@ -158,7 +168,7 @@ const Login = () => {
             </div>
 
             <div className="form-group">
-              <label>Password</label>
+              <label>{t('auth.password_label')}</label>
               <div className="login-input-wrapper">
                 <FiLock size={17} className="login-input-icon" />
                 <input
@@ -168,7 +178,7 @@ const Login = () => {
                     setPassword(e.target.value);
                     if (error) setError('');
                   }}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.password_placeholder')}
                   required
                   disabled={isLoginDisabled}
                   style={{ paddingLeft: '40px', paddingRight: '40px' }}
@@ -191,32 +201,32 @@ const Login = () => {
               className="btn btn-primary btn-block"
               disabled={isLoginDisabled}
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? t('auth.login_loading') : t('auth.login_button')}
             </button>
 
             {attempts > 0 && attempts < MAX_ATTEMPTS && (
               <div className="login-attempts">
-                Attempts: {attempts}/{MAX_ATTEMPTS}
+                {t('auth.attempts_counter', { current: attempts, max: MAX_ATTEMPTS })}
               </div>
             )}
           </form>
 
           <div className="login-footer">
             <p style={{ marginBottom: '6px' }}>
-              Don't have an account?{' '}
+              {t('auth.no_account')}{' '}
               <Link to="/signup" style={{ fontWeight: 600 }}>
-                Create one
+                {t('auth.create_account')}
               </Link>
             </p>
             <p>
-              Powered by{' '}
+              {t('auth.powered_by')}{' '}
               <a
                 href="https://oswagotech.co.tz"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontWeight: 600 }}
               >
-                Oswagotech
+                {t('auth.brand')}
               </a>
             </p>
           </div>

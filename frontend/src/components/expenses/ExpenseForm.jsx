@@ -4,12 +4,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../api/client';
 import { useShop } from '../../contexts/ShopContext';
 import { PAYMENT_METHODS } from '../../utils/constants';
 import toast from 'react-hot-toast';
 
 const ExpenseForm = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -42,14 +44,14 @@ const ExpenseForm = () => {
         });
       } catch (error) {
         console.error('Error fetching expense:', error);
-        toast.error('Failed to load expense');
+        toast.error(t('expenses.form.messages.load_failed'));
         navigate('/expenses');
       } finally {
         setLoading(false);
       }
     };
     fetchExpense();
-  }, [isEdit, id, navigate]);
+  }, [isEdit, id, navigate, t]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -71,15 +73,15 @@ const ExpenseForm = () => {
 
       if (isEdit) {
         await api.updateExpense(id, expenseData);
-        toast.success('Expense updated successfully');
+        toast.success(t('expenses.form.messages.updated'));
       } else {
         await api.createExpense(expenseData);
-        toast.success('Expense added successfully');
+        toast.success(t('expenses.form.messages.added'));
       }
       navigate('/expenses');
     } catch (error) {
       console.error('Error saving expense:', error);
-      toast.error(error.response?.data?.error || 'Failed to save expense');
+      toast.error(error.response?.data?.error || t('expenses.form.messages.save_failed'));
     } finally {
       setLoading(false);
     }
@@ -89,7 +91,7 @@ const ExpenseForm = () => {
     return (
       <div className="loader-container">
         <div className="spinner"></div>
-        <p>Loading expense...</p>
+        <p>{t('expenses.form.loading')}</p>
       </div>
     );
   }
@@ -97,32 +99,32 @@ const ExpenseForm = () => {
   return (
     <div>
       <div className="page-header">
-        <h1>{isEdit ? 'Edit Expense' : 'Add Expense'}</h1>
-        <p>{isEdit ? 'Update expense details' : 'Record a new business expense'}</p>
+        <h1>{isEdit ? t('expenses.form.title_edit') : t('expenses.form.title_add')}</h1>
+        <p>{isEdit ? t('expenses.form.subtitle_edit') : t('expenses.form.subtitle_add')}</p>
       </div>
 
       <div className="card" style={{ maxWidth: '600px' }}>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Description *</label>
+            <label>{t('expenses.form.labels.description')}</label>
             <input
               type="text"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              placeholder="e.g., Monthly Rent, Salaries, Electricity Bill"
+              placeholder={t('expenses.form.placeholders.description')}
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Amount (TZS) *</label>
+            <label>{t('expenses.form.labels.amount')}</label>
             <input
               type="number"
               name="amount"
               value={formData.amount}
               onChange={handleChange}
-              placeholder="Enter amount"
+              placeholder={t('expenses.form.placeholders.amount')}
               required
               min="0"
               step="100"
@@ -130,14 +132,14 @@ const ExpenseForm = () => {
           </div>
 
           <div className="form-group">
-            <label>Category *</label>
+            <label>{t('expenses.form.labels.category')}</label>
             <select
               name="category"
               value={formData.category}
               onChange={handleChange}
               required
             >
-              <option value="">Select a category</option>
+              <option value="">{t('expenses.form.category_select')}</option>
               {expenseCategories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
@@ -145,7 +147,7 @@ const ExpenseForm = () => {
           </div>
 
           <div className="form-group">
-            <label>Expense Date</label>
+            <label>{t('expenses.form.labels.date')}</label>
             <input
               type="date"
               name="expense_date"
@@ -155,13 +157,13 @@ const ExpenseForm = () => {
           </div>
 
           <div className="form-group">
-            <label>Payment Method</label>
+            <label>{t('expenses.form.labels.payment_method')}</label>
             <select
               name="payment_method"
               value={formData.payment_method}
               onChange={handleChange}
             >
-              <option value="">Select payment method</option>
+              <option value="">{t('expenses.form.payment_select')}</option>
               {PAYMENT_METHODS.map((method) => (
                 <option key={method.value} value={method.value}>
                   {method.label}
@@ -171,26 +173,30 @@ const ExpenseForm = () => {
           </div>
 
           <div className="form-group">
-            <label>Notes (Optional)</label>
+            <label>{t('expenses.form.labels.notes')}</label>
             <textarea
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Any additional notes..."
+              placeholder={t('expenses.form.placeholders.notes')}
               rows="2"
             />
           </div>
 
           <div className="flex" style={{ gap: '10px', marginTop: '20px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Saving...' : (isEdit ? 'Update Expense' : 'Add Expense')}
+              {loading
+                ? t('expenses.form.buttons.saving')
+                : (isEdit
+                  ? t('expenses.form.buttons.submit_edit')
+                  : t('expenses.form.buttons.submit_add'))}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => navigate('/expenses')}
             >
-              Cancel
+              {t('expenses.form.buttons.cancel')}
             </button>
           </div>
         </form>

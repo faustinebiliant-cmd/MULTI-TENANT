@@ -3,11 +3,11 @@
 // ============================================================
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FiDownload, FiFileText, FiDollarSign, FiCreditCard, FiPackage,
   FiBox, FiUsers, FiTruck, FiClipboard, FiTrendingUp, FiPercent, FiArchive
 } from 'react-icons/fi';
-import api from '../../api/client';
 import toast from 'react-hot-toast';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -15,78 +15,78 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 const REPORT_TYPES = [
   {
     value: 'sales',
-    label: 'Sales Report',
-    description: 'Orders, items, payments, and product breakdown',
+    labelKey: 'reports.extract.types.sales.label',
+    descriptionKey: 'reports.extract.types.sales.description',
     icon: FiDollarSign,
     color: '#059669'
   },
   {
     value: 'payments',
-    label: 'Payments Report',
-    description: 'All payments received with methods and references',
+    labelKey: 'reports.extract.types.payments.label',
+    descriptionKey: 'reports.extract.types.payments.description',
     icon: FiCreditCard,
     color: '#1d4ed8'
   },
   {
     value: 'expenses',
-    label: 'Expenses Report',
-    description: 'All expenses with category breakdown',
+    labelKey: 'reports.extract.types.expenses.label',
+    descriptionKey: 'reports.extract.types.expenses.description',
     icon: FiFileText,
     color: '#b45309'
   },
   {
     value: 'products',
-    label: 'Products Report',
-    description: 'Full product list with pricing and stock',
+    labelKey: 'reports.extract.types.products.label',
+    descriptionKey: 'reports.extract.types.products.description',
     icon: FiPackage,
     color: '#7c3aed'
   },
   {
     value: 'stock-movements',
-    label: 'Stock Movements Report',
-    description: 'Every stock movement (sale, purchase, adjustment, return)',
+    labelKey: 'reports.extract.types.stock-movements.label',
+    descriptionKey: 'reports.extract.types.stock-movements.description',
     icon: FiBox,
     color: '#0891b2'
   },
   {
     value: 'customers',
-    label: 'Customers Report',
-    description: 'All customers with order history and spend',
+    labelKey: 'reports.extract.types.customers.label',
+    descriptionKey: 'reports.extract.types.customers.description',
     icon: FiUsers,
     color: '#10b981'
   },
   {
     value: 'suppliers',
-    label: 'Suppliers Report',
-    description: 'All suppliers with contact information',
+    labelKey: 'reports.extract.types.suppliers.label',
+    descriptionKey: 'reports.extract.types.suppliers.description',
     icon: FiTruck,
     color: '#f59e0b'
   },
   {
     value: 'purchase-orders',
-    label: 'Purchase Orders Report',
-    description: 'All POs to suppliers with line items',
+    labelKey: 'reports.extract.types.purchase-orders.label',
+    descriptionKey: 'reports.extract.types.purchase-orders.description',
     icon: FiClipboard,
     color: '#6366f1'
   },
   {
     value: 'profit',
-    label: 'Profit & Loss Report',
-    description: 'Revenue, cost, expenses, and net profit',
+    labelKey: 'reports.extract.types.profit.label',
+    descriptionKey: 'reports.extract.types.profit.description',
     icon: FiTrendingUp,
     color: '#16a34a'
   },
   {
     value: 'vat',
-    label: 'VAT Report',
-    description: 'VAT collected for tax filing',
+    labelKey: 'reports.extract.types.vat.label',
+    descriptionKey: 'reports.extract.types.vat.description',
     icon: FiPercent,
     color: '#d97706'
   },
   {
     value: 'full',
-    label: 'Full Report (Everything)',
-    description: 'All reports combined in one workbook',
+    labelKey: 'reports.extract.types.full.label',
+    descriptionKey: 'reports.extract.types.full.description',
     icon: FiArchive,
     color: '#0a1730',
     featured: true
@@ -94,26 +94,26 @@ const REPORT_TYPES = [
 ];
 
 const PERIOD_OPTIONS = [
-  { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-  { value: 'custom', label: 'Custom Range' }
+  { value: 'today', labelKey: 'reports.common.periods.today' },
+  { value: 'week', labelKey: 'reports.common.periods.week' },
+  { value: 'month', labelKey: 'reports.common.periods.month' },
+  { value: 'year', labelKey: 'reports.common.periods.year' },
+  { value: 'custom', labelKey: 'reports.common.periods.custom' }
 ];
 
 const MONTHS = [
-  { value: '1', label: 'January' },
-  { value: '2', label: 'February' },
-  { value: '3', label: 'March' },
-  { value: '4', label: 'April' },
-  { value: '5', label: 'May' },
-  { value: '6', label: 'June' },
-  { value: '7', label: 'July' },
-  { value: '8', label: 'August' },
-  { value: '9', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' }
+  { value: '1', labelKey: 'reports.common.months.1' },
+  { value: '2', labelKey: 'reports.common.months.2' },
+  { value: '3', labelKey: 'reports.common.months.3' },
+  { value: '4', labelKey: 'reports.common.months.4' },
+  { value: '5', labelKey: 'reports.common.months.5' },
+  { value: '6', labelKey: 'reports.common.months.6' },
+  { value: '7', labelKey: 'reports.common.months.7' },
+  { value: '8', labelKey: 'reports.common.months.8' },
+  { value: '9', labelKey: 'reports.common.months.9' },
+  { value: '10', labelKey: 'reports.common.months.10' },
+  { value: '11', labelKey: 'reports.common.months.11' },
+  { value: '12', labelKey: 'reports.common.months.12' }
 ];
 
 const currentYear = new Date().getFullYear();
@@ -123,6 +123,7 @@ for (let y = 2020; y <= currentYear; y++) {
 }
 
 const ExtractReports = () => {
+  const { t } = useTranslation();
   const [selectedReport, setSelectedReport] = useState('sales');
   const [period, setPeriod] = useState('today');
   const [year, setYear] = useState(currentYear);
@@ -146,9 +147,9 @@ const ExtractReports = () => {
     return params.toString();
   };
 
-const handleDownload = async () => {
+  const handleDownload = async () => {
     if (period === 'custom' && (!startDate || !endDate)) {
-      toast.error('Please select both start and end dates');
+      toast.error(t('reports.common.select_dates_error'));
       return;
     }
 
@@ -171,7 +172,7 @@ const handleDownload = async () => {
       );
 
       if (!response.ok) {
-        let errorMessage = 'Failed to generate report';
+        let errorMessage = t('reports.common.download_failed');
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
@@ -195,26 +196,28 @@ const handleDownload = async () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success(`Downloaded: ${a.download}`);
+      toast.success(t('reports.extract.downloaded_toast', { filename: a.download }));
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(error.message || 'Failed to download report');
+      toast.error(error.message || t('reports.common.download_failed'));
     } finally {
       setDownloading(false);
     }
   };
 
+  const selectedType = REPORT_TYPES.find(r => r.value === selectedReport);
+
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1>Extract Reports</h1>
-          <p>Download shop data as Excel files</p>
+          <h1>{t('reports.extract.title')}</h1>
+          <p>{t('reports.extract.subtitle')}</p>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: '20px' }}>
-        <h3 style={{ marginBottom: '16px' }}>1. Choose a report</h3>
+        <h3 style={{ marginBottom: '16px' }}>{t('reports.extract.step1_title')}</h3>
         <div className="report-type-grid">
           {REPORT_TYPES.map((report) => {
             const Icon = report.icon;
@@ -237,8 +240,8 @@ const handleDownload = async () => {
                   <Icon size={22} />
                 </div>
                 <div className="report-type-info">
-                  <strong>{report.label}</strong>
-                  <span>{report.description}</span>
+                  <strong>{t(report.labelKey)}</strong>
+                  <span>{t(report.descriptionKey)}</span>
                 </div>
               </button>
             );
@@ -247,7 +250,7 @@ const handleDownload = async () => {
       </div>
 
       <div className="card" style={{ marginBottom: '20px' }}>
-        <h3 style={{ marginBottom: '16px' }}>2. Choose a period</h3>
+        <h3 style={{ marginBottom: '16px' }}>{t('reports.extract.step2_title')}</h3>
 
         <div className="report-tabs">
           {PERIOD_OPTIONS.map((opt) => (
@@ -257,7 +260,7 @@ const handleDownload = async () => {
               className={`report-tab ${period === opt.value ? 'active' : ''}`}
               onClick={() => setPeriod(opt.value)}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
@@ -289,7 +292,7 @@ const handleDownload = async () => {
               style={{ width: '160px' }}
             >
               {MONTHS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>{t(m.labelKey)}</option>
               ))}
             </select>
           )}
@@ -303,7 +306,9 @@ const handleDownload = async () => {
                 className="form-control"
                 style={{ width: '160px' }}
               />
-              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>to</span>
+              <span style={{ color: 'var(--gray)', fontSize: '13px' }}>
+                {t('reports.common.date_range_to')}
+              </span>
               <input
                 type="date"
                 value={endDate}
@@ -317,7 +322,7 @@ const handleDownload = async () => {
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: '16px' }}>3. Download</h3>
+        <h3 style={{ marginBottom: '16px' }}>{t('reports.extract.step3_title')}</h3>
         <div className="flex" style={{ alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -327,15 +332,19 @@ const handleDownload = async () => {
             style={{ padding: '12px 32px', fontSize: '14px' }}
           >
             <FiDownload size={18} />
-            {downloading ? 'Generating...' : 'Download Excel File'}
+            {downloading
+              ? t('reports.extract.downloading_button')
+              : t('reports.extract.download_button')}
           </button>
           <span style={{ fontSize: '13px', color: 'var(--gray)' }}>
-            {REPORT_TYPES.find(r => r.value === selectedReport)?.label} —{' '}
-            {period === 'today' && 'Today'}
-            {period === 'week' && 'This Week'}
-            {period === 'month' && `${MONTHS.find(m => m.value === month)?.label} ${year}`}
+            {selectedType ? t(selectedType.labelKey) : ''} —{' '}
+            {period === 'today' && t('reports.common.periods.today')}
+            {period === 'week' && t('reports.common.periods.week')}
+            {period === 'month' && `${t('reports.common.months.' + month)} ${year}`}
             {period === 'year' && `${year}`}
-            {period === 'custom' && (startDate && endDate ? `${startDate} to ${endDate}` : 'Select dates')}
+            {period === 'custom' && (startDate && endDate
+              ? `${startDate} ${t('reports.common.date_range_to')} ${endDate}`
+              : t('reports.common.select_dates_error'))}
           </span>
         </div>
       </div>
